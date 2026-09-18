@@ -1,0 +1,23 @@
+# secrets
+.env
+
+# postgres data (bind mount, keep folder in git, ignore contents)
+database/postgres_data/*
+!database/postgres_data/.gitkeep
+
+# pgadmin data (bind mount, keep folder in git, ignore contents)
+database/pgadmin_data/*
+!database/pgadmin_data/.gitkeep
+
+# n8n data (bind mount, keep folder in git, ignore contents)
+automation/n8n_data/*
+!automation/n8n_data/.gitkeep
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+# python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
