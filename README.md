@@ -29,10 +29,13 @@ ai-talent-project/
 │   └── pgadmin_data/        # pgAdmin 連線設定（本地掛載）
 ├── cache/                   # Redis 說明文件（服務設定在 docker-compose.yml）
 └── automation/
-    └── n8n_data/            # n8n 工作流程與帳號資料（本地掛載）
+    ├── n8n_data/            # n8n 帳號、憑證、執行紀錄（本地掛載）
+    └── workflows/           # n8n 工作流程匯出檔（本地掛載）
 ```
 
 `database/postgres_data`、`database/pgadmin_data`、`automation/n8n_data` 是 bind mount 目錄：容器產生的實際資料會寫入這幾個資料夾，並被 `.gitignore` 排除在版控之外。**分享或搬移專案時，直接複製整個專案資料夾（含這三個目錄），到新環境執行 `docker compose up -d` 即可還原所有資料，不需要重新建置資料庫或重新登入 n8n。**
+
+`automation/workflows/` 則相反，是刻意**不**排除在 `.gitignore` 外的目錄，用來存放用 n8n CLI 匯出的工作流程 JSON（不含帳號密碼、不含憑證明文），讓流程可以安全地跟著 git 一起分享，詳見下方〈n8n 工作流程備份與還原〉。
 
 ## 快速開始
 
@@ -57,6 +60,28 @@ ai-talent-project/
 - **pgAdmin**：http://localhost:5051，登入帳密為 `.env` 的 `PGADMIN_DEFAULT_EMAIL` / `PGADMIN_DEFAULT_PASSWORD`。首次使用需在介面內新增伺服器連線，連線 Host 填 `postgres`，帳密為 `.env` 的 `POSTGRES_USER` / `POSTGRES_PASSWORD`。
 - **n8n**：http://localhost:5679，登入帳密為 `.env` 的 `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD`。
 - **Redis**：`redis-cli -h localhost -p 6380 -a <REDIS_PASSWORD>`。
+
+## n8n 工作流程備份與還原
+
+`automation/n8n_data`（帳號、憑證、執行紀錄）不會進版控，但 `automation/workflows`（流程本身）會，兩者是分開管理的。流程確定穩定、要分享給其他人時，手動匯出一次並 commit 即可。
+
+**匯出流程**（在自己電腦上，流程有更新時執行）：
+
+```bash
+docker exec ai-talent-project-n8n-1 n8n export:workflow --all --separate --output=/home/node/workflows/
+```
+
+會把 n8n 裡每一個工作流程各自匯出成一個 JSON 檔，寫到本機的 `automation/workflows/`（對應容器內的 `/home/node/workflows`）。接著照一般流程 `git add automation/workflows` → `git commit` → `git push` 即可。
+
+**匯入流程**（別人 `git clone` 專案、`docker compose up -d` 起完環境後執行）：
+
+```bash
+docker exec ai-talent-project-n8n-1 n8n import:workflow --separate --input=/home/node/workflows/
+```
+
+`automation/workflows/` 裡的 JSON 會被還原成 n8n 網頁上的工作流程，不需要重新手動建立。
+
+> 注意：匯出的 JSON 不含節點裡設定的憑證（資料庫密碼、API key 等）。流程 import 後若有用到憑證的節點會顯示「未設定憑證」，需要各自在自己的 n8n 重新填一次；不需要憑證的 node（例如呼叫 backend 的 HTTP Request node）則 import 完可以直接用。
 
 ## 常用指令
 
