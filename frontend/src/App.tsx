@@ -1,10 +1,23 @@
-function App() {
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider, RequireAuth } from "./auth";
+import Landing from "./pages/Landing";
+import Home from "./pages/Home";
+import Settings from "./pages/Settings";
+
+export default function App() {
   return (
-    <div style={{ fontFamily: "sans-serif", padding: "2rem" }}>
-      <h1>診股整股-投資組合量化風險分析平台</h1>
-      <p>React + FastAPI + PostgreSQL + Redis + n8n 開發環境已就緒。</p>
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Landing key="login" mode="login" />} />
+          <Route path="/register" element={<Landing key="register" mode="register" />} />
+          <Route element={<RequireAuth />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
-
-export default App;
