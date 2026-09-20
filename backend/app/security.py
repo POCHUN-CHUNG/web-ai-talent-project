@@ -1,9 +1,10 @@
+import hmac
 import os
 import secrets
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
-from fastapi import Cookie, Depends, HTTPException, Response
+from fastapi import Cookie, Depends, Header, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db, redis_client
@@ -102,3 +103,15 @@ def current_user(
     if user is None:
         raise HTTPException(status_code=401, detail="未登入")
     return user
+
+
+def require_n8n_key(x_api_key: str | None = Header(default=None)) -> None:
+    # 【n8n 金鑰驗證】只給 n8n 呼叫的 API 使用：標頭 X-API-Key 必須等於 .env 的 N8N_API_KEY。
+    # 參數：x_api_key=請求標頭 X-API-Key 帶來的金鑰（可能沒有）
+    # 1. 後端沒設定金鑰時一律拒絕（寧可全擋，也不要無防護）
+    expected = os.getenv("N8N_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="伺服器未設定 N8N_API_KEY")
+    # 2. 用固定時間比對，避免以回應時間猜出金鑰；錯誤或缺少一律回 401
+    if not x_api_key or not hmac.compare_digest(x_api_key, expected):
+        raise HTTPException(status_code=401, detail="金鑰錯誤或缺少")
