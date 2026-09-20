@@ -17,7 +17,7 @@ from app.security import (
 )
 
 # 【帳號 API】網址開頭皆為 /auth
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["帳號"])
 
 ALNUM = r"^[A-Za-z0-9]+$"  # 格式規則：僅限英文與數字
 

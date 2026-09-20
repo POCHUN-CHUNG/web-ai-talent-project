@@ -8,7 +8,7 @@ from app.services.bank_rates import fetch_five_bank_rates
 logger = logging.getLogger(__name__)
 
 # 【銀行利率 API】網址開頭皆為 /bank-rates
-router = APIRouter(prefix="/bank-rates", tags=["bank-rates"])
+router = APIRouter(prefix="/bank-rates", tags=["銀行利率"])
 
 
 @router.post(
