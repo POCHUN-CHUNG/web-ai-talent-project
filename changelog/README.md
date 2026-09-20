@@ -20,6 +20,8 @@
 | 004  | 2026-09-20 | `b16f3ec` | 合併 PR #1（登入／註冊）        | [004-b16f3ec-merge-pr1.md](004-b16f3ec-merge-pr1.md)                           |
 | 005  | 2026-09-20 | `dd1e038` | 加入中文註解與 API 摘要         | [005-dd1e038-chinese-comments.md](005-dd1e038-chinese-comments.md)             |
 | 006  | 2026-09-20 | `bd745af` | 合併 PR #2（中文註解）          | [006-bd745af-merge-pr2.md](006-bd745af-merge-pr2.md)                           |
+| 007  | 2026-09-20 | `ba6dcbe` | 版本變更說明與 CLAUDE.md        | [007-ba6dcbe-changelog-and-claude-md.md](007-ba6dcbe-changelog-and-claude-md.md) |
+| 008  | 2026-09-20 | `baee1b3` | 合併 PR #3（變更說明與規範）    | [008-baee1b3-merge-pr3.md](008-baee1b3-merge-pr3.md)                           |
 
 ## 維護規則
 

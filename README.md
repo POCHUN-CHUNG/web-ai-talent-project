@@ -46,6 +46,7 @@ ai-talent-project/
    ```bash
    cp .env.example .env
    ```
+   接著把 `.env` 裡的 `N8N_API_KEY` 換成自己產生的金鑰，產生方式見下方〈n8n 呼叫後端 API 的金鑰〉。
 3. 啟動所有服務：
    ```bash
    docker compose up -d --build
@@ -58,7 +59,7 @@ ai-talent-project/
 ## 存取各服務
 
 - **前端**：http://localhost:5174
-- **後端 API 文件**：http://localhost:8001/docs（健康檢查：`GET /health`）
+- **後端 API 文件**：http://localhost:8001/docs
 - **pgAdmin**：http://localhost:5051，登入帳密為 `.env` 的 `PGADMIN_DEFAULT_EMAIL` / `PGADMIN_DEFAULT_PASSWORD`。首次使用需在介面內新增伺服器連線，連線 Host 填 `postgres`，帳密為 `.env` 的 `POSTGRES_USER` / `POSTGRES_PASSWORD`。
 - **n8n**：http://localhost:5679，登入帳密為 `.env` 的 `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD`。
 - **Redis**：`redis-cli -h localhost -p 6380 -a <REDIS_PASSWORD>`。
@@ -84,6 +85,41 @@ docker exec ai-talent-project-n8n-1 n8n import:workflow --separate --input=/home
 `automation/workflows/` 裡的 JSON 會被還原成 n8n 網頁上的工作流程，不需要重新手動建立。
 
 > 注意：匯出的 JSON 不含節點裡設定的憑證（資料庫密碼、API key 等）。流程 import 後若有用到憑證的節點會顯示「未設定憑證」，需要各自在自己的 n8n 重新填一次；不需要憑證的 node（例如呼叫 backend 的 HTTP Request node）則 import 完可以直接用。
+
+## n8n 呼叫後端 API 的金鑰
+
+「只給 n8n 用」的後端 API（例如抓取銀行利率）需要固定金鑰：請求標頭 `X-API-Key` 必須等於 `.env` 的 `N8N_API_KEY`，否則回 401（後端沒設定金鑰時回 503）。
+
+**產生金鑰**：使用密碼學安全的隨機數產生 32 bytes（256 位元）。Windows 在 PowerShell 執行（使用 Git 內建的 openssl；Git 安裝在別處時，請改成實際路徑）：
+
+```powershell
+& "C:\Program Files\Git\usr\bin\openssl.exe" rand -base64 32
+```
+
+macOS／Linux／Git Bash 可直接執行 `openssl rand -base64 32`。把輸出的整行字串貼到 `.env` 的 `N8N_API_KEY=` 後面，不要 commit，也不要貼到聊天或截圖中。更換金鑰時，`.env` 與 n8n 的 Header Auth 憑證要一起改，再執行 `docker compose up -d backend`。
+
+n8n 端設定（一次即可，在 n8n 網頁操作）：
+
+1. **複製金鑰**：用編輯器開啟專案根目錄的 `.env`，複製 `N8N_API_KEY=` 後面的整段字串（不含 `N8N_API_KEY=`，前後不要有空格或換行）。
+2. **開啟流程**：瀏覽器進入 n8n（見〈存取各服務〉），登入後點開要使用的工作流程，雙擊呼叫後端的 **HTTP Request** 節點。
+3. **選擇驗證方式**：在節點的 **Authentication** 選 **Generic Credential Type**，接著 **Generic Auth Type** 選 **Header Auth**。
+4. **建立憑證**：**Header Auth** 欄位點 **Create new credential**，在彈出的視窗填入：
+   - **Name**：`X-API-Key`（這是標頭名稱，必須完全一致，大小寫不拘）
+   - **Value**：貼上步驟 1 複製的金鑰
+   - 視窗上方的憑證名稱可改成「Backend API Key」，方便辨識
+5. 點 **Save** 儲存憑證，回到節點確認 **Header Auth** 欄位已選到這組憑證。
+6. 點節點的 **Execute step** 測試：回傳利率資料代表成功；回傳 401 代表金鑰貼錯或有多餘空白，回傳 503 代表後端沒讀到 `N8N_API_KEY`（改完 `.env` 後要執行 `docker compose up -d backend`）。
+7. 儲存工作流程（右上角 **Save**）。
+
+之後其他節點要呼叫後端的專用 API 時，Header Auth 欄位直接選這組已建立的憑證即可，不用重貼金鑰。
+
+注意：
+- 憑證不會被匯出到 `automation/workflows`，其他人匯入流程後，需要在自己的 n8n 依上述步驟重建這組憑證。
+- 更換金鑰時，回到 n8n 左側 **Credentials**，開啟這組憑證，更新 **Value** 後儲存。
+
+## n8n 時區
+
+`docker-compose.yml` 已為 n8n 設定 `GENERIC_TIMEZONE=Asia/Taipei` 與 `TZ=Asia/Taipei`，所有工作流程（含排程觸發）預設使用台北時間；更改設定後需 `docker compose up -d n8n` 重建容器。若個別流程在 **Settings → Timezone** 手動指定過其他時區，會覆蓋預設值，需改回 *Default* 。
 
 ## 常用指令
 
@@ -111,7 +147,7 @@ docker compose down -v
 - `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_PORT`
 - `PGADMIN_DEFAULT_EMAIL` / `PGADMIN_DEFAULT_PASSWORD` / `PGADMIN_PORT`
 - `REDIS_PASSWORD` / `REDIS_PORT`
-- `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` / `N8N_PORT`
+- `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` / `N8N_PORT` / `N8N_API_KEY`（n8n 呼叫後端專用 API 的金鑰，見下方〈n8n 呼叫後端 API 的金鑰〉）
 - `FRONTEND_PORT` / `BACKEND_PORT`
 
 正式分享或部署前，請務必修改 `.env` 中的預設密碼。

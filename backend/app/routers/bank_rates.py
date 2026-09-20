@@ -1,7 +1,8 @@
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.security import require_n8n_key
 from app.services.bank_rates import fetch_five_bank_rates
 
 logger = logging.getLogger(__name__)
@@ -10,9 +11,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/bank-rates", tags=["bank-rates"])
 
 
-@router.post("/fetch", summary="抓取五大公股銀行 1 年期定存機動利率")
+@router.post(
+    "/fetch",
+    summary="抓取五大公股銀行 1 年期定存機動利率（僅限 n8n，需標頭 X-API-Key）",
+    dependencies=[Depends(require_n8n_key)],
+)
 def fetch():
-    # 【抓取利率】即時取得五大公股銀行的 1 年期定期存款機動利率。
+    # 【抓取利率】即時取得五大公股銀行的 1 年期定期存款機動利率。僅 n8n 可呼叫（金鑰驗證）。
     # 1. 呼叫爬取程式並回傳結果
     try:
         return fetch_five_bank_rates()
