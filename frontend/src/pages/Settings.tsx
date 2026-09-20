@@ -3,21 +3,28 @@ import { Link } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 
+// 【使用者設定頁】顯示帳號並提供修改密碼。無參數。
 export default function Settings() {
   const { username } = useAuth();
-  const [oldPw, setOldPw] = useState("");
-  const [newPw, setNewPw] = useState("");
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [oldPw, setOldPw] = useState(""); // 輸入的舊密碼
+  const [newPw, setNewPw] = useState(""); // 輸入的新密碼
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null); // 結果訊息（ok=是否成功）
 
+  // 【送出修改】按下修改密碼鈕時執行。
+  // 參數：e=表單事件
   async function submit(e: FormEvent) {
+    // 1. 阻止網頁預設的重新整理，並清除舊訊息
     e.preventDefault();
     setMsg(null);
     try {
+      // 2. 把新舊密碼送給後端
       await api("/auth/change-password", { old_password: oldPw, new_password: newPw });
+      // 3. 成功：清空輸入欄並提示
       setOldPw("");
       setNewPw("");
       setMsg({ ok: true, text: "密碼已更新" });
     } catch (err) {
+      // 4. 失敗：顯示後端說明，連不上則顯示通用訊息
       setMsg({ ok: false, text: err instanceof ApiError ? err.message : "無法連線，請稍後再試" });
     }
   }
