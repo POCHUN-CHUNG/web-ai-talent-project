@@ -26,7 +26,7 @@ app.include_router(auth.router)
 app.include_router(bank_rates.router)
 
 
-@app.get("/health", summary="健康檢查")
+@app.get("/health", summary="健康檢查", tags=["系統"])
 def health():
     # 【健康檢查】回傳 ok 代表後端正常運作，供監控系統使用
     return {"status": "ok"}
