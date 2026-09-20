@@ -1,0 +1,367 @@
+{
+ "V1": {
+  "name": "三檔典型組合",
+  "n": 250,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": 0.009678,
+  "annualized_volatility": 0.180452,
+  "annualized_downside_deviation": 0.130684,
+  "beta": 0.944213,
+  "r_squared": 0.793104,
+  "max_drawdown": -0.119864,
+  "expected_shortfall_95": 0.025591,
+  "tail_count": 13,
+  "skewness": -0.182746,
+  "excess_kurtosis": 0.401663,
+  "hhi": 0.38,
+  "n_eff": 2.631579,
+  "sharpe_ratio": -0.040022,
+  "sortino_ratio": -0.055263,
+  "sigma_p_from_cov": 0.180452,
+  "rc": [
+   0.086092,
+   0.072821,
+   0.021539
+  ],
+  "pcr": [
+   0.477091,
+   0.403545,
+   0.119363
+  ],
+  "skew_class": "near_symmetric",
+  "performance_focus": "sharpe_primary",
+  "correlation": [
+   [
+    1.0,
+    0.672557,
+    0.595148
+   ],
+   [
+    0.672557,
+    1.0,
+    0.546522
+   ],
+   [
+    0.595148,
+    0.546522,
+    1.0
+   ]
+  ]
+ },
+ "V2": {
+  "name": "單一持股",
+  "n": 250,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": 0.190405,
+  "annualized_volatility": 0.18696,
+  "annualized_downside_deviation": 0.12787,
+  "beta": 0.902332,
+  "r_squared": 0.67476,
+  "max_drawdown": -0.108278,
+  "expected_shortfall_95": 0.025079,
+  "tail_count": 13,
+  "skewness": -0.059214,
+  "excess_kurtosis": 0.267361,
+  "hhi": 1.0,
+  "n_eff": 1.0,
+  "sharpe_ratio": 0.928031,
+  "sortino_ratio": 1.356882,
+  "sigma_p_from_cov": 0.18696,
+  "rc": [
+   0.18696
+  ],
+  "pcr": [
+   1.0
+  ],
+  "skew_class": "near_symmetric",
+  "performance_focus": "sharpe_primary",
+  "correlation": [
+   [
+    1.0
+   ]
+  ]
+ },
+ "V3": {
+  "name": "含常數報酬序列",
+  "n": 250,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": -0.018154,
+  "annualized_volatility": 0.136137,
+  "annualized_downside_deviation": 0.099431,
+  "beta": 0.626542,
+  "r_squared": 0.613568,
+  "max_drawdown": -0.115823,
+  "expected_shortfall_95": 0.019101,
+  "tail_count": 13,
+  "skewness": -0.230977,
+  "excess_kurtosis": 0.175608,
+  "hhi": 0.5,
+  "n_eff": 2.0,
+  "sharpe_ratio": -0.25749,
+  "sortino_ratio": -0.352545,
+  "sigma_p_from_cov": 0.136137,
+  "rc": [
+   0.0,
+   0.136137
+  ],
+  "pcr": [
+   0.0,
+   1.0
+  ],
+  "skew_class": "near_symmetric",
+  "performance_focus": "sharpe_primary",
+  "correlation": [
+   [
+    1.0,
+    null
+   ],
+   [
+    null,
+    1.0
+   ]
+  ]
+ },
+ "V4": {
+  "name": "全部高於無風險利率",
+  "n": 250,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": 0.6782,
+  "annualized_volatility": 0.008293,
+  "annualized_downside_deviation": 0.0,
+  "beta": -0.000794,
+  "r_squared": 0.000265,
+  "max_drawdown": 0.0,
+  "expected_shortfall_95": -0.000973,
+  "tail_count": 13,
+  "skewness": 0.005837,
+  "excess_kurtosis": 0.43127,
+  "hhi": 0.52,
+  "n_eff": 1.923077,
+  "sharpe_ratio": 79.746256,
+  "sortino_ratio": null,
+  "sigma_p_from_cov": 0.008293,
+  "rc": [
+   0.004976,
+   0.003317
+  ],
+  "pcr": [
+   0.6,
+   0.4
+  ],
+  "skew_class": "near_symmetric",
+  "performance_focus": "sharpe_primary",
+  "correlation": [
+   [
+    1.0,
+    1.0
+   ],
+   [
+    1.0,
+    1.0
+   ]
+  ]
+ },
+ "V5": {
+  "name": "明顯負偏態",
+  "n": 250,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": -0.827908,
+  "annualized_volatility": 0.137088,
+  "annualized_downside_deviation": 0.175462,
+  "beta": -0.03228,
+  "r_squared": 0.001606,
+  "max_drawdown": -0.825488,
+  "expected_shortfall_95": 0.030268,
+  "tail_count": 13,
+  "skewness": -1.34185,
+  "excess_kurtosis": 1.816578,
+  "hhi": 0.58,
+  "n_eff": 1.724138,
+  "sharpe_ratio": -6.16251,
+  "sortino_ratio": -4.814775,
+  "sigma_p_from_cov": 0.137088,
+  "rc": [
+   0.101734,
+   0.035355
+  ],
+  "pcr": [
+   0.742102,
+   0.257898
+  ],
+  "skew_class": "negative_skew",
+  "performance_focus": "sortino_primary",
+  "correlation": [
+   [
+    1.0,
+    0.966491
+   ],
+   [
+    0.966491,
+    1.0
+   ]
+  ]
+ },
+ "V6": {
+  "name": "含負相關配對",
+  "n": 250,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": 0.00769,
+  "annualized_volatility": 0.051968,
+  "annualized_downside_deviation": 0.037617,
+  "beta": 0.01211,
+  "r_squared": 0.001573,
+  "max_drawdown": -0.044735,
+  "expected_shortfall_95": 0.00707,
+  "tail_count": 13,
+  "skewness": -0.114991,
+  "excess_kurtosis": 0.023256,
+  "hhi": 0.365,
+  "n_eff": 2.739726,
+  "sharpe_ratio": -0.177214,
+  "sortino_ratio": -0.244826,
+  "sigma_p_from_cov": 0.051968,
+  "rc": [
+   0.069008,
+   -0.039933,
+   0.022894
+  ],
+  "pcr": [
+   1.32788,
+   -0.768412,
+   0.440532
+  ],
+  "skew_class": "near_symmetric",
+  "performance_focus": "sharpe_primary",
+  "correlation": [
+   [
+    1.0,
+    -0.950098,
+    0.5667
+   ],
+   [
+    -0.950098,
+    1.0,
+    -0.553081
+   ],
+   [
+    0.5667,
+    -0.553081,
+    1.0
+   ]
+  ]
+ },
+ "V7a": {
+  "name": "n=29",
+  "n": 29,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": -0.310769,
+  "annualized_volatility": 0.223245,
+  "annualized_downside_deviation": 0.156772,
+  "beta": 0.966215,
+  "r_squared": 0.919449,
+  "max_drawdown": -0.072926,
+  "expected_shortfall_95": 0.024974,
+  "tail_count": 2,
+  "skewness": 0.518516,
+  "excess_kurtosis": 0.022587,
+  "hhi": 0.38,
+  "n_eff": 2.631579,
+  "sharpe_ratio": -1.467757,
+  "sortino_ratio": -2.090093,
+  "sigma_p_from_cov": 0.223245,
+  "rc": [
+   0.109247,
+   0.079588,
+   0.034409
+  ],
+  "pcr": [
+   0.489361,
+   0.356506,
+   0.154133
+  ],
+  "skew_class": "undetermined",
+  "performance_focus": "undetermined",
+  "correlation": [
+   [
+    1.0,
+    0.729216,
+    0.762197
+   ],
+   [
+    0.729216,
+    1.0,
+    0.783657
+   ],
+   [
+    0.762197,
+    0.783657,
+    1.0
+   ]
+  ]
+ },
+ "V7b": {
+  "name": "n=30",
+  "n": 30,
+  "rf": 0.0169,
+  "rf_daily": 6.7e-05,
+  "annualized_return": -0.372491,
+  "annualized_volatility": 0.221745,
+  "annualized_downside_deviation": 0.158426,
+  "beta": 0.969323,
+  "r_squared": 0.920599,
+  "max_drawdown": -0.084576,
+  "expected_shortfall_95": 0.024974,
+  "tail_count": 2,
+  "skewness": 0.576455,
+  "excess_kurtosis": 0.066561,
+  "hhi": 0.38,
+  "n_eff": 2.631579,
+  "sharpe_ratio": -1.756033,
+  "sortino_ratio": -2.457869,
+  "sigma_p_from_cov": 0.221745,
+  "rc": [
+   0.106866,
+   0.080619,
+   0.03426
+  ],
+  "pcr": [
+   0.481933,
+   0.363566,
+   0.154502
+  ],
+  "skew_class": "positive_skew",
+  "performance_focus": "both",
+  "correlation": [
+   [
+    1.0,
+    0.715461,
+    0.759503
+   ],
+   [
+    0.715461,
+    1.0,
+    0.786696
+   ],
+   [
+    0.759503,
+    0.786696,
+    1.0
+   ]
+  ]
+ },
+ "V8": {
+  "name": "G1 與母體偏態的關係",
+  "n": 250,
+  "b1_population": -0.181647,
+  "G1_sample": -0.182746,
+  "ratio_observed": 1.006046,
+  "ratio_expected": 1.006046
+ }
+}
