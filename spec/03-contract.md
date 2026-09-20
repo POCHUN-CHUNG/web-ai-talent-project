@@ -1,0 +1,965 @@
+# 03 · 契約層
+
+> 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
+> 文件版本：1.2.0 ｜ 最後更新：2026-09-20
+
+本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
+
+---
+
+## 3.1 資料模型
+
+### 通用型別約定
+
+| 概念 | 型別 | 規範 |
+| --- | --- | --- |
+| 時間戳 | `string` | ISO 8601、UTC、結尾 `Z`。例 `2026-09-20T07:30:00Z` |
+| 日期 | `string` | `YYYY-MM-DD`，台北時區的日曆日 |
+| 金額與價格 | `string` | **以字串傳遞十進位數**，例 `"1190.0000"`。禁止用 JSON number 傳遞，避免 IEEE 754 誤差 |
+| 比率與指標 | `number` | 小數表示，`0.25` 代表 25%。前端負責乘 100 與格式化 |
+| 代號 | `string` | 純代號，不含市場後綴 |
+
+**金額用字串、指標用數字**是刻意的分界：金額涉及使用者的錢，必須精確；指標是統計量，本身就有估計誤差，浮點數足夠。
+
+### 核心實體
+
+```ts
+type StockInfo = {
+  symbol: string;        // 純代號，主鍵。例 "2330"、"0050"、"IR0001"
+  name: string;          // 有價證券名稱，≤ 40 字
+  market: string;        // "上市" | "上櫃" | "指數"
+  industry: string;      // 產業別，ETF 與指數亦有值
+  updated: string;       // 最後更新時間
+};
+
+type DailyPrice = {
+  symbol: string;
+  adjClose: string;      // 還原除權息後的收盤價；指數為報酬指數收盤值
+  tradeDate: string;     // 交易日
+};
+
+type BankRates = {       // 全表永遠只有一列
+  taiwanBank: string;
+  tcbBank: string;
+  landBank: string;
+  huananBank: string;
+  firstBank: string;
+  updated: string;
+};
+
+type Portfolio = {
+  id: number;
+  name: string;          // 1–30 字
+  created: string;
+  updated: string;
+};
+
+type HoldingLot = {        // 一筆買進紀錄
+  id: number;
+  portfolioId: number;
+  symbol: string;
+  tradeDate: string;     // 買進日期
+  quantity: string;      // 股數，支援零股
+  unitCost: string;      // 每股價格
+  created: string;
+  updated: string;
+};
+
+type Position = {        // 由 holding_lots 即時彙總，不落表
+  symbol: string;
+  name: string;
+  quantity: string;      // Σ 股數
+  averageCost: string;   // Σ(股數×單價) ÷ Σ股數
+  costAmount: string;    // Σ(股數×單價)
+  latestPrice: string;   // 最新 adjClose
+  latestPriceDate: string;
+  marketValue: string;   // 股數 × 最新價
+  unrealizedPnl: string; // 市值 − 投入成本
+  unrealizedReturn: number;
+  holdingDays: number;          // 以投入成本加權的平均持有日曆天數
+  annualizedReturn: number | null;  // 持有天數 < 30 時為 null
+  weight: number;        // 目前市值權重
+  lots: HoldingLot[]; // 展開用
+};
+```
+
+### 風險屬性
+
+```ts
+type RiskProfile = {
+  id: number;
+  questionnaireAnswerId: number;
+  readiness: "ready" | "limited" | "blocked";
+  coreIndicators: {
+    lossTolerance: "未滿5%" | "5%～10%" | "10%～20%" | "20%～30%" | "30%以上";
+    investmentHorizon: "1年以內" | "1～3年" | "3～5年" | "5～10年" | "10年以上";
+    liquidityNeed: "極高" | "高" | "中等" | "低";
+    financialCapacity: "低" | "中等" | "高";
+  };
+  facts: Fact[];
+  findings: Finding[];
+  issues: Issue[];
+  description: string | null;            // AI 產生的風險屬性描述
+  descriptionStatus: "ready" | "failed" | "pending";
+  created: string;
+};
+
+type Fact = {
+  id: string;            // 見下方 fact id 清單
+  label: string;         // 顯示名稱
+  valueText: string;     // 原始區間文字，不轉成數字
+  availability: "available" | "missing" | "conflicted";
+  sourceQuestionIds: string[];   // 例 ["Q3","Q4","Q9"]
+  basisFactIds: string[];
+};
+
+type Finding = {
+  id: string;
+  priority: 1 | 2 | 3 | 4;
+  statement: string;
+  factIds: string[];
+};
+
+type Issue = {
+  id: string;
+  kind: "experience_conflict" | "missing_answer";
+  description: string;
+  affectedFactIds: string[];
+};
+```
+
+**Fact id 固定清單**（17 項）：
+
+`loss_tolerance`、`investment_horizon`、`liquidity_need`、`financial_capacity`、`cash_flow`、`emergency_reserve`、`withdrawal_need`、`investment_exposure`、`loss_impact_20pct`、`market_decline_behavior`、`short_term_resilience`、`diversification_knowledge`、`age`、`income`、`investment_goal`、`investment_experience`、`product_experience`。
+
+**Finding id 與 priority 固定對應**（P-33）：
+
+| id | priority |
+| --- | :---: |
+| `primary_financial_constraints` | 1 |
+| `willingness_capacity_gap` | 2 |
+| `horizon_liquidity_consistency` | 3 |
+| `knowledge_experience_consistency` | 4 |
+
+### 分析結果
+
+```ts
+type AnalysisResult = {
+  id: number;
+  portfolioId: number;
+  riskProfileId: number;
+  readiness: "ready" | "limited" | "blocked";
+  mode: "saved" | "simulation";
+  changedFields: string[];        // simulation 時列出被微調的欄位
+  period: {
+    requestedYears: number;       // 1–10
+    effectiveYears: number;
+    startDate: string;
+    endDate: string;
+    tradingDays: number;
+    limitedBySymbols: string[];   // 造成期間限縮的代號；無限縮時為空陣列
+    annualizationBasis: 252;
+    weightingMethod: "current_market_value";
+    benchmarkSymbol: string;      // IR0001
+  };
+  settings: {
+    riskFreeRate: number;         // 年利率小數，例 0.0166
+    rateAsOf: string;             // bank_rates.updated
+    mar: number;                  // 本版等於 riskFreeRate
+  };
+  metrics: Record<MetricId, Metric>;
+  positions: AnalysisPosition[];
+  correlation: {
+    symbols: string[];            // 順序即矩陣索引順序
+    matrix: (number | null)[][];  // 對稱方陣，缺值為 null，不得填 0
+  };
+  interpretation: {
+    skewClass: "near_symmetric" | "positive_skew" | "negative_skew" | "undetermined";
+    performanceFocus: "sharpe_primary" | "sortino_primary" | "both" | "undetermined" | "limited";
+    ruleSource: string;
+  };
+  findings: Finding[];
+  figures: Figure[];
+  dataQuality: {
+    notes: string[];
+    excludedSymbols: string[];
+  };
+  created: string;
+};
+
+type MetricId =
+  | "annualized_volatility"
+  | "annualized_downside_deviation"
+  | "beta"
+  | "r_squared"
+  | "max_drawdown"
+  | "expected_shortfall_95"
+  | "skewness"
+  | "excess_kurtosis"
+  | "hhi"
+  | "sharpe_ratio"
+  | "sortino_ratio";
+
+type Metric = {
+  value: number | null;
+  unit: "fraction" | "ratio" | "index";
+  status: "available" | "unavailable";
+  reason: string | null;          // status 為 unavailable 時必填
+  sampleId: string;               // 共同樣本識別，同一次分析內所有指標相同
+};
+
+type AnalysisPosition = {
+  symbol: string;
+  name: string;
+  weight: number;
+  rc: number | null;              // 風險貢獻度，年化
+  pcr: number | null;             // 風險貢獻比例
+};
+
+type Figure = {
+  figureRef:
+    | "figure:correlation_heatmap"
+    | "figure:weight_vs_pcr"
+    | "figure:drawdown_curve"
+    | "figure:risk_gap_bar";
+  title: string;
+  legendText: string;             // AI 說明看圖方式時原文引用，不自行描述顏色
+  status: "available" | "unavailable";
+  reason: string | null;
+  data: unknown;                  // 各圖的資料結構見 spec/04-behavior.md §4.4
+};
+```
+
+**單位約定**：`fraction` 為小數比例（`0.1832` = 18.32%），用於波動度、下行波動度、MDD、ES95、HHI；`ratio` 為無單位比值，用於 Beta、R²、偏態、超額峰度、Sharpe、Sortino。
+
+**`max_drawdown` 一律為負數或 0**（例 `-0.28`）。前端顯示時取絕對值並加「−」號，但契約中保留負號，避免大小比較時符號混淆。
+
+### 分析報告
+
+```ts
+type AnalysisReport = {
+  id: number;
+  analysisResultId: number;
+  status: "ready" | "failed";
+  attempt: number;                // 第幾次嘗試，從 1 起算
+  model: string;                  // 實際使用的模型代號
+  promptVersion: string;          // Prompt 檔案的版本字串
+  content: ReportContent | null;  // status 為 failed 時為 null
+  failureReason: string | null;
+  created: string;
+};
+
+type ReportContent = {
+  analysisId: string;
+  contextId: string;
+  readiness: string;
+  performanceFocus: string;
+  periodNotice: { text: string; evidenceRefs: string[] };
+  summary: { text: string; evidenceRefs: string[]; figureRefs: string[] };
+  sections: Array<{
+    key: "volatility_downside" | "market_sensitivity" | "tail_risk"
+       | "diversification" | "performance" | "personal_alignment";
+    text: string;
+    evidenceRefs: string[];
+    figureRefs: string[];
+  }>;                             // 固定六項，順序固定
+  figureCaptions: Array<{ figureRef: string; caption: string; evidenceRefs: string[] }>;
+  glossary: Array<{ term: string; plainText: string }>;
+  reviewDirections: Array<{ text: string; evidenceRefs: string[]; figureRefs: string[] }>;
+  limitations: string[];
+  correlationPairRefs: string[];  // ≤ 2
+  highlightAssetIds: string[];    // ≤ 3
+};
+```
+
+---
+
+## 3.2 資料庫結構
+
+### 遷移策略
+
+| 項目 | 規範 |
+| --- | --- |
+| 工具 | 現況使用 `Base.metadata.create_all(engine)`。**本規格要求改為 Alembic**，版本 `1.13.3` |
+| 為何必須改 | `create_all` 只建立不存在的表，**不會修改既有表**。本規格要求 `User.created_at` → `created`、新增 8 張表，靠 `create_all` 無法完成，會造成程式與實際結構不一致（`bank_rates` 已經發生過一次） |
+| 檔名慣例 | `backend/migrations/versions/<revision>_<snake_case_描述>.py` |
+| 破壞性變更 | 開發階段允許。正式上線後需提供 `downgrade()` |
+| 回滾 | 每個 migration 必須實作 `downgrade()`；無法回滾者需在檔案開頭註明理由 |
+| 種子資料 | `stock_info` 由 `POST /stocks/sync` 填入，不寫死於 migration。開發環境另備 `tests/fixtures/stock_info_sample.json` 供離線測試 |
+
+### DDL
+
+```sql
+-- 使用者
+CREATE TABLE users (
+    id            BIGSERIAL PRIMARY KEY,
+    username      VARCHAR(32)  NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created       TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_users_username ON users (username);
+
+-- 股票基本資料（含 IR0001）
+CREATE TABLE stock_info (
+    symbol   VARCHAR(10) PRIMARY KEY,
+    name     VARCHAR(40) NOT NULL,
+    market   VARCHAR(20) NOT NULL,
+    industry VARCHAR(40) NOT NULL,
+    updated  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_stock_info_name ON stock_info (name);
+
+-- 日收盤價（個股與指數共用）
+CREATE TABLE daily_prices (
+    id         BIGSERIAL PRIMARY KEY,
+    symbol     VARCHAR(10)   NOT NULL REFERENCES stock_info(symbol) ON DELETE RESTRICT,
+    adj_close  NUMERIC(14,4) NOT NULL CHECK (adj_close > 0),
+    trade_date DATE          NOT NULL,
+    CONSTRAINT uq_daily_prices UNIQUE (symbol, trade_date)
+);
+CREATE INDEX idx_daily_prices_symbol_date ON daily_prices (symbol, trade_date DESC);
+
+-- 銀行利率（沿用現況，永遠只有一列）
+CREATE TABLE bank_rates (
+    taiwan_bank NUMERIC(5,3) NOT NULL,
+    tcb_bank    NUMERIC(5,3) NOT NULL,
+    land_bank   NUMERIC(5,3) NOT NULL,
+    huanan_bank NUMERIC(5,3) NOT NULL,
+    first_bank  NUMERIC(5,3) NOT NULL,
+    updated     TIMESTAMPTZ  PRIMARY KEY
+);
+
+-- 問卷作答（唯讀快照）
+CREATE TABLE questionnaire_answers (
+    id      BIGSERIAL PRIMARY KEY,
+    user_id BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    answers JSONB       NOT NULL,   -- {"q1":"B","q2":"C",...,"q11":["B","C"],"q11_other":"..."}
+    created TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_qa_user_created ON questionnaire_answers (user_id, created DESC);
+
+-- 風險屬性（唯讀快照）
+CREATE TABLE risk_profiles (
+    id                      BIGSERIAL PRIMARY KEY,
+    user_id                 BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    questionnaire_answer_id BIGINT      NOT NULL REFERENCES questionnaire_answers(id) ON DELETE CASCADE,
+    readiness               VARCHAR(10) NOT NULL
+                            CHECK (readiness IN ('ready','limited','blocked')),
+    loss_tolerance          VARCHAR(20) NOT NULL,
+    investment_horizon      VARCHAR(20) NOT NULL,
+    liquidity_need          VARCHAR(10) NOT NULL,
+    financial_capacity      VARCHAR(10) NOT NULL,
+    facts                   JSONB       NOT NULL,
+    findings                JSONB       NOT NULL,
+    issues                  JSONB       NOT NULL,
+    description             TEXT,
+    description_status      VARCHAR(10) NOT NULL DEFAULT 'pending'
+                            CHECK (description_status IN ('pending','ready','failed')),
+    created                 TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_rp_user_created ON risk_profiles (user_id, created DESC);
+
+-- 投資組合
+CREATE TABLE portfolios (
+    id      BIGSERIAL PRIMARY KEY,
+    user_id BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name    VARCHAR(30) NOT NULL,
+    created TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_portfolio_name UNIQUE (user_id, name)
+);
+CREATE INDEX idx_portfolios_user ON portfolios (user_id);
+
+-- 買進紀錄
+CREATE TABLE holding_lots (
+    id           BIGSERIAL PRIMARY KEY,
+    portfolio_id BIGINT        NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    symbol       VARCHAR(10)   NOT NULL REFERENCES stock_info(symbol) ON DELETE RESTRICT,
+    trade_date   DATE          NOT NULL,
+    quantity     NUMERIC(18,4) NOT NULL CHECK (quantity > 0),
+    unit_cost    NUMERIC(12,4) NOT NULL CHECK (unit_cost > 0),
+    created      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated      TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_holding_lots_pf_symbol ON holding_lots (portfolio_id, symbol, trade_date);
+
+-- 分析結果（唯讀快照）
+CREATE TABLE analysis_results (
+    id                BIGSERIAL PRIMARY KEY,
+    user_id           BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    portfolio_id      BIGINT        NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    risk_profile_id   BIGINT        NOT NULL REFERENCES risk_profiles(id) ON DELETE RESTRICT,
+    readiness         VARCHAR(10)   NOT NULL,
+    mode              VARCHAR(12)   NOT NULL CHECK (mode IN ('saved','simulation')),
+    changed_fields    JSONB         NOT NULL DEFAULT '[]'::jsonb,
+    requested_years   SMALLINT      NOT NULL CHECK (requested_years BETWEEN 1 AND 10),
+    start_date        DATE          NOT NULL,
+    end_date          DATE          NOT NULL,
+    trading_days      INTEGER       NOT NULL CHECK (trading_days > 0),
+    limited_by        JSONB         NOT NULL DEFAULT '[]'::jsonb,
+    benchmark_symbol  VARCHAR(10)   NOT NULL,
+    risk_free_rate    NUMERIC(8,6)  NOT NULL,
+    rate_as_of        TIMESTAMPTZ   NOT NULL,
+    mar               NUMERIC(8,6)  NOT NULL,
+    metrics           JSONB         NOT NULL,
+    positions         JSONB         NOT NULL,
+    correlation       JSONB         NOT NULL,
+    interpretation    JSONB         NOT NULL,
+    findings          JSONB         NOT NULL,
+    figures           JSONB         NOT NULL,
+    data_quality      JSONB         NOT NULL,
+    created           TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CONSTRAINT ck_analysis_period CHECK (end_date >= start_date)
+);
+CREATE INDEX idx_ar_pf_created ON analysis_results (portfolio_id, created DESC);
+
+-- 分析報告（唯讀快照，同一分析可有多列，取最新）
+CREATE TABLE analysis_reports (
+    id                 BIGSERIAL PRIMARY KEY,
+    analysis_result_id BIGINT      NOT NULL REFERENCES analysis_results(id) ON DELETE CASCADE,
+    status             VARCHAR(10) NOT NULL CHECK (status IN ('ready','failed')),
+    attempt            SMALLINT    NOT NULL CHECK (attempt >= 1),
+    model              VARCHAR(40) NOT NULL,
+    prompt_version     VARCHAR(20) NOT NULL,
+    content            JSONB,
+    failure_reason     TEXT,
+    created            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_report_content CHECK (
+        (status = 'ready'  AND content IS NOT NULL) OR
+        (status = 'failed' AND failure_reason IS NOT NULL)
+    )
+);
+CREATE INDEX idx_reports_analysis ON analysis_reports (analysis_result_id, created DESC);
+```
+
+### 外鍵刪除行為
+
+| 外鍵 | 行為 | 理由 |
+| --- | --- | --- |
+| `questionnaire_answers.user_id` → `users` | `CASCADE` | 刪帳號時一併清除 |
+| `risk_profiles.user_id` → `users` | `CASCADE` | 同上 |
+| `portfolios.user_id` → `users` | `CASCADE` | 同上 |
+| `holding_lots.portfolio_id` → `portfolios` | `CASCADE` | 刪組合即刪其買進紀錄 |
+| `holding_lots.symbol` → `stock_info` | `RESTRICT` | 股票下市時不可悄悄刪掉使用者的紀錄，需人工處理 |
+| `daily_prices.symbol` → `stock_info` | `RESTRICT` | 同上 |
+| `analysis_results.risk_profile_id` → `risk_profiles` | `RESTRICT` | 分析快照必須能追溯到當時的風險屬性 |
+| `analysis_reports.analysis_result_id` → `analysis_results` | `CASCADE` | 報告依附於分析 |
+
+### 唯讀快照的實作約束
+
+`questionnaire_answers`、`risk_profiles`、`analysis_results`、`analysis_reports` 四張表**只允許 INSERT 與 SELECT**。
+例外：`risk_profiles.description` 與 `description_status` 在 AI 回傳後允許一次 UPDATE（建立時為 `pending`）。此為唯一例外，需在程式中以專用函式封裝，不得開放一般更新路徑。
+
+---
+
+## 3.3 API 契約
+
+### 全域慣例
+
+| 項目 | 規範 |
+| --- | --- |
+| 版本前綴 | **無**。路徑第一段即功能名稱（D-28） |
+| 認證（前端） | Cookie `session_id`，`HttpOnly`、`SameSite=Lax`、`Secure` 依 `COOKIE_SECURE` |
+| 認證（n8n） | 標頭 `X-API-Key`，以 `hmac.compare_digest` 比對；後端未設定金鑰時一律 `503` |
+| 分頁 | `?page=1&page_size=20`，回應 `{"items": [], "page": 1, "page_size": 20, "total": 0}`，`page_size` 上限 100 |
+| 排序 | `?sort=field` 升冪、`?sort=-field` 降冪 |
+| 前端錯誤格式 | `{"detail": {"code": "...", "message": "中文訊息", "trace_id": "uuid"}}` |
+| n8n 錯誤格式 | `{"detail": {"status": "失敗", "message": "中文訊息"}}` |
+| n8n 成功格式 | `{"status": "成功", "message": "中文訊息", ...資料}` |
+| CORS | `allow_origins` 只含 `FRONTEND_ORIGIN`；`allow_methods` 為 `GET, POST, PATCH, DELETE, OPTIONS`；`allow_credentials` 為 `true` |
+
+### 錯誤碼
+
+| 錯誤碼 | HTTP | 條件 |
+| --- | :---: | --- |
+| `INVALID_INPUT` | 400 | 請求主體不符 schema |
+| `UNAUTHENTICATED` | 401 | 未登入或通行證過期 |
+| `INVALID_API_KEY` | 401 | `X-API-Key` 錯誤或缺少 |
+| `FORBIDDEN_RESOURCE` | 403 | 存取他人的資源 |
+| `NOT_FOUND` | 404 | 資源不存在 |
+| `USERNAME_TAKEN` | 409 | 帳號已存在 |
+| `PORTFOLIO_NAME_TAKEN` | 409 | 同一使用者已有同名組合 |
+| `PROFILE_REQUIRED` | 409 | 尚未完成問卷（Gating） |
+| `PROFILE_LIMITED` | 409 | `readiness = limited`，須回問卷修正 |
+| `LIMIT_EXCEEDED` | 422 | 超過組合數、持股檔數或買進筆數上限 |
+| `INSUFFICIENT_PRICE_DATA` | 422 | 無任何共同期間可計算 |
+| `BENCHMARK_UNAVAILABLE` | 422 | 基準指數在該期間無資料 |
+| `RISK_FREE_RATE_UNAVAILABLE` | 422 | `bank_rates` 為空 |
+| `RATE_LIMITED` | 429 | 超過限流 |
+| `AI_NOT_CONFIGURED` | 503 | 未設定 `GEMINI_API_KEY` |
+| `AI_REPORT_FAILED` | 502 | 模型連續解析失敗 |
+| `UPSTREAM_FETCH_FAILED` | 502 | 銀行網頁爬取失敗 |
+| `INTERNAL_ERROR` | 500 | 未預期的例外 |
+
+### 帳號（沿用現況，僅補限流與錯誤格式）
+
+| 方法 | 路徑 | 請求 | 成功 | 主要錯誤 |
+| --- | --- | --- | --- | --- |
+| `POST` | `/auth/register` | `{username, password}` | `201 {username}` + Set-Cookie | 409 `USERNAME_TAKEN`、429 |
+| `POST` | `/auth/login` | `{username, password}` | `200 {username}` + Set-Cookie | 401 `UNAUTHENTICATED`、429 |
+| `POST` | `/auth/logout` | — | `204` | — |
+| `GET` | `/auth/me` | — | `200 {username, hasRiskProfile}` | 401 |
+| `POST` | `/auth/change-password` | `{oldPassword, newPassword}` | `204` + 新 Set-Cookie | 400 `INVALID_INPUT`、401 |
+
+`GET /auth/me` 新增 `hasRiskProfile: boolean`，供前端執行 Gating（FR-06），避免多打一支 API。
+
+### 問卷
+
+```
+GET /questionnaire
+Auth: Cookie
+
+Response 200:
+{
+  "version": "1.0.0",
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "您的年齡區間為何？",
+      "note": null,
+      "type": "single",                     // "single" | "multiple"
+      "options": [
+        {"value": "A", "label": "18 歲以上，未滿 30 歲"},
+        ...
+      ]
+    },
+    {
+      "id": "Q11",
+      "title": "您曾實際投資或交易過哪些金融商品？（可複選）",
+      "type": "multiple",
+      "exclusiveOption": "K",               // 勾選後其餘選項自動取消
+      "otherOption": "J",                   // 勾選後需填自由文字
+      "options": [...]
+    }
+  ]
+}
+```
+
+```
+POST /questionnaire/answers
+Auth: Cookie
+
+Request:
+{
+  "answers": {
+    "q1": "B", "q2": "C", "q3": "D", "q4": "C", "q5": "D", "q6": "E",
+    "q7": "D", "q8": "E", "q9": "C", "q10": "C",
+    "q11": ["A", "B", "C"],
+    "q11Other": null,                       // q11 含 "J" 時必填，≤ 100 字
+    "q12": "C", "q13": "C", "q14": "D"
+  }
+}
+
+Response 201:
+{ "riskProfileId": 12, "readiness": "ready" }
+
+Errors:
+| 400 | INVALID_INPUT | 缺題、選項值不存在、q11 同時含 K 與其他選項、q11 含 J 但未填 q11Other |
+```
+
+14 題全部必填。`readiness` 為 `limited` 時仍建立 `risk_profiles` 快照（保留證據），但後續流程被 `PROFILE_LIMITED` 擋住（D-17）。
+
+```
+GET /risk-profiles/latest
+GET /risk-profiles/{profile_id}
+Auth: Cookie
+
+Response 200: RiskProfile（見 §3.1）
+Errors: 404 NOT_FOUND（從未填過問卷）、403 FORBIDDEN_RESOURCE
+```
+
+`description_status` 為 `pending` 時，前端顯示載入指示器並於 2 秒後重取一次；仍為 `pending` 或轉為 `failed` 時顯示重試入口。
+
+### 投資組合與買進紀錄
+
+| 方法 | 路徑 | 請求 | 成功 |
+| --- | --- | --- | --- |
+| `GET` | `/portfolios` | — | `200 {items: PortfolioSummary[]}` |
+| `POST` | `/portfolios` | `{name}` | `201 Portfolio` |
+| `GET` | `/portfolios/{id}` | — | `200 PortfolioDetail` |
+| `PATCH` | `/portfolios/{id}` | `{name}` | `200 Portfolio` |
+| `DELETE` | `/portfolios/{id}` | — | `204` |
+
+`PortfolioSummary` 含 `id`、`name`、`symbolCount`、`marketValue`、`unrealizedPnl`、`unrealizedReturn`、`latestPriceDate`、`lastAnalysisAt`。
+
+```
+GET /portfolios/{id}
+
+Response 200:
+{
+  "id": 3,
+  "name": "核心持股",
+  "positions": [ Position, ... ],          // 依市值權重由大到小排序
+  "totals": {
+    "costAmount": "412000.0000",
+    "marketValue": "468500.0000",
+    "unrealizedPnl": "56500.0000",
+    "unrealizedReturn": 0.1371,
+    "holdingDays": 284,
+    "annualizedReturn": 0.1749
+  },
+  "priceDisclaimer": "未納入手續費與交易稅",
+  "latestPriceDate": "2026-09-19",
+  "created": "...", "updated": "..."
+}
+```
+
+```
+POST /portfolios/{id}/holding-lots
+Auth: Cookie
+
+Request:
+{ "symbol": "2330", "tradeDate": "2026-03-14", "quantity": "1000", "unitCost": "780.0000" }
+
+Response 201: HoldingLot
+
+Errors:
+| 400 | INVALID_INPUT | 代號不符白名單、日期晚於今日或早於 1990-01-01、股數或單價 ≤ 0 |
+| 404 | NOT_FOUND | 代號不在 stock_info |
+| 422 | LIMIT_EXCEEDED | 超過 50 檔不同股票或該檔已有 100 筆 |
+| 422 | INVALID_INPUT | 代號的 market 為「指數」 |
+```
+
+`PATCH /portfolios/{id}/holding-lots/{lot_id}` 接受 `tradeDate`、`quantity`、`unitCost` 的任意子集，**不得修改 `symbol`**（要改代號等於刪掉重建）。
+`DELETE /portfolios/{id}/holding-lots/{lot_id}` 回 `204`。
+
+### 股票查詢
+
+```
+GET /stocks?q=台積&limit=20
+Auth: Cookie
+
+Response 200:
+{ "items": [ {"symbol": "2330", "name": "台積電", "market": "上市", "industry": "半導體業"} ] }
+```
+
+`q` 至少 1 字，同時比對 `symbol` 前綴與 `name` 子字串。`market = '指數'` 的列**一律排除**。`limit` 預設 20、上限 50。
+
+### 分析
+
+```
+POST /portfolios/{id}/analysis
+Auth: Cookie
+
+Request:
+{
+  "lookbackYears": 5,                       // 1–10，預設取 ANALYSIS_DEFAULT_LOOKBACK_YEARS
+  "mode": "saved",                          // "saved" | "simulation"
+  "overrides": {                            // mode 為 simulation 時才可帶
+    "lossTolerance": "20%～30%",
+    "investmentHorizon": "5～10年"
+  }
+}
+
+Response 201: AnalysisResult（見 §3.1）
+
+Errors:
+| 409 | PROFILE_REQUIRED             | 尚未填問卷 |
+| 409 | PROFILE_LIMITED              | 風險屬性 readiness 為 limited |
+| 422 | INVALID_INPUT                | 組合內沒有任何買進紀錄 |
+| 422 | INSUFFICIENT_PRICE_DATA      | 無共同期間 |
+| 422 | BENCHMARK_UNAVAILABLE        | IR0001 在該期間無資料 |
+| 422 | RISK_FREE_RATE_UNAVAILABLE   | bank_rates 為空 |
+| 429 | RATE_LIMITED                 | 每使用者每分鐘 3 次 |
+```
+
+**`overrides` 只允許 `lossTolerance` 與 `investmentHorizon` 兩個鍵**（D-14）。出現其他鍵一律 `400 INVALID_INPUT`，特別是 `financialCapacity` 與 `liquidityNeed`——這兩項鎖死，不接受任何形式的覆寫。
+
+```
+GET /analysis/{analysis_id}
+Response 200: AnalysisResult
+
+GET /portfolios/{id}/analysis/history?page=1&page_size=20
+Response 200: { items: AnalysisSummary[], page, page_size, total }
+```
+
+`AnalysisSummary` 含 `id`、`created`、`mode`、`requestedYears`、`effectiveYears`、`tradingDays` 與三項摘要指標（`annualized_volatility`、`max_drawdown`、`sharpe_ratio`）。
+
+```
+GET /analysis/{analysis_id}/report
+Auth: Cookie
+
+行為：
+1. 查 analysis_reports 最新一列。status 為 ready 則直接回傳，不重打模型。
+2. 無任何列時才呼叫模型，成功寫入後回傳。
+3. 最新一列為 failed 時回 502 AI_REPORT_FAILED，不自動重試。
+
+Response 200: AnalysisReport（status 恆為 ready）
+
+Errors:
+| 502 | AI_REPORT_FAILED  | 最新一次嘗試失敗 |
+| 503 | AI_NOT_CONFIGURED | 未設定 GEMINI_API_KEY |
+```
+
+```
+POST /analysis/{analysis_id}/report/retry
+Auth: Cookie
+
+強制重新呼叫模型，寫入新的一列（attempt + 1）。
+限流：每分析每分鐘 2 次。
+Response 200: AnalysisReport
+```
+
+### 市場資料（僅限 n8n）
+
+```
+POST /market-data/daily-prices
+Auth: X-API-Key
+Idempotency: 以 (symbol, trade_date) UPSERT，重送不產生重複列
+
+Request:
+{
+  "rows": [
+    {"symbol": "2330",   "adjClose": "1190.0000",  "tradeDate": "2026-09-19"},
+    {"symbol": "IR0001", "adjClose": "42315.8700", "tradeDate": "2026-09-19"}
+  ]
+}
+
+Response 200:
+{ "status": "成功", "message": "已寫入 2 筆", "inserted": 2, "updated": 0, "skipped": 0 }
+
+Errors:
+| 400 | 代號不符白名單且不等於基準代號、日期格式錯誤、adjClose ≤ 0 |
+| 404 | 代號不在 stock_info（需先同步基本資料） |
+| 422 | rows 超過 5000 筆 |
+```
+
+**`skipped` 的定義**：該列與資料庫現值完全相同，未執行寫入。用於讓 n8n 分辨「重跑」與「真的有新資料」。
+
+```
+POST /stocks/sync
+Auth: X-API-Key
+Idempotency: 以 symbol UPSERT
+
+Request:
+{
+  "rows": [
+    {"symbol": "2330",   "name": "台積電",       "market": "上市", "industry": "半導體業"},
+    {"symbol": "IR0001", "name": "加權報酬指數", "market": "指數", "industry": "大盤"}
+  ]
+}
+
+Response 200:
+{ "status": "成功", "message": "已同步 2 筆", "inserted": 0, "updated": 2 }
+```
+
+**不刪除下市股票**：`stock_info` 只新增與更新。下市股票若被使用者持有，紀錄必須保留（外鍵為 `RESTRICT`）。
+
+```
+POST /market-data/purge
+Auth: X-API-Key
+
+刪除保留期以外的歷史報價。保留期由分析上限推導，不寫死天數：
+
+DELETE FROM daily_prices
+WHERE trade_date < CURRENT_DATE
+                 - (:max_lookback_years || ' years')::interval
+                 - (:buffer_days        || ' days')::interval;
+
+預設為 10 年 + 31 天。使用 PostgreSQL 的 interval 運算，閏年由資料庫處理，
+不以固定天數近似（3650 天比 10 年短約 2 至 3 天，會讓 10 年回溯的期間被悄悄限縮）。
+
+Response 200:
+{ "status": "成功", "message": "已清除 1,240 筆", "deleted": 1240, "cutoffDate": "2016-08-20" }
+```
+
+`cutoffDate` 回傳本次採用的界線日期，供 n8n 記錄與人工核對。
+
+```
+POST /bank-rates/fetch          沿用現況，不修改
+GET  /bank-rates/latest         Auth: Cookie
+Response 200:
+{
+  "rates": [
+    {"bank": "taiwan_bank", "name": "臺灣銀行", "rate": "1.690"}, ...
+  ],
+  "average": "1.692",
+  "updated": "2026-09-20T08:17:26Z"
+}
+```
+
+### 健康檢查
+
+`GET /health` → `200 {"status": "ok"}`
+
+**非公開端點**（D-51）。只接受來源為 `127.0.0.1` 或 `::1` 的請求，其餘一律回 **404**——回 403 等於向外界確認這個端點存在。
+Docker healthcheck 在容器內以 `curl -fsS http://127.0.0.1:8000/health` 呼叫；瀏覽器經發布埠進來的來源是 Docker 橋接閘道，n8n 的來源是它自己的容器 IP，兩者都拿不到。
+不限流、不寫日誌（每數秒一次的檢查會把日誌灌爆）。
+
+`docker-compose.yml` 的 backend 服務需補上：
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+  interval: 10s
+  timeout: 3s
+  retries: 3
+  start_period: 20s
+```
+
+---
+
+## 3.4 狀態與事件
+
+### 風險屬性的 readiness
+
+| 狀態 | 判定條件 | 後續流程 |
+| --- | --- | --- |
+| `ready` | 14 題全答且無資料衝突 | 放行 |
+| `limited` | Q10 = 無投資經驗但 Q11 勾了投資商品；或 Q10 ≥ 3 年但 Q11 只勾「尚未投資過」 | **擋住**，導回問卷並標示衝突題號（D-17、D-21） |
+| `blocked` | 14 題未答滿（防禦性狀態，正常流程不會發生） | 擋住 |
+
+### 分析報告狀態機
+
+| 目前狀態 | 事件 | 下一狀態 | 副作用 |
+| --- | --- | --- | --- |
+| （無報告） | `GET /report` | `ready` | 呼叫模型、schema 驗證通過、寫入一列 |
+| （無報告） | `GET /report` | `failed` | 連續 `GEMINI_MAX_RETRIES` 次驗證失敗，寫入 failed 列並記錄原始輸出 |
+| `failed` | `GET /report` | `failed` | **不自動重試**，直接回 502 |
+| `failed` | `POST /report/retry` | `ready` 或 `failed` | 寫入新的一列，`attempt` 遞增 |
+| `ready` | `GET /report` | `ready` | 直接回傳，**不重打模型** |
+| `ready` | `POST /report/retry` | `ready` 或 `failed` | 允許重新產生；舊列保留 |
+
+未列於表中的轉換一律視為非法，拋 `INTERNAL_ERROR` 並記錄。
+
+### 前端分析頁狀態
+
+| 狀態 | 進入條件 | 畫面 |
+| --- | --- | --- |
+| `computing` | 送出 `POST /portfolios/{id}/analysis` | 載入指示器 +「正在計算量化指標」，**不顯示圖表** |
+| `interpreting` | 量化回應已收到，送出 `GET /analysis/{id}/report` | 載入指示器 +「正在產生分析解說」，**不顯示圖表** |
+| `ready` | 兩者皆成功 | 一次揭露四張圖、圖說與解說 |
+| `partial` | 量化成功、報告回 502 或 503 | 顯示四張圖與全部數字，解說區塊顯示失敗說明與重試按鈕 |
+| `failed` | 量化本身失敗 | 顯示錯誤碼對應說明，不顯示圖表 |
+
+### 唯讀快照的不可變事件
+
+| 實體 | 建立時機 | 之後可變的欄位 |
+| --- | --- | --- |
+| `questionnaire_answers` | 送出問卷 | 無 |
+| `risk_profiles` | 送出問卷（與作答同一交易） | 僅 `description`、`description_status` |
+| `analysis_results` | 送出分析 | 無 |
+| `analysis_reports` | 模型回應後 | 無 |
+
+---
+
+## 3.5 外部整合
+
+### Gemini API
+
+| 項目 | 內容 |
+| --- | --- |
+| 供應商 | Google Gemini API |
+| SDK | `google-genai` 2.16.0 |
+| 模型 | `GEMINI_MODEL`，預設 `gemini-3.5-flash` |
+| 認證 | `GEMINI_API_KEY` |
+| 呼叫時機 | ①問卷送出後產生風險屬性描述 ②取得分析報告 |
+| 逾時 | `GEMINI_TIMEOUT_SECONDS`，預設 180 秒（3 分鐘） |
+| 重試 | `GEMINI_MAX_RETRIES`，預設 2；**只在 JSON 解析或 schema 驗證失敗時重試**，HTTP 4xx 不重試 |
+| 退避 | 第 1 次重試等 1 秒，第 2 次等 3 秒 |
+| 降級 | 問卷階段：`description_status = failed`，四項核心指標照常顯示。分析階段：`partial` 狀態，四張圖照常顯示（P-38） |
+| 成本控制 | `GEMINI_MAX_OUTPUT_TOKENS` 硬上限；分析端點每使用者每分鐘 3 次；報告快取 24 小時；報告 `ready` 後不重打 |
+| 未設定金鑰 | 後端照常啟動，AI 相關端點回 `503 AI_NOT_CONFIGURED` |
+
+### 五大公股銀行牌告網頁
+
+| 項目 | 內容 |
+| --- | --- |
+| 呼叫方 | n8n → `POST /bank-rates/fetch` |
+| 實作 | 沿用現況 `services/bank_rates.py`，以 `curl_cffi` 模擬瀏覽器、`BeautifulSoup` + `lxml` 解析 |
+| 失敗行為 | 任一家失敗即整批失敗，回 `502`，**不寫入任何資料**，舊值保留 |
+| 網頁改版風險 | 見 `SPEC.md` R-04。解析失效時 `float()` 會拋例外，被外層捕捉為 502 |
+
+### 台股日報價與市場基準
+
+| 項目 | 個股 | 市場基準 |
+| --- | --- | --- |
+| 來源 | yfinance | 證交所 `MFI94U` |
+| 抓取程式 | **由柏鈞自行撰寫**，不在本規格的實作範圍 | 同左 |
+| 代號轉換 | `market` 為上市 → `.TW`、上櫃 → `.TWO`。**只在抓取端做**，資料庫只存純代號 | 不需轉換 |
+| 回傳粒度 | 可指定期間 | **一次一個月**，回補 10 年需 120 次呼叫 |
+| 格式轉換 | 取 `Adj Close` | 民國年 +1911；數值去千分位逗號；`stat` 須為 `OK` |
+| 寫入 | `POST /market-data/daily-prices` | 同一支端點、同一格式 |
+
+### n8n 排程
+
+**三條工作流程，皆為每日 `00:00` 執行**。n8n 容器已設 `GENERIC_TIMEZONE=Asia/Taipei`，Schedule Trigger 直接填本地時間，不需換算 UTC。後端不做任何排程（`CLAUDE.md` §8）。
+
+| 工作流程 | 排程 | 步驟 |
+| --- | --- | --- |
+| 銀行利率 | 每日 `00:00` | ①`POST /bank-rates/fetch`（Header Auth 帶 `X-API-Key`）②Email 通知結果 |
+| 股票基本資料 | 每日 `00:00` | ①抓取證交所 ISIN 四組分類表 ②以白名單正規式過濾 ③附加 `IR0001` 一列 ④`POST /stocks/sync` |
+| 日收盤價 | 每日 `00:00` | ①讀取需要的代號清單 ②yfinance 抓**過去 1 個月**的個股收盤 ③`MFI94U` 抓**過去 1 個月**的基準 ④合併為單一 `rows` ⑤`POST /market-data/daily-prices` ⑥**寫入成功後**呼叫 `POST /market-data/purge` |
+
+**共同的失敗處理**：重試 2 次、間隔 5 分鐘；仍失敗則寄失敗通知。非交易日或該區間無新資料時後端回 `inserted: 0`，**不視為錯誤**。
+
+**為什麼日收盤價每次抓一個月而不是只抓當日**：以 `(symbol, trade_date)` UPSERT，重抓沒有副作用，卻能自我修復。任一天因為網路、限流或非交易日判斷錯誤而漏掉，隔天的流程會自動補回，不需人工介入或另寫補資料腳本。單次資料量約 50 檔 × 21 個交易日 ≈ 1050 列，遠低於 5000 列上限。
+
+**跨月的注意事項**：`MFI94U` 一次只回傳一個月。「過去 1 個月」在月初會橫跨兩個月份，此時需呼叫兩次（上個月與本月），再合併送出。
+
+**清理為什麼排在最後且必須在寫入成功之後**：若寫入失敗仍執行清理，資料會同時停止更新並持續縮短，幾天後回溯期間就悄悄不足了。順序寫死為「先寫入、確認成功、再清理」。
+
+**為什麼緩衝設 31 天**：緩衝區間剛好等於每次抓取的區間，因此不會出現「今天刪掉、明天又抓回來」的來回。
+
+**歷史回補**為一次性作業，不排程：逐月呼叫 `MFI94U` 約 120 次取得基準 10 年資料，並以 yfinance 取得各持股的歷史收盤，分批送入同一支寫入端點。呼叫證交所時需自行加入間隔，避免被限流。
+
+**金鑰設定**：三條工作流程的 HTTP Request 節點皆使用同一組 Header Auth 憑證（名稱 `X-API-Key`），設定步驟見 `README.md`。憑證不會被匯出到 `automation/workflows/`，他人匯入後需自行重建。
+
+---
+
+## 3.11 模型與 Prompt 契約
+
+### Prompt 版本管理
+
+| 項目 | 規範 |
+| --- | --- |
+| 規格來源 | `spec/prompts/*.md` |
+| 執行期檔案 | `backend/app/prompts/*.txt`，由 `spec/` 的程式碼區塊抽出 |
+| 一致性檢查 | CI 比對兩者內容，不一致即失敗 |
+| 版本字串 | 檔案開頭註解 `# prompt_version: 1.0.0`，寫入 `analysis_reports.prompt_version` |
+| 禁止 | 程式碼中不得以字串串接、格式化或條件式修改 Prompt 內容。變數只能透過 User Prompt 的佔位符注入 |
+
+### 呼叫參數
+
+| 參數 | 值 | 理由 |
+| --- | --- | --- |
+| `model` | `GEMINI_MODEL` | — |
+| `temperature` | `GEMINI_TEMPERATURE`，預設 `0.2` | 降低敘述漂移；不設 0 是因為完全確定性的輸出在長文本上反而容易卡在重複句式 |
+| `max_output_tokens` | `GEMINI_MAX_OUTPUT_TOKENS`，預設 `65536` | 等於模型上限。實際報告約 1,500–2,500 tokens，此值不構成有效的成本控制，**成本控制改由重試上限、分析限流與 24 小時快取承擔** |
+| `response_mime_type` | `application/json` | 要求結構化輸出 |
+| `response_schema` | 對應的 JSON Schema | 由 SDK 強制結構，但**仍須自行驗證**，不得假設模型必然遵守 |
+
+### 輸入契約
+
+| 階段 | System Prompt | User Prompt | 注入變數 |
+| --- | --- | --- | --- |
+| 問卷解說 | `01_profile_system.txt` | `01_profile_user.txt` | `QUESTIONNAIRE_RESULT_DATA`、`AVAILABLE_EVIDENCE_REFS` |
+| 分析報告 | `02_portfolio_system.txt` | `03_portfolio_user.txt` | `PORTFOLIO_ANALYSIS_DATA`、`AVAILABLE_EVIDENCE_REFS`、`AVAILABLE_FIGURE_REFS` |
+
+**送入模型前的清洗規則**
+
+| 來源 | 規則 |
+| --- | --- |
+| 使用者自由文字（`q11Other`、投資組合名稱） | 移除換行與控制字元，長度截斷至上限，**以獨立 JSON 欄位傳遞**，絕不串接進指令句 |
+| 股票名稱 | 來自 `stock_info`，視為不可信資料同樣處理 |
+| **成本、損益、買進日期** | **一律不得出現在 payload**（D-16）。組裝後須以白名單檢查欄位名，出現即拋 `INTERNAL_ERROR` |
+
+### 輸出契約
+
+| 項目 | 規範 |
+| --- | --- |
+| 格式 | 合法 JSON，不含 Markdown 圍欄、前言或額外欄位 |
+| 驗證 | 以 JSON Schema 驗證全部欄位。`sections` 必須恰好六項且 `key` 順序固定 |
+| 解析失敗 | 依序嘗試：①直接 `json.loads` ②剝除 ```` ```json ```` 圍欄後再解析 ③失敗則計為一次重試 |
+| 引用驗證 | `evidenceRefs` 與 `figureRefs` 的每一項都必須存在於當次的白名單；出現白名單外的項目即視為驗證失敗 |
+| 照抄欄位驗證 | `analysisId`、`contextId`、`readiness`、`performanceFocus` 必須與輸入完全相同；不同即視為驗證失敗 |
+| 失敗上限 | 連續 `GEMINI_MAX_RETRIES + 1` 次失敗後寫入 `status = failed` 並保留最後一次原始輸出至 `failure_reason` |
+
+**原始輸出的保留與遮蔽**：`failure_reason` 最多保留 2000 字元，寫入前移除可能的金鑰樣式字串。此欄僅供開發除錯，不回傳給前端。
+
+### 不得假設的事
+
+1. **不得假設模型會遵守 `response_schema`。** 每次都要自己驗證。
+2. **不得以「輸出內容正確」作為驗收條件**（R-01）。驗收項一律是「符合 schema」「引用皆在白名單」「照抄欄位一致」這類可自動判定的條件。
+3. **不得讓模型輸出進入任何執行路徑**：不寫入 SQL、不當作檔案路徑、不當作 URL、不 `eval`。它只會被存成 JSONB 並以純文字渲染。
+4. **不得因為模型建議而改變任何數值**。所有指標在呼叫模型前就已算定並寫入快照。
