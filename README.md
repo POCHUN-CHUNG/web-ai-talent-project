@@ -22,6 +22,8 @@ ai-talent-project/
 ├── docker-compose.yml       # 服務定義
 ├── .env                     # 實際帳密設定（不進版控）
 ├── .env.example             # 帳密設定範本
+├── CLAUDE.md                # 開發規範（worktree 測試、註解、README／changelog 維護）
+├── changelog/               # main 每個版本的變更說明（改了哪些檔案、各檔案功能）
 ├── frontend/                # React 原始碼
 ├── backend/                 # FastAPI 原始碼
 ├── database/
