@@ -1,7 +1,7 @@
 # 03 · 契約層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.2.0 ｜ 最後更新：2026-09-20
+> 文件版本：1.3.0 ｜ 最後更新：2026-09-21
 
 本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
 
@@ -285,7 +285,7 @@ type ReportContent = {
 | 檔名慣例 | `backend/migrations/versions/<revision>_<snake_case_描述>.py` |
 | 破壞性變更 | 開發階段允許。正式上線後需提供 `downgrade()` |
 | 回滾 | 每個 migration 必須實作 `downgrade()`；無法回滾者需在檔案開頭註明理由 |
-| 種子資料 | `stock_info` 由 `POST /stocks/sync` 填入，不寫死於 migration。開發環境另備 `tests/fixtures/stock_info_sample.json` 供離線測試 |
+| 種子資料 | `stock_info` 由 `POST /stocks/fetch` 填入，不寫死於 migration。開發環境另備 `tests/fixtures/stock_info_sample.json` 供離線測試 |
 
 ### DDL
 
@@ -464,8 +464,8 @@ CREATE INDEX idx_reports_analysis ON analysis_reports (analysis_result_id, creat
 | 分頁 | `?page=1&page_size=20`，回應 `{"items": [], "page": 1, "page_size": 20, "total": 0}`，`page_size` 上限 100 |
 | 排序 | `?sort=field` 升冪、`?sort=-field` 降冪 |
 | 前端錯誤格式 | `{"detail": {"code": "...", "message": "中文訊息", "trace_id": "uuid"}}` |
-| n8n 錯誤格式 | `{"detail": {"status": "失敗", "message": "中文訊息"}}` |
-| n8n 成功格式 | `{"status": "成功", "message": "中文訊息", ...資料}` |
+| n8n 錯誤格式 | `{"message": "抓取訊息", "status": "失敗", "success_count": 0, "fail_count": 0, "error": "中文原因"}`，與成功**同一層**，不包 `detail`，含金鑰錯誤（D-59） |
+| n8n 成功格式 | `{"message": "抓取訊息", "status": "成功", "success_count": 0, "fail_count": 0, ...資料}`。`message` 只寫做什麼，成敗看 `status`；**不含時間** |
 | CORS | `allow_origins` 只含 `FRONTEND_ORIGIN`；`allow_methods` 為 `GET, POST, PATCH, DELETE, OPTIONS`；`allow_credentials` 為 `true` |
 
 ### 錯誤碼
@@ -700,73 +700,76 @@ Auth: Cookie
 Response 200: AnalysisReport
 ```
 
-### 市場資料（僅限 n8n）
+### 抓取端點（僅限 n8n）
+
+以下三支端點皆由**後端自行抓取並存入資料庫**，n8n 只負責啟動並顯示結果，呼叫時**除 `X-API-Key` 外不傳任何參數**（D-56）。成功與失敗的回傳欄位在同一層（D-59）。
 
 ```
-POST /market-data/daily-prices
+POST /bank-rates/fetch
 Auth: X-API-Key
-Idempotency: 以 (symbol, trade_date) UPSERT，重送不產生重複列
 
-Request:
+行為：五家銀行各自抓取（單家失敗自動重試），任一家最終失敗即整批不寫入、舊值保留。
+      全部成功則覆寫唯一一列。
+
+Response 200:
 {
-  "rows": [
-    {"symbol": "2330",   "adjClose": "1190.0000",  "tradeDate": "2026-09-19"},
-    {"symbol": "IR0001", "adjClose": "42315.8700", "tradeDate": "2026-09-19"}
-  ]
+  "message": "抓取五大公股銀行利率", "status": "成功",
+  "success_count": 5, "fail_count": 0,
+  "rates": [ {"bank": "taiwan_bank", "name": "臺灣銀行", "rate": 1.69}, ... ]
 }
 
-Response 200:
-{ "status": "成功", "message": "已寫入 2 筆", "inserted": 2, "updated": 0, "skipped": 0 }
-
-Errors:
-| 400 | 代號不符白名單且不等於基準代號、日期格式錯誤、adjClose ≤ 0 |
-| 404 | 代號不在 stock_info（需先同步基本資料） |
-| 422 | rows 超過 5000 筆 |
+Errors（欄位同成功格式，另有 error）：
+| 502 | 任一家抓取失敗（success_count／fail_count 為成功與失敗的家數） |
+| 500 | 已抓取但寫入資料庫失敗 |
 ```
 
-**`skipped` 的定義**：該列與資料庫現值完全相同，未執行寫入。用於讓 n8n 分辨「重跑」與「真的有新資料」。
-
 ```
-POST /stocks/sync
+POST /stocks/fetch
 Auth: X-API-Key
-Idempotency: 以 symbol UPSERT
+Idempotency: 以 symbol 覆寫
 
-Request:
+行為：抓證交所 ISIN 四張分類表（每張各自重試），以白名單正規式過濾，ETF 無產業別者補 "ETF"，
+      附加 IR0001。任何一張表失敗即整批不寫入。只新增與覆寫，不刪除下市股票。
+
+Response 200:
+{ "message": "抓取上市櫃股票基本資料", "status": "成功", "success_count": 2269, "fail_count": 0 }
+
+Errors：| 502 | 抓取失敗或表格格式異常 | 500 | 寫入資料庫失敗 |
+```
+
+```
+POST /market-data/fetch
+Auth: X-API-Key
+Idempotency: 以 (symbol, trade_date) 覆寫
+
+行為：依 stock_info 建立清單（上市 .TW、上櫃 .TWO；排除 market = 指數），
+      抓取個股與大盤 IR0001 的日收盤價，規則見 §3.5，起訖日由後端計算。
+
+Response 200:
 {
-  "rows": [
-    {"symbol": "2330",   "name": "台積電",       "market": "上市", "industry": "半導體業"},
-    {"symbol": "IR0001", "name": "加權報酬指數", "market": "指數", "industry": "大盤"}
-  ]
+  "message": "抓取上市櫃股票日成交資訊", "status": "成功",
+  "success_count": 2268, "fail_count": 0,
+  "stock_success_count": 2267, "index_success_count": 1,
+  "rows_written": 47609, "deleted_count": 0,
+  "restated": [],
+  "abnormal": [ {"symbol": "6236", "trade_date": "2026-09-18", "change": -0.1601} ],
+  "failed": [],
+  "no_data_count": 1,
+  "no_data": [ {"symbol": "00838B", "name": "永豐7-10年中國債"} ]
 }
 
-Response 200:
-{ "status": "成功", "message": "已同步 2 筆", "inserted": 0, "updated": 2 }
+Errors（欄位同成功格式，另有 error）：
+| 502 | 部分失敗：成功的資料已寫入並保留，失敗清單見 failed（每項 {symbol, reason}，最多 100 項） |
+| 422 | stock_info 是空的，須先執行 /stocks/fetch |
+| 409 | 上一次抓取仍在執行（Redis 鎖，逾 3 小時自動失效） |
+| 500 | 未預期的錯誤 |
 ```
 
-**不刪除下市股票**：`stock_info` 只新增與更新。下市股票若被使用者持有，紀錄必須保留（外鍵為 `RESTRICT`）。
+**回傳欄位說明**：`success_count` ＝ 個股成功數 ＋ 大盤成功數（以代號計，一檔算一筆）；`rows_written` 為實際寫入（新增或覆寫）的資料列數；`restated` 為因除權息還原基準改變而整檔重抓的代號；`abnormal` 為近 14 天單日漲跌幅超過 11% 的提醒（僅提醒，不影響成敗）；`no_data` 為 Yahoo 沒有價格的代號（不算失敗）；`deleted_count` 為本次清除的過期列數（只在全部成功時才會清理）。
+
+**錯誤格式的例外**：金鑰錯誤（401）與後端未設定金鑰（503）亦使用同一格式，`message` 為「後端金鑰驗證」。
 
 ```
-POST /market-data/purge
-Auth: X-API-Key
-
-刪除保留期以外的歷史報價。保留期由分析上限推導，不寫死天數：
-
-DELETE FROM daily_prices
-WHERE trade_date < CURRENT_DATE
-                 - (:max_lookback_years || ' years')::interval
-                 - (:buffer_days        || ' days')::interval;
-
-預設為 10 年 + 31 天。使用 PostgreSQL 的 interval 運算，閏年由資料庫處理，
-不以固定天數近似（3650 天比 10 年短約 2 至 3 天，會讓 10 年回溯的期間被悄悄限縮）。
-
-Response 200:
-{ "status": "成功", "message": "已清除 1,240 筆", "deleted": 1240, "cutoffDate": "2016-08-20" }
-```
-
-`cutoffDate` 回傳本次採用的界線日期，供 n8n 記錄與人工核對。
-
-```
-POST /bank-rates/fetch          沿用現況，不修改
 GET  /bank-rates/latest         Auth: Cookie
 Response 200:
 {
@@ -866,42 +869,74 @@ healthcheck:
 | 項目 | 內容 |
 | --- | --- |
 | 呼叫方 | n8n → `POST /bank-rates/fetch` |
-| 實作 | 沿用現況 `services/bank_rates.py`，以 `curl_cffi` 模擬瀏覽器、`BeautifulSoup` + `lxml` 解析 |
-| 失敗行為 | 任一家失敗即整批失敗，回 `502`，**不寫入任何資料**，舊值保留 |
-| 網頁改版風險 | 見 `SPEC.md` R-04。解析失效時 `float()` 會拋例外，被外層捕捉為 502 |
+| 實作 | `services/bank_rates.py`，以 `curl_cffi` 模擬瀏覽器、`BeautifulSoup` + `lxml` 解析 |
+| 重試 | 每家最多 3 次（間隔 5、20 秒） |
+| 數值檢查 | 利率須大於 0 且小於 10（%），否則視為網頁解析錯誤 |
+| 失敗行為 | 任一家最終失敗即整批失敗，回 `502`，**不寫入任何資料**，舊值保留 |
+| 網頁改版風險 | 見 `SPEC.md` R-04。解析失效時該家回報失敗，其他家的結果照常列在 `error` 中 |
+
+### 股票基本資料
+
+| 項目 | 內容 |
+| --- | --- |
+| 來源 | 證交所 ISIN 分類表，四組（上市普通股含 KY、上櫃普通股、上市 ETF、上櫃 ETF） |
+| 實作 | `services/stock_info.py`；代號欄一律當**文字**讀取（避免 `0050` 掉開頭的 0） |
+| 過濾 | 代號白名單 `^([1-9]\d{3}\|00\d{2,3}[A-Za-z]?)$`；市場別只接受「上市」「上櫃」，否則整批視為異常 |
+| 補值 | ETF 無產業別者補 `ETF`；附加 `IR0001`（`加權報酬指數`／`指數`／`大盤`） |
+| 寫入 | 以 `symbol` 覆寫，同一次提交；**只新增與覆寫，不刪除** |
 
 ### 台股日報價與市場基準
 
 | 項目 | 個股 | 市場基準 |
 | --- | --- | --- |
-| 來源 | yfinance | 證交所 `MFI94U` |
-| 抓取程式 | **由柏鈞自行撰寫**，不在本規格的實作範圍 | 同左 |
-| 代號轉換 | `market` 為上市 → `.TW`、上櫃 → `.TWO`。**只在抓取端做**，資料庫只存純代號 | 不需轉換 |
-| 回傳粒度 | 可指定期間 | **一次一個月**，回補 10 年需 120 次呼叫 |
-| 格式轉換 | 取 `Adj Close` | 民國年 +1911；數值去千分位逗號；`stat` 須為 `OK` |
-| 寫入 | `POST /market-data/daily-prices` | 同一支端點、同一格式 |
+| 來源 | yfinance（`auto_adjust=True`，取還原後收盤價） | 證交所 `MFI94U` 報酬指數 |
+| 實作 | `services/market_data.py`（由 `POST /market-data/fetch` 觸發） | 同左 |
+| 代號轉換 | `market` 為上市 → `.TW`、上櫃 → `.TWO`，**只在抓取當下轉換**，資料庫只存純代號 | 不需轉換 |
+| 回傳粒度 | 可指定期間，每 50 檔一批 | **一次一個月**，每月間隔 2 秒 |
+| 格式轉換 | 空值與非正數丟棄 | 民國年 +1911；去千分位逗號；`stat` 為 `OK` 才算成功 |
+| 寫入 | 直接寫入 `daily_prices`，以 `(symbol, trade_date)` 覆寫 | 同左 |
+
+**抓取區間**（起訖日由後端計算，「10 年 + 31 天」以日曆計算）：
+
+| 對象 | 條件 | 區間 |
+| --- | --- | --- |
+| 個股 | `daily_prices` 已有該代號價格 | 過去 1 個月 |
+| 個股 | 完全沒有價格（首次上線、新上市） | 10 年 + 31 天 |
+| 大盤 | 已有 `IR0001` 價格 | 1 個月前的月初至本月 |
+| 大盤 | 完全沒有 | 10 年 + 31 天 |
+
+**寫入與失敗規則（D-60）**
+
+1. 不寫入：週六日的價格、當天 14:00（台北）前的價格、空值、非正數。
+2. 個股每 50 檔一批，**每批抓完立即提交**；批次抓取最多重試 3 次（間隔 5、20 秒）。
+3. 連續 3 批整批失敗，判定被來源封鎖並中止，其餘代號記為失敗。
+4. 批次中沒有資料的代號會單獨再確認：出錯算失敗；同批其他檔正常而該檔為空表，列入 `no_data`，**不算失敗**。
+5. 大盤依時間由舊到新逐月處理，每月各自重試並立即提交；某月最終失敗即**停在該月之前**，不寫入更後面的月份，資料庫因此不會出現缺口，下次執行從缺口補起。
+6. **除權息保護**：已有價格的個股，比對「這次抓到的最舊一天」與資料庫同日價格，差超過 0.01% 即整檔重抓 10 年並覆寫；重抓失敗則該檔完全不動、記為失敗。
+7. 全部沒有失敗才清除 `trade_date` 早於「今天 − 10 年 − 31 天」的列。
+8. Redis 鎖 `lock:market_data_fetch` 防止同時執行，逾 3 小時自動失效（程式被強制中止時鎖會殘留至逾時）。
 
 ### n8n 排程
 
-**三條工作流程，皆為每日 `00:00` 執行**。n8n 容器已設 `GENERIC_TIMEZONE=Asia/Taipei`，Schedule Trigger 直接填本地時間，不需換算 UTC。後端不做任何排程（`CLAUDE.md` §8）。
+**三條工作流程**，時間如下（D-58）。n8n 容器已設 `GENERIC_TIMEZONE=Asia/Taipei`，Schedule Trigger 直接填本地時間。後端不做任何排程（`CLAUDE.md` §8）。
 
-| 工作流程 | 排程 | 步驟 |
-| --- | --- | --- |
-| 銀行利率 | 每日 `00:00` | ①`POST /bank-rates/fetch`（Header Auth 帶 `X-API-Key`）②Email 通知結果 |
-| 股票基本資料 | 每日 `00:00` | ①抓取證交所 ISIN 四組分類表 ②以白名單正規式過濾 ③附加 `IR0001` 一列 ④`POST /stocks/sync` |
-| 日收盤價 | 每日 `00:00` | ①讀取需要的代號清單 ②yfinance 抓**過去 1 個月**的個股收盤 ③`MFI94U` 抓**過去 1 個月**的基準 ④合併為單一 `rows` ⑤`POST /market-data/daily-prices` ⑥**寫入成功後**呼叫 `POST /market-data/purge` |
+| 工作流程 | 排程 | 呼叫 | HTTP 逾時 |
+| --- | --- | --- | --- |
+| 銀行利率 | 每日 `00:00` | `POST /bank-rates/fetch` | 2 分鐘 |
+| 股票基本資料 | 每日 `13:30` | `POST /stocks/fetch` | 5 分鐘 |
+| 每日股價與大盤 | 每日 `14:00` 與 `00:00` | `POST /market-data/fetch` | 60 分鐘 |
 
-**共同的失敗處理**：重試 2 次、間隔 5 分鐘；仍失敗則寄失敗通知。非交易日或該區間無新資料時後端回 `inserted: 0`，**不視為錯誤**。
+**共同節點架構**：Schedule Trigger → HTTP Request → If → Email（成功信／失敗信各一）。
 
-**為什麼日收盤價每次抓一個月而不是只抓當日**：以 `(symbol, trade_date)` UPSERT，重抓沒有副作用，卻能自我修復。任一天因為網路、限流或非交易日判斷錯誤而漏掉，隔天的流程會自動補回，不需人工介入或另寫補資料腳本。單次資料量約 50 檔 × 21 個交易日 ≈ 1050 列，遠低於 5000 列上限。
+| 節點 | 設定 |
+| --- | --- |
+| HTTP Request | `POST`、Header Auth（`X-API-Key`）、不送任何 Query／Body／參數；Options → Response 設 **Never Error**；Settings → On Error 設 *Continue (regular output)*；**不開** Retry On Fail |
+| If | `{{ $json.status }}` 等於 `成功` |
+| Email | 成功信與失敗信各自組字；失敗信用 `{{ $json.error }}` 等同一層欄位；開始／結束／執行時間由 n8n 自己計算 |
 
-**跨月的注意事項**：`MFI94U` 一次只回傳一個月。「過去 1 個月」在月初會橫跨兩個月份，此時需呼叫兩次（上個月與本月），再合併送出。
+**排程時間的理由**：股市 13:30 收盤，後端 14:00 前不寫當天價格，故 14:00 為當日收盤價的第一次抓取；`00:00` 那次補上當時尚未公布的大盤報酬指數與延後更新的還原價，也是保底。基本資料排在股價前 30 分鐘，新上市股票當天即有清單。同一條流程兩次觸發需間隔到前一次結束，否則回 `409`。
 
-**清理為什麼排在最後且必須在寫入成功之後**：若寫入失敗仍執行清理，資料會同時停止更新並持續縮短，幾天後回溯期間就悄悄不足了。順序寫死為「先寫入、確認成功、再清理」。
-
-**為什麼緩衝設 31 天**：緩衝區間剛好等於每次抓取的區間，因此不會出現「今天刪掉、明天又抓回來」的來回。
-
-**歷史回補**為一次性作業，不排程：逐月呼叫 `MFI94U` 約 120 次取得基準 10 年資料，並以 yfinance 取得各持股的歷史收盤，分批送入同一支寫入端點。呼叫證交所時需自行加入間隔，避免被限流。
+**首次上線**：先執行股票基本資料，再執行每日股價與大盤；因資料庫沒有價格，會自動走「10 年 + 31 天」全量抓取，不需另寫回補腳本。
 
 **金鑰設定**：三條工作流程的 HTTP Request 節點皆使用同一組 Header Auth 憑證（名稱 `X-API-Key`），設定步驟見 `README.md`。憑證不會被匯出到 `automation/workflows/`，他人匯入後需自行重建。
 

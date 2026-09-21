@@ -1,7 +1,7 @@
 # 06 · 執行層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.2.0 ｜ 最後更新：2026-09-20
+> 文件版本：1.3.0 ｜ 最後更新：2026-09-21
 
 本層定義實作階段拆分、完成定義、版控規範與部署流程。**開工前與交付前必讀。**
 
@@ -67,13 +67,13 @@
 | 工作 | 檔案 |
 | --- | --- |
 | `stock_info`、`daily_prices` 兩張表與 migration | `models.py`、`migrations/` |
-| `POST /stocks/sync`、`GET /stocks` | `routers/stocks.py` |
-| `POST /market-data/daily-prices`、`POST /market-data/purge` | `routers/market_data.py` |
-| 代號白名單驗證、批次 UPSERT、`skipped` 判定 | `services/` |
-| n8n 三條工作流程（時間、步驟、失敗處理見 `spec/03-contract.md` §3.5） | `automation/workflows/` |
-| 修正既有工作流程與 `/bank-rates/fetch` 回傳格式的脫鉤（X-02、X-03） | `automation/workflows/` |
+| `POST /stocks/fetch`、`GET /stocks` | `routers/stocks.py` |
+| `POST /market-data/fetch`（含過期清理） | `routers/market_data.py` |
+| 抓取服務：代號白名單、分批抓取與重試、覆寫寫入、除權息保護、異常提醒、n8n 統一回傳格式 | `services/stock_info.py`、`services/market_data.py`、`services/n8n_result.py` |
+| n8n 三條工作流程（時間、節點架構、失敗處理見 `spec/03-contract.md` §3.5） | `automation/workflows/` |
+| 各工作流程的 Email 節點依統一回傳格式調整（X-02、X-03） | `automation/workflows/` |
 
-**出場條件**：F1–F10 通過；`stock_info` 已載入完整清單；`daily_prices` 已回補基準與測試用個股的 10 年資料。
+**出場條件**：F1–F14 通過；`stock_info` 已載入完整清單；`daily_prices` 已完成首次全量抓取（個股與基準各 10 年）。
 
 ### 階段 3 · 問卷與風險屬性
 
