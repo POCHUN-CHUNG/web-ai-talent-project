@@ -349,7 +349,7 @@ web-ai-talent-project/
 | 決策 ID | 對應項目 | 裁示內容 | 連帶效應 |
 | --- | --- | --- | --- |
 | D-01 | G-01 分析期間 | **不鎖定單一值**。使用者於「開始分析」前的調整畫面，以滑桿設定 1～10 年（整數年）。 | 所有指標改為「依所選期間計算」；滑桿值需納入分析快照；效能預算需以 10 年（約 2520 交易日）為上界估算 |
-| D-02 | G-04 股價來源 | 採 **yfinance**。抓取程式由柏鈞後續自行撰寫（**已由 D-56 取代：改由後端執行**）；SPEC 只定義「寫入資料庫的資料契約」，並提供固定格式的少量範例資料供對齊。 | §3.2 需給出 `daily_prices` 表的完整欄位定義與代號格式；抓取模組本身列為「介面契約，不含實作」 |
+| D-02 | G-04 股價來源 | 採 **yfinance**。抓取程式由柏鈞後續自行撰寫（**已由 D-56 取代：改由後端執行**）；SPEC 只定義「寫入資料庫的資料契約」，並提供固定格式的少量範例資料供對齊。 | §3.2 需給出 `daily_quotes` 表的完整欄位定義與代號格式；抓取模組本身列為「介面契約，不含實作」 |
 | D-03 | X-01 / Q-01 | **D2（指標說明書）§2.5 的 $R_f = 0\%$ 為誤植，作廢**。所有需要無風險利率的計算，一律使用五大公股銀行 1 年期定期存款機動利率。 | Sharpe 改為 $(R_p - R_f)/\sigma_p$；$MAR$ 是否連動見 N-02；銀行利率管線成為指標計算的必要相依 |
 | D-04 | G-11 AI 模型 | 採 **Gemini 3.5 Flash**（Gemini API 穩定模型代號 `gemini-3.5-flash`，輸入上限 1,048,576 tokens、輸出上限 65,536 tokens，支援 structured output 與 thinking）。 | 官方目前未發布帶日期的 snapshot 代號，`gemini-3.5-flash` 屬滾動別名，模型行為可能隨時間漂移 → 列為風險 R-01，驗收項須以「符合 JSON schema」為準，不得以「輸出內容正確」為準 |
 | D-05 | 第四階段 Prompt | 柏鈞已有草稿，將另行提供。本文件原訂「由我撰寫初版」改為「收到草稿後進行比對、補齊契約欄位與稽核」。 | §六的任務順序調整 |
@@ -447,20 +447,20 @@ web-ai-talent-project/
 
 | 決策 ID | 對應項目 | 裁示內容 | 連帶效應 |
 | --- | --- | --- | --- |
-| D-31 | 報價欄位 | 經逐項確認，開盤價、最高價、最低價、成交量**不被 14 項指標與四張圖的任何一項使用**，全部不存。`daily_prices` 只保留 `adj_close`。 | 欄位從 8 個減為 6 個；yfinance 抓取端只需送出收盤價 |
-| D-32 | 個股與指數共用資料表 | `market_index_prices` 表取消，IR0001 存入 `daily_prices`，以 `asset_type` 欄位（`equity` / `index`）區分。 | 端點從兩支併為一支 `/market-data/daily-prices`；表數量由 11 張減為 10 張 |
+| D-31 | 報價欄位 | 經逐項確認，開盤價、最高價、最低價、成交量**不被 14 項指標與四張圖的任何一項使用**，全部不存。`daily_quotes` 只保留 `adj_close`。 | 欄位從 8 個減為 6 個；yfinance 抓取端只需送出收盤價 |
+| D-32 | 個股與指數共用資料表 | `market_index_prices` 表取消，IR0001 存入 `daily_quotes`，以 `asset_type` 欄位（`equity` / `index`）區分。 | 端點從兩支併為一支 `/market-data/daily-prices`；表數量由 11 張減為 10 張 |
 | D-33 | 收盤價欄位命名 | 欄位名為 **`adj_close`** 而非 `close`。個股存 yfinance 的 `Adj Close`，指數存報酬指數收盤值。 | 欄位名本身承載「永遠是含息基準」的約束。寫入未還原的原始收盤價不會報錯，只會讓長期報酬與 Beta 靜默失真，故以命名防呆 |
 | D-34 | 分析等待期的畫面 | 前端在量化與 AI 兩者都完成前**不顯示任何圖表**，改以分階段狀態文字說明進度（量化指標計算中 → 分析解說產生中 → 完成）。 | 兩支端點的拆分理由改為「故障隔離」而非「提早顯示」。新增 `computing` / `interpreting` / `ready` / `partial` / `failed` 五種前端狀態 |
 | D-35 | 容器映像標籤 | `pgadmin4` 與 `n8n` **維持 `latest`**，不固定版本。 | 規則改為：應用服務映像（frontend、backend、postgres、redis）必須固定標籤；工具類容器允許 `latest` |
-| D-36 | `daily_prices` 精簡 | 移除 `source` 與 `asset_type` 兩欄。 | 僅剩 `symbol`、`trade_date`、`adj_close`、`updated` 四個資料欄位。個股與指數由代號本身區分：基準為 `MARKET_BENCHMARK_SYMBOL`，其餘代號皆可於 `instruments` 查到 |
+| D-36 | `daily_quotes` 精簡 | 移除 `source` 與 `asset_type` 兩欄。 | 僅剩 `symbol`、`trade_date`、`adj_close`、`updated` 四個資料欄位。個股與指數由代號本身區分：基準為 `MARKET_BENCHMARK_SYMBOL`，其餘代號皆可於 `instruments` 查到 |
 | D-37 | `instruments` 資料表 | 由證交所基本資料表匯入，四個資料欄位：`symbol`、`name`、`market`、`industry`，加 `updated`。以 `symbol` 為自然主鍵。 | 新增 `POST /instruments/sync` 端點；`holding_lots.symbol` 加外鍵指向它；`IR0001` 不寫入此表 |
 | D-38 | 代號格式 | 資料庫一律存**純代號**，不含 `.TW`／`.TWO` 後綴。 | yfinance 的後綴拼接只在抓取當下依 `stock_info.market` 處理（D-56 起由後端抓取服務負責），資料庫不存後綴。`symbol` 型別由 `VARCHAR(16)` 縮為 `VARCHAR(10)` |
 | D-39 | 時間欄位命名 | 最後更新時間一律 `updated`，建立時間一律 **`created`**（非 `created_at`）。 | `BankRate.fetched_at` → `updated`、`User.created_at` → `created`（既有程式需在後續 PR 修改）。`bank_rates.updated` 同時是「同一批五家銀行」的分組鍵，此語意需以註解與規格補足。唯讀快照表不設 `updated` |
 | D-40 | 命名以直白為準 | 資料表、欄位、API 路徑、檔名一律選最好懂的說法：`instruments` → **`stock_info`**、`holding_lots` → **`holding_lots`**、`questionnaire_submissions` → **`questionnaire_answers`**、`analyses` → **`analysis_results`**、前端 `Landing.tsx` → **`Login.tsx`**。 | API 路徑同步改為 `/portfolios/{id}/holding-lots`、`/questionnaire/answers`、`/stocks`；分析路徑一律用單數 `/analysis/...`，避開 analyses／analysis 的拼寫陷阱 |
-| D-41 | `IR0001` 納入 `stock_info` | 依柏鈞的抓取腳本，`IR0001` 與個股同表，`name` = `加權報酬指數`、`market` = `指數`、`industry` = `大盤`。 | 代號體系完全統一，`daily_prices.symbol` 與 `holding_lots.symbol` 皆可建立外鍵。但 `holding_lots` 需在應用層擋下 `market = '指數'` 的代號，避免使用者把指數當持股輸入 |
+| D-41 | `IR0001` 納入 `stock_info` | 依柏鈞的抓取腳本，`IR0001` 與個股同表，`name` = `加權報酬指數`、`market` = `指數`、`industry` = `大盤`。 | 代號體系完全統一，`daily_quotes.symbol` 與 `holding_lots.symbol` 皆可建立外鍵。但 `holding_lots` 需在應用層擋下 `market = '指數'` 的代號，避免使用者把指數當持股輸入 |
 | D-43 | `bank_rates` 實際結構 | 經重讀程式碼確認，該表已改為**寬表、永遠只有一列**（五家各一欄 + `updated` 為主鍵），寫入時先 `DELETE` 全表再 `INSERT`。 | 原「`updated` 兼任批次分組鍵」的顧慮作廢；$R_f$ 為單列查詢。但 `bank_rates` 不保留歷史，因此 P-23 的 TTL 規則不適用，且「$R_f$ 取分析期間平均」的路線永久關閉。新增第六家銀行需 `ALTER TABLE` |
 | D-49 | `holding_lots` 維持原名 | 不改為 `purchases`。API 路徑為 `/portfolios/{id}/holding-lots`，型別名 `HoldingLot`。 | 中文一律稱「買進紀錄」，命名表中的改名建議撤回 |
-| D-50 | `daily_prices` 移除 `updated`、欄位順序調整 | 欄位序為 `id`、`symbol`、`adj_close`、`trade_date`，共三個資料欄位。 | `trade_date` 已足以定位每一列，多記寫入時間對查詢與除錯無貢獻。P-45 的 `updated` 適用表清單同步移除 `daily_prices` |
+| D-50 | `daily_quotes` 移除 `updated`、欄位順序調整 | 欄位序為 `id`、`symbol`、`adj_close`、`trade_date`，共三個資料欄位。 | `trade_date` 已足以定位每一列，多記寫入時間對查詢與除錯無貢獻。P-45 的 `updated` 適用表清單同步移除 `daily_quotes` |
 | D-51 | `/health` 非公開 | 只接受來源為 `127.0.0.1` 或 `::1` 的請求，其餘一律回 **404**（非 403，避免確認端點存在）。使用者與 n8n 皆無法存取。 | `docker-compose.yml` 的 backend 需補 healthcheck，在容器內以 `curl` 呼叫。此端點不限流、不寫日誌 |
 | D-52 | Gemini 呼叫參數 | 逾時由 60 秒改為 **180 秒**；`max_output_tokens` 由 8192 提高至 **65,536**（等於 `gemini-3.5-flash` 的模型上限，無法再高）。 | 輸出上限拉到模型天花板後，該參數**不再構成有效的成本控制**；成本改由重試上限 2 次、分析每分鐘 3 次限流、報告 24 小時快取三項承擔。AI 端點 p95 預算同步由 30 秒調整為 60 秒 |
 | D-53 | 圖表不加深色補償 | 撤回 D-48 附帶的三項強制條件（1px 描邊、直接標籤不得省略、線寬 2.5px），使用原設計。 | 既有的「≥2 序列必須有圖例、≤4 序列加直接標籤」與視覺隱藏表格替代（FR-34）已足以讓識別不依賴顏色。驗收項 G5、G6 移除，G7–G16 重新編號為 G5–G14 |
@@ -484,3 +484,6 @@ web-ai-talent-project/
 | D-58 | n8n 排程時間 | 銀行利率：每日 **00:00**；股票基本資料：每日 **13:30**；每日股價與大盤：每日 **14:00 與 00:00**（台北時間）。每條流程為 Schedule Trigger → HTTP Request → If（依 `status`）→ Email。 | 取代 D-45。14:00 為收盤（13:30）後第一次抓當日收盤價，且後端 14:00 前不寫當天價；00:00 補上當時尚未公布的大盤（證交所報酬指數）與延後更新的還原價。基本資料排在股價前，新上市股票當天即有清單 |
 | D-59 | n8n 回應格式 | 成功與失敗**同一層**、同一組欄位：`message`（只寫做什麼）、`status`（`成功`／`失敗`）、`success_count`、`fail_count`，失敗另有 `error`；**不含時間**、**不包 `detail`**（含金鑰錯誤 401／503）。n8n 的 HTTP Request 節點設 Never Error，以 If 判斷 `status`。 | 取代 D-44 的 n8n 格式。n8n 端不設自動重試（Never Error 下 502 不算節點錯誤），重試由後端負責 |
 | D-60 | 資料品質與失敗處理 | 後端不寫入：週六日、當天 14:00 前、空值與非正數的價格。個股每 50 檔一批，**每批抓完立即提交**；批次與單月各自重試 3 次（間隔 5、20 秒）；連續 3 批整批失敗判定被擋並中止；大盤逐月由舊到新，某月最終失敗即**停在該月之前**，不寫更後面的月份。Yahoo 對單一代號查無資料（同批其他檔正常）列為 `no_data`，**不算失敗**。全部無失敗才執行過期清理。Redis 鎖防止同時執行（逾 3 小時自動失效）。回傳另列近 14 天單日漲跌幅超過 11% 的 `abnormal` 提醒（不影響成敗）。 | Yahoo 會在休市日多送假資料列（實測週日 1838 檔、單日 +299%），不過濾會毀掉回撤計算。`00838B`（永豐7-10年中國債，上櫃債券 ETF）為 Yahoo 無資料的實例 |
+| D-61 | 日行情資料表改名 | `daily_prices` 改名為 **`daily_quotes`**（日行情），ORM 類別 `DailyQuote`。目前仍只存 `adj_close`（還原收盤價）；之後可能存放成交相關資訊（不只成交價），**新增任何欄位須先改契約**。 | 取代 D-31 中「表名為 daily_prices」的部分；D-31 的「開高低量不存」在本版仍成立。索引與限制名稱一併改為 `idx_daily_quotes_symbol_date`、`uq_daily_quotes`、`ck_daily_quotes_positive`。因無 migration，舊表以 `DROP TABLE` 移除後由 `create_all` 建立新表 |
+| D-62 | 保留期改讀環境變數 | 日行情的保留年數與首次抓取年數讀 **`ANALYSIS_MAX_LOOKBACK_YEARS`**（整數 1～10，預設 10）；緩衝天數讀 **`PRICE_RETENTION_BUFFER_DAYS`**（整數 0～366，預設 31）。兩者皆經 `.env`、`docker-compose.yml` 傳入後端；不合法（非整數或超出範圍）時後端**無法啟動**。 | 取代 P-23 的「程式常數」。實際保留期 = 年數 + 緩衝天數，以日曆計算 |
+| D-63 | 抓取清單來源與分流 | 每日抓取要抓什麼**完全由 `stock_info` 決定**，依 `market` 分流：`上市`、`上櫃` → yfinance；`指數` → 證交所。`stock_info` 是空的就**什麼都不抓**（回 422，含大盤），後端**不會**自行寫入 `IR0001`。指數代號須在程式中登記資料來源，未登記者記為失敗（不悄悄略過）。 | 修正先前實作把 `IR0001` 強制寫入並無條件抓取的偏差。基本資料須先由 `POST /stocks/fetch` 建立（含 `IR0001`）。`index_success_count` 在清單沒有指數時為 0 |

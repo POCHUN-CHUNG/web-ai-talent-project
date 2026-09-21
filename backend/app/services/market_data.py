@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -13,7 +14,7 @@ from sqlalchemy import delete, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.models import DailyPrice, StockInfo
+from app.models import DailyQuote, StockInfo
 from app.services.n8n_result import with_retry
 from app.services.stock_info import BENCHMARK_ROW
 
@@ -21,9 +22,28 @@ logger = logging.getLogger(__name__)
 
 # ── 抓取設定 ──
 TAIPEI = ZoneInfo("Asia/Taipei")
-BENCHMARK_SYMBOL = BENCHMARK_ROW["symbol"]  # 大盤指數代號 IR0001
-LOOKBACK_YEARS = 10  # 首次全量抓取與資料保留期：今天往前 10 年（與規格書「保留期＝分析上限 10 年」一致）
-LOOKBACK_BUFFER_DAYS = 31  # 再多留 31 天緩衝（規格書 PRICE_RETENTION_BUFFER_DAYS 預設值）
+YFINANCE_MARKETS = ("上市", "上櫃")  # 市場別為這些的代號，向 yfinance 抓取
+INDEX_MARKET = "指數"  # 市場別為「指數」的代號，向證交所抓取
+BENCHMARK_SYMBOL = BENCHMARK_ROW["symbol"]  # 大盤指數代號 IR0001（僅用來登記它的資料來源）
+
+
+def _env_int(name: str, default: int, low: int, high: int) -> int:
+    # 【讀取整數環境變數】沒設定就用預設值；不是整數或超出範圍就直接丟錯，讓後端啟動失敗（不悄悄套用錯誤設定）。
+    # 參數：name=環境變數名稱、default=預設值、low/high=允許的最小／最大值
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        raise RuntimeError(f"環境變數 {name} 必須是整數，目前為 {raw!r}") from None
+    if not low <= value <= high:
+        raise RuntimeError(f"環境變數 {name} 必須介於 {low} 到 {high}，目前為 {value}")
+    return value
+
+
+LOOKBACK_YEARS = _env_int("ANALYSIS_MAX_LOOKBACK_YEARS", 10, 1, 10)  # 首次全量抓取與資料保留期的年數（同分析期間上限，預設 10 年）
+LOOKBACK_BUFFER_DAYS = _env_int("PRICE_RETENTION_BUFFER_DAYS", 31, 0, 366)  # 在上述年數之外多留的緩衝天數（預設 31 天）
 RECENT_MONTHS = 1  # 日常只抓過去 1 個月（已有資料的股票；大盤從 1 個月前的那個月 1 日起），同一代號同一天直接覆蓋
 RESTATE_TOLERANCE = Decimal("0.0001")  # 舊資料與新抓取同一天的價格相差超過 0.01% 視為除權息還原基準改變
 JUMP_THRESHOLD = 0.11  # 單日漲跌幅超過 11%（台股漲跌幅上限 10%）列為異常，僅提醒不擋
@@ -93,10 +113,10 @@ def _upsert_prices(db: Session, rows: list[dict]) -> int:
     values = list(unique.values())
     try:
         for i in range(0, len(values), UPSERT_CHUNK):
-            stmt = insert(DailyPrice).values(values[i : i + UPSERT_CHUNK])
+            stmt = insert(DailyQuote).values(values[i : i + UPSERT_CHUNK])
             # 2. 代號＋日期重複時改成覆寫
             stmt = stmt.on_conflict_do_update(
-                constraint="uq_daily_prices", set_={"adj_close": stmt.excluded.adj_close}
+                constraint="uq_daily_quotes", set_={"adj_close": stmt.excluded.adj_close}
             )
             db.execute(stmt)
         db.commit()
@@ -157,8 +177,8 @@ def _find_restated(db: Session, data: dict, ticker_to_symbol: dict) -> list[str]
     if not probe:
         return []
     old_rows = db.execute(
-        select(DailyPrice.symbol, DailyPrice.trade_date, DailyPrice.adj_close).where(
-            tuple_(DailyPrice.symbol, DailyPrice.trade_date).in_(list(probe))
+        select(DailyQuote.symbol, DailyQuote.trade_date, DailyQuote.adj_close).where(
+            tuple_(DailyQuote.symbol, DailyQuote.trade_date).in_(list(probe))
         )
     ).all()
     flagged = []
@@ -242,20 +262,15 @@ def _fetch_group(
         time.sleep(YF_BATCH_PAUSE)
 
 
-def fetch_stock_prices(db: Session, now: datetime) -> FetchReport:
+def fetch_stock_prices(db: Session, now: datetime, stocks: list) -> FetchReport:
     # 【抓取個股收盤價】依股票基本資料建立清單（上市 .TW、上櫃 .TWO）。
     # 資料庫「已有價格」的股票只抓過去 1 個月（直接覆蓋原有的值，並檢查除權息還原基準是否改變）；「完全沒有價格」的股票（首次上線、新上市）抓 10 年又 31 天。
-    # 參數：db=資料庫連線、now=現在時間（台北）
+    # 參數：db=資料庫連線、now=現在時間（台北）、stocks=要抓的清單 [(代號, 市場別)]，來自股票基本資料表
     report = FetchReport()
     today = now.date()
     end = today + timedelta(days=1)  # yfinance 的結束日不含當天，加 1 天才會包含今天
-    # 1. 從股票基本資料取出要抓的股票（排除大盤指數），並找出資料庫已有價格的代號
-    stocks = db.execute(
-        select(StockInfo.symbol, StockInfo.market)
-        .where(StockInfo.market.in_(["上市", "上櫃"]))
-        .order_by(StockInfo.symbol)
-    ).all()
-    have = set(db.execute(select(DailyPrice.symbol).distinct()).scalars())
+    # 1. 找出資料庫已有價格的代號
+    have = set(db.execute(select(DailyQuote.symbol).distinct()).scalars())
     recent = {_yf_ticker(s, m): s for s, m in stocks if s in have}
     backfill = {_yf_ticker(s, m): s for s, m in stocks if s not in have}
     # 2. 日常組：過去 1 個月，同一代號同一天直接覆蓋，並檢查除權息基準是否改變
@@ -298,36 +313,35 @@ def _fetch_month(month_first: date) -> list[tuple[date, Decimal]]:
     raise ValueError(f"證交所回應異常：{stat}")
 
 
-def fetch_index_prices(db: Session, start: date, now: datetime) -> FetchReport:
+# 各指數代號對應的「單月資料來源」；清單裡的指數代號必須在這裡登記才抓得到
+INDEX_MONTH_FETCHERS = {BENCHMARK_SYMBOL: _fetch_month}
+
+
+def fetch_index_prices(db: Session, symbol: str, start: date, now: datetime) -> FetchReport:
     # 【抓取大盤指數】從起始月份逐月抓到本月，「每個月抓完立即寫入」。
     # 為了讓資料庫永遠連續：依時間順序進行，任何一個月重試後仍失敗就停在該月之前，
     # 不跳過、不寫入更後面的月份（下次執行會從缺口補起）。
-    # 參數：db=資料庫連線、start=起始日（決定從哪個月開始）、now=現在時間（台北）
+    # 參數：db=資料庫連線、symbol=指數代號、start=起始日（決定從哪個月開始）、now=現在時間（台北）
     report = FetchReport()
-    # 1. 確保股票基本資料裡有 IR0001（日收盤價的代號必須先存在於基本資料）
-    try:
-        db.execute(insert(StockInfo).values(**BENCHMARK_ROW).on_conflict_do_nothing(index_elements=["symbol"]))
-        db.commit()
-    except Exception as exc:  # noqa: BLE001
-        db.rollback()
-        logger.exception("建立 IR0001 基本資料失敗")
-        report.failed.append({"symbol": BENCHMARK_SYMBOL, "reason": f"建立基本資料失敗：{exc}"[:200]})
+    # 1. 依代號找出資料來源；沒登記的指數代號視為失敗（不悄悄略過）
+    month_fetcher = INDEX_MONTH_FETCHERS.get(symbol)
+    if month_fetcher is None:
+        report.failed.append({"symbol": symbol, "reason": "尚未支援此指數的資料來源"})
         return report
-
     # 2. 由舊到新逐月處理
     month = start.replace(day=1)
     last_month = now.date().replace(day=1)
     while month <= last_month:
         try:
-            points = with_retry(lambda m=month: _fetch_month(m), f"證交所 {month:%Y-%m}", logger)
+            points = with_retry(lambda m=month: month_fetcher(m), f"證交所 {symbol} {month:%Y-%m}", logger)
         except Exception as exc:  # noqa: BLE001
             report.failed.append(
-                {"symbol": BENCHMARK_SYMBOL, "reason": f"{month:%Y-%m} 抓取失敗，已停在此月之前：{exc}"[:200]}
+                {"symbol": symbol, "reason": f"{month:%Y-%m} 抓取失敗，已停在此月之前：{exc}"[:200]}
             )
             return report
         # 3. 只寫起始日之後、且已收盤的資料；寫入失敗同樣停在此處
         rows = [
-            {"symbol": BENCHMARK_SYMBOL, "adj_close": price, "trade_date": d}
+            {"symbol": symbol, "adj_close": price, "trade_date": d}
             for d, price in points
             if d >= start and _is_writable_date(d, now)
         ]
@@ -335,12 +349,12 @@ def fetch_index_prices(db: Session, start: date, now: datetime) -> FetchReport:
             report.rows_written += _upsert_prices(db, rows)
         except Exception as exc:  # noqa: BLE001
             logger.exception("寫入大盤指數失敗")
-            report.failed.append({"symbol": BENCHMARK_SYMBOL, "reason": f"{month:%Y-%m} 寫入資料庫失敗：{exc}"[:200]})
+            report.failed.append({"symbol": symbol, "reason": f"{month:%Y-%m} 寫入資料庫失敗：{exc}"[:200]})
             return report
         month += relativedelta(months=1)
         time.sleep(TWSE_MONTH_PAUSE)
 
-    report.success_count = 1  # 整段都成功，大盤指數算 1 筆
+    report.success_count = 1  # 整段都成功，這個指數算 1 筆
     return report
 
 
@@ -352,7 +366,7 @@ def _purge_expired(db: Session, today: date) -> int:
     # 避免「資料停止更新、又持續被刪短」。參數：db=資料庫連線、today=今天
     cutoff = default_start_date(today)
     try:
-        result = db.execute(delete(DailyPrice).where(DailyPrice.trade_date < cutoff))
+        result = db.execute(delete(DailyQuote).where(DailyQuote.trade_date < cutoff))
         db.commit()
         return result.rowcount or 0
     except Exception:
@@ -370,7 +384,7 @@ def _find_abnormal_jumps(db: Session, today: date) -> list[dict]:
             SELECT symbol, trade_date, prev, adj_close FROM (
                 SELECT symbol, trade_date, adj_close,
                        LAG(adj_close) OVER (PARTITION BY symbol ORDER BY trade_date) AS prev
-                FROM daily_prices WHERE trade_date >= :since
+                FROM daily_quotes WHERE trade_date >= :since
             ) t
             WHERE prev IS NOT NULL AND trade_date >= :report_from
               AND ABS(adj_close / prev - 1) > :threshold
@@ -388,21 +402,32 @@ def _find_abnormal_jumps(db: Session, today: date) -> list[dict]:
 
 
 def run_daily_fetch(db: Session) -> FetchReport:
-    # 【每日抓取】依序抓「個股收盤價」與「大盤指數」，兩者互不影響（其中一個失敗，另一個照常完成）。
+    # 【每日抓取】要抓什麼完全由「股票基本資料表」決定，再依市場別分流：上市、上櫃 → yfinance；指數 → 證交所。
+    # 基本資料表是空的就什麼都不抓（含大盤）。各來源互不影響（其中一個失敗，另一個照常完成）。
     # 起訖日期全部由後端決定，n8n 不需傳任何參數：
-    #   個股：資料庫已有資料的抓過去 1 個月；沒有資料的（首次上線、新上市）抓 10 年又 31 天。
-    #   大盤：資料庫已有資料就從「1 個月前的那個月 1 日」抓到本月；完全沒有資料才抓 10 年又 31 天。
+    #   個股：資料庫已有資料的抓過去 1 個月；沒有資料的（首次上線、新上市）抓「保留期」（預設 10 年又 31 天）。
+    #   指數：資料庫已有資料就從「1 個月前的那個月 1 日」抓到本月；完全沒有資料才抓「保留期」。
     # 全部成功後清除過期資料。同一代號同一天已有資料時直接覆寫。參數：db=資料庫連線
     now = datetime.now(TAIPEI)
     today = now.date()
 
-    # 1. 個股收盤價
-    stocks = fetch_stock_prices(db, now)
-    # 2. 大盤指數：有舊資料只補近 1 個月（證交所一次只回一個月，從 1 個月前的月初開始抓，涵蓋上個月與本月）
-    has_index = db.execute(select(DailyPrice.id).where(DailyPrice.symbol == BENCHMARK_SYMBOL).limit(1)).first()
-    index_start = (today - relativedelta(months=RECENT_MONTHS)).replace(day=1) if has_index else default_start_date(today)
-    index = fetch_index_prices(db, index_start, now)
-    # 3. 合併統計
+    # 1. 從股票基本資料表取出清單，依市場別分成「個股」與「指數」
+    listed = db.execute(select(StockInfo.symbol, StockInfo.market).order_by(StockInfo.symbol)).all()
+    stock_rows = [(sym, m) for sym, m in listed if m in YFINANCE_MARKETS]
+    index_symbols = [sym for sym, m in listed if m == INDEX_MARKET]
+
+    # 2. 個股（yfinance）
+    stocks = fetch_stock_prices(db, now, stock_rows)
+    # 3. 指數（證交所）：有舊資料只補近 1 個月（一次只回一個月，從 1 個月前的月初開始抓，涵蓋上個月與本月）
+    index = FetchReport()
+    for symbol in index_symbols:
+        has_data = db.execute(select(DailyQuote.id).where(DailyQuote.symbol == symbol).limit(1)).first()
+        start = (today - relativedelta(months=RECENT_MONTHS)).replace(day=1) if has_data else default_start_date(today)
+        part = fetch_index_prices(db, symbol, start, now)
+        index.success_count += part.success_count
+        index.failed += part.failed
+        index.rows_written += part.rows_written
+    # 4. 合併統計
     total = FetchReport(
         success_count=stocks.success_count + index.success_count,
         stock_success=stocks.success_count,
@@ -412,11 +437,11 @@ def run_daily_fetch(db: Session) -> FetchReport:
         rows_written=stocks.rows_written + index.rows_written,
         restated=stocks.restated,
     )
-    # 3-1. 「查無資料」清單補上股票名稱，讓人一看就知道是哪一檔
+    # 4-1. 「查無資料」清單補上股票名稱，讓人一看就知道是哪一檔
     names = dict(db.execute(select(StockInfo.symbol, StockInfo.name).where(StockInfo.symbol.in_(total.no_data))).all())
     total.no_data = [{"symbol": sym, "name": names.get(sym, "")} for sym in total.no_data]
-    # 4. 全部成功才清除過期資料；並列出近期異常跳動供人工確認
-    if total.fail_count == 0:
+    # 5. 有抓到資料且全部成功才清除過期資料；並列出近期異常跳動供人工確認
+    if total.fail_count == 0 and total.success_count > 0:
         total.deleted = _purge_expired(db, today)
     total.abnormal = _find_abnormal_jumps(db, today)
     return total

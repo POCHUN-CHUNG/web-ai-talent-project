@@ -1,7 +1,7 @@
 # 05 · 品質層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.3.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.4.0 ｜ 最後更新：2026-09-21
 
 本層定義資安、效能預算、可觀測性、測試策略、驗收清單與黃金測試向量。
 **資安與效能在實作前讀，§5.5 驗收清單在實作後逐項執行。**
@@ -145,9 +145,9 @@ form-action 'self';
 | 前端 JS 總量 | ≤ 500 KB（gzip） | 建置報告 | Nivo 四套件約 160 KB |
 | 熱圖渲染 | ≤ 300 ms | `performance.mark` | 50×50 = 2500 格 |
 
-**資料量上界**：每使用者 20 個組合、每組合 50 檔、每檔 100 筆買進紀錄；`daily_prices` 約 2000 檔 × 2520 日 ≈ 500 萬列。
+**資料量上界**：每使用者 20 個組合、每組合 50 檔、每檔 100 筆買進紀錄；`daily_quotes` 約 2000 檔 × 2520 日 ≈ 500 萬列。
 
-`daily_prices` 的查詢必須命中 `(symbol, trade_date DESC)` 索引。實作後以 `EXPLAIN ANALYZE` 確認，出現 Seq Scan 即為不合格。
+`daily_quotes` 的查詢必須命中 `(symbol, trade_date DESC)` 索引。實作後以 `EXPLAIN ANALYZE` 確認，出現 Seq Scan 即為不合格。
 
 ---
 
@@ -283,7 +283,7 @@ form-action 'self';
 - [ ] D21 基準 `IR0001` 在該期間無資料時回 422 `BENCHMARK_UNAVAILABLE`
 - [ ] D22 組合無任何買進紀錄時回 422，且「開始分析」按鈕為 `disabled`
 - [ ] D23 50 檔持股、10 年期間的分析在 8 秒內完成（須自動化計時）
-- [ ] D24 `daily_prices` 的查詢計畫使用 `idx_daily_prices_symbol_date`，無 Seq Scan（須自動化，`EXPLAIN ANALYZE`）
+- [ ] D24 `daily_quotes` 的查詢計畫使用 `idx_daily_quotes_symbol_date`，無 Seq Scan（須自動化，`EXPLAIN ANALYZE`）
 
 ### E. 分析報告與圖表（FR-30 ~ FR-38，含 FR-36a、NFR-11）
 
@@ -316,17 +316,19 @@ form-action 'self';
 - [ ] F2 任一銀行解析失敗時回 502，且 `bank_rates` 保留原值未被清空
 - [ ] F3 `GET /bank-rates/latest` 回傳五家利率與其算術平均
 - [ ] F4 資料庫無價格時執行 `/market-data/fetch`，個股與 `IR0001` 皆回補 10 年 + 31 天
-- [ ] F5 同一區間重抓，`daily_prices` 列數不變（覆寫）
+- [ ] F5 同一區間重抓，`daily_quotes` 列數不變（覆寫）
 - [ ] F6 模擬某批個股下載失敗、某月大盤失敗時，**不得寫入半截資料**，大盤停在斷點前且資料庫日期連續（須自動化）
 - [ ] F7 同一次抓取寫入個股與 `IR0001`，回傳 `stock_success_count` 與 `index_success_count` 分開列出
 - [ ] F7a `/stocks/fetch` 可新增與更新；已存在的代號被更新且 `updated` 改變；不刪除任何既有代號
 - [ ] F8 全部成功後，`trade_date` 早於「今天 − 10 年 − 31 天」的列被清除；有失敗時不清除（須自動化）
 - [ ] F9 缺 `X-API-Key` 呼叫 n8n 端點回 401；金鑰錯誤亦回 401
 - [ ] F10 後端未設定 `N8N_API_KEY` 時，n8n 端點一律回 503
-- [ ] F11 週六日、當天 14:00 前的價格、空值、非正數不會寫入 `daily_prices`（須自動化）
+- [ ] F11 週六日、當天 14:00 前的價格、空值、非正數不會寫入 `daily_quotes`（須自動化）
 - [ ] F12 已有價格的個股，模擬最舊一天的價格與資料庫差超過 0.01% 時，整檔被重抓並列入 `restated`；重抓失敗則該檔資料不變
 - [ ] F13 所有 n8n 端點的成功與失敗回傳皆為同一層的 `message`、`status`、`success_count`、`fail_count`（失敗另有 `error`），不含時間、不包 `detail`（含 401、503）
 - [ ] F14 已有一次抓取在執行時再呼叫 `/market-data/fetch`，回 409
+- [ ] F15 `stock_info` 是空的時呼叫 `/market-data/fetch`，回 422，且**不抓取任何來源（含大盤）**、不寫入任何列、`stock_info` 仍為空（須自動化）
+- [ ] F16 `ANALYSIS_MAX_LOOKBACK_YEARS` 或 `PRICE_RETENTION_BUFFER_DAYS` 不是整數或超出範圍時，後端無法啟動；設定合法值時，首次抓取區間與清理界線隨之改變
 
 ### G. 介面與設計（FR-44 ~ FR-47、NFR-13）
 
@@ -348,7 +350,7 @@ form-action 'self';
 ### H. 資料正確性（NFR-14）
 
 - [ ] H1 取一檔近一年內有除權息的個股，其 `adj_close` 與當日原始收盤價**不相等**（須自動化，防止寫入未還原價格）
-- [ ] H2 `daily_prices` 中 `IR0001` 的列數與個股同期交易日數一致（允許差 ≤ 2 日）
+- [ ] H2 `daily_quotes` 中 `IR0001` 的列數與個股同期交易日數一致（允許差 ≤ 2 日）
 - [ ] H3 任一 `analysis_results` 列的 `risk_free_rate` 與 `rate_as_of` 皆非空
 - [ ] H4 金額欄位在 API 回應中為字串型別，非 JSON number（須自動化）
 - [ ] H5 資料庫中無任何 `FLOAT` 或 `DOUBLE PRECISION` 型別的金額欄位（須自動化，查 `information_schema`）

@@ -49,9 +49,9 @@ class StockInfo(Base):
     __table_args__ = (Index("idx_stock_info_name", "name"),)  # 依名稱搜尋用
 
 
-class DailyPrice(Base):
-    # 【日收盤價資料表】個股與大盤指數共用；同一代號同一天只有一列，重抓時直接覆寫
-    __tablename__ = "daily_prices"
+class DailyQuote(Base):
+    # 【日行情資料表】個股與大盤指數共用；同一代號同一天只有一列，重抓時直接覆寫。目前只存還原收盤價，之後可增加其他成交欄位
+    __tablename__ = "daily_quotes"
 
     id: Mapped[int] = mapped_column(primary_key=True)  # 流水號（自動遞增）
     # 代號（必須已存在於股票基本資料表；有價格資料時不可刪除該股票）
@@ -60,7 +60,7 @@ class DailyPrice(Base):
     adj_close: Mapped[Decimal] = mapped_column(Numeric(14, 4))
     trade_date: Mapped[date] = mapped_column(Date)  # 交易日（台北時區的日期）
     __table_args__ = (
-        UniqueConstraint("symbol", "trade_date", name="uq_daily_prices"),  # 覆寫的依據：代號＋日期
-        CheckConstraint("adj_close > 0", name="ck_daily_prices_positive"),
-        Index("idx_daily_prices_symbol_date", "symbol", text("trade_date DESC")),  # 查最新價、區間用
+        UniqueConstraint("symbol", "trade_date", name="uq_daily_quotes"),  # 覆寫的依據：代號＋日期
+        CheckConstraint("adj_close > 0", name="ck_daily_quotes_positive"),
+        Index("idx_daily_quotes_symbol_date", "symbol", text("trade_date DESC")),  # 查最新價、區間用
     )

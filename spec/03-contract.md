@@ -1,7 +1,7 @@
 # 03 · 契約層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.3.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.4.0 ｜ 最後更新：2026-09-21
 
 本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
 
@@ -32,7 +32,7 @@ type StockInfo = {
   updated: string;       // 最後更新時間
 };
 
-type DailyPrice = {
+type DailyQuote = {
   symbol: string;
   adjClose: string;      // 還原除權息後的收盤價；指數為報酬指數收盤值
   tradeDate: string;     // 交易日
@@ -310,14 +310,14 @@ CREATE TABLE stock_info (
 CREATE INDEX idx_stock_info_name ON stock_info (name);
 
 -- 日收盤價（個股與指數共用）
-CREATE TABLE daily_prices (
+CREATE TABLE daily_quotes (
     id         BIGSERIAL PRIMARY KEY,
     symbol     VARCHAR(10)   NOT NULL REFERENCES stock_info(symbol) ON DELETE RESTRICT,
     adj_close  NUMERIC(14,4) NOT NULL CHECK (adj_close > 0),
     trade_date DATE          NOT NULL,
-    CONSTRAINT uq_daily_prices UNIQUE (symbol, trade_date)
+    CONSTRAINT uq_daily_quotes UNIQUE (symbol, trade_date)
 );
-CREATE INDEX idx_daily_prices_symbol_date ON daily_prices (symbol, trade_date DESC);
+CREATE INDEX idx_daily_quotes_symbol_date ON daily_quotes (symbol, trade_date DESC);
 
 -- 銀行利率（沿用現況，永遠只有一列）
 CREATE TABLE bank_rates (
@@ -441,7 +441,7 @@ CREATE INDEX idx_reports_analysis ON analysis_reports (analysis_result_id, creat
 | `portfolios.user_id` → `users` | `CASCADE` | 同上 |
 | `holding_lots.portfolio_id` → `portfolios` | `CASCADE` | 刪組合即刪其買進紀錄 |
 | `holding_lots.symbol` → `stock_info` | `RESTRICT` | 股票下市時不可悄悄刪掉使用者的紀錄，需人工處理 |
-| `daily_prices.symbol` → `stock_info` | `RESTRICT` | 同上 |
+| `daily_quotes.symbol` → `stock_info` | `RESTRICT` | 同上 |
 | `analysis_results.risk_profile_id` → `risk_profiles` | `RESTRICT` | 分析快照必須能追溯到當時的風險屬性 |
 | `analysis_reports.analysis_result_id` → `analysis_results` | `CASCADE` | 報告依附於分析 |
 
@@ -742,12 +742,12 @@ POST /market-data/fetch
 Auth: X-API-Key
 Idempotency: 以 (symbol, trade_date) 覆寫
 
-行為：依 stock_info 建立清單（上市 .TW、上櫃 .TWO；排除 market = 指數），
-      抓取個股與大盤 IR0001 的日收盤價，規則見 §3.5，起訖日由後端計算。
+行為：要抓什麼完全由 stock_info 決定，依 market 分流：上市（.TW）、上櫃（.TWO）→ yfinance；指數 → 證交所。
+      stock_info 是空的就什麼都不抓（含大盤），回 422。抓取日行情，規則見 §3.5，起訖日由後端計算。
 
 Response 200:
 {
-  "message": "抓取上市櫃股票日成交資訊", "status": "成功",
+  "message": "抓取上市櫃股票日行情資料", "status": "成功",
   "success_count": 2268, "fail_count": 0,
   "stock_success_count": 2267, "index_success_count": 1,
   "rows_written": 47609, "deleted_count": 0,
@@ -765,7 +765,7 @@ Errors（欄位同成功格式，另有 error）：
 | 500 | 未預期的錯誤 |
 ```
 
-**回傳欄位說明**：`success_count` ＝ 個股成功數 ＋ 大盤成功數（以代號計，一檔算一筆）；`rows_written` 為實際寫入（新增或覆寫）的資料列數；`restated` 為因除權息還原基準改變而整檔重抓的代號；`abnormal` 為近 14 天單日漲跌幅超過 11% 的提醒（僅提醒，不影響成敗）；`no_data` 為 Yahoo 沒有價格的代號（不算失敗）；`deleted_count` 為本次清除的過期列數（只在全部成功時才會清理）。
+**回傳欄位說明**：`index_success_count` 在 `stock_info` 沒有指數時為 0；`success_count` ＝ 個股成功數 ＋ 大盤成功數（以代號計，一檔算一筆）；`rows_written` 為實際寫入（新增或覆寫）的資料列數；`restated` 為因除權息還原基準改變而整檔重抓的代號；`abnormal` 為近 14 天單日漲跌幅超過 11% 的提醒（僅提醒，不影響成敗）；`no_data` 為 Yahoo 沒有價格的代號（不算失敗）；`deleted_count` 為本次清除的過期列數（只在全部成功時才會清理）。
 
 **錯誤格式的例外**：金鑰錯誤（401）與後端未設定金鑰（503）亦使用同一格式，`message` 為「後端金鑰驗證」。
 
@@ -894,16 +894,18 @@ healthcheck:
 | 代號轉換 | `market` 為上市 → `.TW`、上櫃 → `.TWO`，**只在抓取當下轉換**，資料庫只存純代號 | 不需轉換 |
 | 回傳粒度 | 可指定期間，每 50 檔一批 | **一次一個月**，每月間隔 2 秒 |
 | 格式轉換 | 空值與非正數丟棄 | 民國年 +1911；去千分位逗號；`stat` 為 `OK` 才算成功 |
-| 寫入 | 直接寫入 `daily_prices`，以 `(symbol, trade_date)` 覆寫 | 同左 |
+| 寫入 | 直接寫入 `daily_quotes`，以 `(symbol, trade_date)` 覆寫 | 同左 |
 
-**抓取區間**（起訖日由後端計算，「10 年 + 31 天」以日曆計算）：
+**抓取清單與分流（D-63）**：要抓的代號完全來自 `stock_info`，依 `market` 分流——`上市`、`上櫃` 向 yfinance 抓；`指數` 向證交所抓（指數代號須在程式登記資料來源，未登記者記為失敗）。`stock_info` 是空的時什麼都不抓，後端不會自行寫入 `IR0001`。
+
+**抓取區間**（起訖日由後端計算；「10 年 + 31 天」為 `ANALYSIS_MAX_LOOKBACK_YEARS` 與 `PRICE_RETENTION_BUFFER_DAYS` 的預設值，以日曆計算，D-62）：
 
 | 對象 | 條件 | 區間 |
 | --- | --- | --- |
-| 個股 | `daily_prices` 已有該代號價格 | 過去 1 個月 |
-| 個股 | 完全沒有價格（首次上線、新上市） | 10 年 + 31 天 |
+| 個股 | `daily_quotes` 已有該代號價格 | 過去 1 個月 |
+| 個股 | 完全沒有價格（首次上線、新上市） | 保留期（預設 10 年 + 31 天） |
 | 大盤 | 已有 `IR0001` 價格 | 1 個月前的月初至本月 |
-| 大盤 | 完全沒有 | 10 年 + 31 天 |
+| 大盤 | 完全沒有 | 保留期（預設 10 年 + 31 天） |
 
 **寫入與失敗規則（D-60）**
 

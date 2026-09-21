@@ -1,7 +1,7 @@
 # 02 · 系統層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.3.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.4.0 ｜ 最後更新：2026-09-21
 
 本層定義技術棧版本、執行環境、系統架構與資料流、檔案結構、模組相依規則與環境變數。任何實作開始前必須先讀完本檔。
 
@@ -209,8 +209,8 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
   → POST /portfolios/{id}/analysis       body: lookback_years, mode, overrides
   → 前端進入 computing 狀態（不顯示圖表）
        ├─ 讀 holding_lots → 彙總部位與目前市值權重
-       ├─ 讀 daily_prices（持股代號）→ 求最長共同期間（D-09）
-       ├─ 讀 daily_prices（symbol = MARKET_BENCHMARK_SYMBOL）→ 對齊同一期間
+       ├─ 讀 daily_quotes（持股代號）→ 求最長共同期間（D-09）
+       ├─ 讀 daily_quotes（symbol = MARKET_BENCHMARK_SYMBOL）→ 對齊同一期間
        ├─ 讀 bank_rates 最新一批 → 算術平均得 risk_free_rate
        ├─ 計算 11 項純量 + RC/PCR + 相關矩陣
        ├─ 以 effective profile 重算 2 條 finding
@@ -415,9 +415,9 @@ CI 檢查：`src/` 底下除 `tokens.css` 外，不得出現 `#[0-9a-fA-F]{3,8}`
 | `GEMINI_MAX_RETRIES` | int | `2` | all | JSON 解析失敗的重試次數 | 否 |
 | `ANALYSIS_DEFAULT_LOOKBACK_YEARS` | int | `5` | all | 滑桿預設值 | 否 |
 | `ANALYSIS_MIN_LOOKBACK_YEARS` | int | `1` | all | 滑桿下界 | 否 |
-| `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | all | 滑桿上界 | 否 |
+| `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | all | 滑桿上界；同時是日行情的保留年數與首次抓取年數，範圍 1～10，不合法即無法啟動 | 否 |
 | `MARKET_BENCHMARK_SYMBOL` | string | `IR0001` | all | 市場基準代號 | 否 |
-| `PRICE_RETENTION_BUFFER_DAYS` | int | `31` | all | 保留期在 `ANALYSIS_MAX_LOOKBACK_YEARS` 之外的緩衝天數。實際保留期 = 上限年數 + 此緩衝，不另設固定天數 | 否 |
+| `PRICE_RETENTION_BUFFER_DAYS` | int | `31` | all | 保留期在 `ANALYSIS_MAX_LOOKBACK_YEARS` 之外的緩衝天數，範圍 0～366，不合法即無法啟動。實際保留期 = 上限年數 + 此緩衝，不另設固定天數 | 否 |
 | `ANALYSIS_CACHE_TTL_SECONDS` | int | `86400` | all | 分析結果快取秒數 | 否 |
 | `RATE_LIMIT_AUTH_PER_MINUTE` | int | `10` | all | 登入／註冊每 IP 每分鐘上限 | 否 |
 | `RATE_LIMIT_ANALYSIS_PER_MINUTE` | int | `3` | all | 分析每使用者每分鐘上限 | 否 |
