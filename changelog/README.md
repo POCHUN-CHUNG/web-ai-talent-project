@@ -31,6 +31,7 @@
 | 015  | 2026-09-20 | `d378262` | 系統規格書與設計文件            | [015-d378262-spec-and-design.md](015-d378262-spec-and-design.md)               |
 | 016  | 2026-09-20 | `21de53c` | 合併 PR #7（規格書與設計文件）  | [016-21de53c-merge-pr7.md](016-21de53c-merge-pr7.md)                           |
 | 017  | 2026-09-21 | `b52312d` | 股票資料與每日股價抓取          | [017-b52312d-stock-data-fetch.md](017-b52312d-stock-data-fetch.md)             |
+| 018  | 2026-09-21 | `0cd23eb` | 風險評估問卷與風險屬性          | [018-0cd23eb-questionnaire-risk-profile.md](018-0cd23eb-questionnaire-risk-profile.md) |
 
 ## 維護規則
 

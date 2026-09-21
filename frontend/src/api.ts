@@ -9,12 +9,12 @@ export class ApiError extends Error {
   }
 }
 
-// 【呼叫後端】統一的請求函式，有帶資料就用 POST，否則用 GET。
-// 參數：path=API 路徑（如 "/auth/me"）、body=要送出的資料（可省略）
-export async function api<T = unknown>(path: string, body?: unknown): Promise<T> {
+// 【呼叫後端】統一的請求函式，預設有帶資料就用 POST、否則用 GET；修改與刪除請明確指定 method。
+// 參數：path=API 路徑（如 "/auth/me"）、body=要送出的資料（可省略）、method=指定 HTTP 方法（可省略，如 "PATCH"、"DELETE"）
+export async function api<T = unknown>(path: string, body?: unknown, method?: "GET" | "POST" | "PATCH" | "DELETE"): Promise<T> {
   // 1. 送出請求（credentials=一併帶上登入通行證）
   const res = await fetch(`${BASE}${path}`, {
-    method: body === undefined ? "GET" : "POST",
+    method: method ?? (body === undefined ? "GET" : "POST"),
     credentials: "include",
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
