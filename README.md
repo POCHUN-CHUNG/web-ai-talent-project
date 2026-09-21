@@ -26,6 +26,7 @@ ai-talent-project/
 ├── changelog/               # main 每個版本的變更說明（改了哪些檔案、各檔案功能）
 ├── frontend/                # React 原始碼
 ├── backend/                 # FastAPI 原始碼
+├── references/              # 爬蟲原型腳本（實際執行的版本在 backend/app/services/）
 ├── database/
 │   ├── postgres_data/       # PostgreSQL 資料（本地掛載）
 │   └── pgadmin_data/        # pgAdmin 連線設定（本地掛載）
