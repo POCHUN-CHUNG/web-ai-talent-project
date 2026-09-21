@@ -2,9 +2,9 @@
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
 
 // 【API 錯誤】帶有 HTTP 狀態碼的錯誤，供畫面顯示訊息。
-// 參數：status=狀態碼（如 401）、message=錯誤說明
+// 參數：status=狀態碼（如 401）、message=錯誤說明、code=後端錯誤碼（如 NOT_FOUND，舊端點沒有）
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code?: string) {
     super(message);
   }
 }
@@ -23,10 +23,11 @@ export async function api<T = unknown>(path: string, body?: unknown): Promise<T>
   if (res.status === 204) return undefined as T;
   // 3. 讀取回應內容（讀取失敗視為空）
   const data = await res.json().catch(() => ({}));
-  // 4. 失敗時丟出錯誤；後端沒給文字說明就視為輸入格式不符
+  // 4. 失敗時丟出錯誤：新格式 {code, message}、舊格式為文字；都沒有就視為輸入格式不符
   if (!res.ok) {
-    const detail = typeof data.detail === "string" ? data.detail : "輸入格式不正確（僅限英文與數字）";
-    throw new ApiError(res.status, detail);
+    const d = data.detail;
+    if (d && typeof d === "object" && typeof d.message === "string") throw new ApiError(res.status, d.message, d.code);
+    throw new ApiError(res.status, typeof d === "string" ? d : "輸入格式不正確（僅限英文與數字）");
   }
   return data as T;
 }

@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.db import Base, engine
-from app.routers import auth, bank_rates, market_data, stocks
+from app.errors import ApiError, api_error_handler
+from app.routers import auth, bank_rates, market_data, questionnaire, stocks
 from app.services.n8n_result import N8nError
 
 # 【後端程式進入點】依序：建立應用程式 → 允許前端呼叫 → 建資料表 → 掛上各功能 API
@@ -23,11 +24,15 @@ app.add_middleware(
 # 2. 資料表不存在時自動建立
 Base.metadata.create_all(engine)
 
-# 3. 掛上功能：登入註冊、銀行利率、股票基本資料、每日股價
+# 3. 掛上功能：登入註冊、問卷與風險屬性、銀行利率、股票基本資料、每日股價
 app.include_router(auth.router)
+app.include_router(questionnaire.router)
 app.include_router(bank_rates.router)
 app.include_router(stocks.router)
 app.include_router(market_data.router)
+
+
+app.add_exception_handler(ApiError, api_error_handler)  # 前端 API 的統一失敗格式
 
 
 @app.exception_handler(N8nError)

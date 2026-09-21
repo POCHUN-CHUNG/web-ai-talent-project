@@ -79,9 +79,11 @@
 | `GET` | `/auth/me` | 查詢登入者 | Cookie |
 | `POST` | `/auth/change-password` | 修改密碼 | Cookie |
 | `GET` | `/questionnaire` | 取得 14 題題目與選項 | Cookie |
+| `GET` | `/questionnaire/cooldown` | 查詢還要等幾秒才能再次填寫問卷 | Cookie |
 | `POST` | `/questionnaire/answers` | 送出作答，建立風險屬性快照 | Cookie |
 | `GET` | `/risk-profiles/latest` | 取得目前生效的風險屬性 | Cookie |
 | `GET` | `/risk-profiles/{profile_id}` | 取得指定版本 | Cookie |
+| `POST` | `/risk-profiles/{profile_id}/regenerate-description` | AI 解析失敗後重新產生（每人每分鐘 1 次） | Cookie |
 | `GET` | `/portfolios` | 投資組合清單 | Cookie |
 | `POST` | `/portfolios` | 新增投資組合 | Cookie |
 | `GET` | `/portfolios/{portfolio_id}` | 單一組合，含彙總部位與買進紀錄 | Cookie |
@@ -132,7 +134,7 @@ n8n 的格式定義於 `services/n8n_result.py`，符合 `CLAUDE.md` §8：只�
 | 日期 | 輸入輸出皆 ISO 8601；含時刻者一律 UTC 並帶 `Z`；純日期用 `YYYY-MM-DD` |
 | 認證 | 前端一律 Cookie（`session_id`, HttpOnly, SameSite=Lax）；n8n 一律 `X-API-Key` |
 | 冪等 | `POST /market-data/fetch` 以 `(symbol, trade_date)` 覆寫，重跑不產生重複列 |
-| 限流 | 登入／註冊每 IP 每分鐘 10 次；分析每使用者每分鐘 3 次 |
+| 限流 | 登入／註冊每 IP 每分鐘 10 次；問卷送出每使用者每分鐘 1 次（D-69）；分析端點不限流（D-70） |
 
 ## 三、資料表（→ SPEC §3.2）
 

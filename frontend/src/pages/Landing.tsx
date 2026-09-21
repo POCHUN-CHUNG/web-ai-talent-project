@@ -6,7 +6,7 @@ import { useAuth } from "../auth";
 // 【登入／註冊頁】同一個畫面，依 mode 切換。
 // 參數：mode="login" 顯示登入、"register" 顯示註冊
 export default function Landing({ mode }: { mode: "login" | "register" }) {
-  const { username, setUsername } = useAuth();
+  const { username, setUsername, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [account, setAccount] = useState(""); // 輸入的帳號
   const [password, setPassword] = useState(""); // 輸入的密碼
@@ -28,6 +28,7 @@ export default function Landing({ mode }: { mode: "login" | "register" }) {
       const u = await api<{ username: string }>(`/auth/${mode}`, { username: account, password });
       // 3. 成功：記下帳號並前往首頁
       setUsername(u.username);
+      await refreshProfile(); // 確認這個帳號是否已有風險屬性，才能決定導向首頁或問卷
       navigate("/", { replace: true });
     } catch (err) {
       // 4. 失敗：顯示後端說明，連不上則顯示通用訊息

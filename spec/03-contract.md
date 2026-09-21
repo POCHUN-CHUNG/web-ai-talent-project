@@ -1,7 +1,7 @@
 # 03 · 契約層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.5.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.6.0 ｜ 最後更新：2026-09-21
 
 本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
 
@@ -448,7 +448,7 @@ CREATE INDEX idx_reports_analysis ON analysis_reports (analysis_result_id, creat
 ### 唯讀快照的實作約束
 
 `questionnaire_answers`、`risk_profiles`、`analysis_results`、`analysis_reports` 四張表**只允許 INSERT 與 SELECT**。
-例外：`risk_profiles.description` 與 `description_status` 在 AI 回傳後允許一次 UPDATE（建立時為 `pending`）。此為唯一例外，需在程式中以專用函式封裝，不得開放一般更新路徑。
+例外：`risk_profiles.description` 與 `description_status` 只允許以下三種 UPDATE：①AI 回傳後由 `pending` 寫入結果（`ready` 或 `failed`）；②狀態為 `failed` 時，使用者按「重新產生」改回 `pending`（D-73）。③讀取時發現 `pending` 已逾時（見 §3.3），改為 `failed`。三者皆限定 `WHERE` 目前狀態。此為唯一例外，需在程式中以專用函式封裝，不得開放一般更新路徑。
 
 ---
 
@@ -536,6 +536,15 @@ Response 200:
 ```
 
 ```
+GET /questionnaire/cooldown
+Auth: Cookie
+
+Response 200: { "retryAfterSeconds": 0 }      // 大於 0 代表剛送出過問卷，需等這麼多秒才能再填
+```
+
+前端在使用者要**進入問卷頁之前**呼叫（D-71）：大於 0 時不進入問卷頁，改跳出提示視窗（見 04 §4.4.2）。此端點只讀取 D-69 的 60 秒鎖，不建立鎖。
+
+```
 POST /questionnaire/answers
 Auth: Cookie
 
@@ -555,6 +564,7 @@ Response 201:
 
 Errors:
 | 400 | INVALID_INPUT | 缺題、選項值不存在、q11 同時含 K 與其他選項、q11 含 J 但未填 q11Other |
+| 429 | RATE_LIMITED | 同一使用者 1 分鐘內再次送出**作答完整的問卷**（每次都會呼叫 AI；被 400 擋回的、以及結果為 `limited` 的送出不計次也不呼叫 AI，D-69、D-76） |
 ```
 
 14 題全部必填。`readiness` 為 `limited` 時仍建立 `risk_profiles` 快照（保留證據），但後續流程被 `PROFILE_LIMITED` 擋住（D-17）。
@@ -568,7 +578,23 @@ Response 200: RiskProfile（見 §3.1）
 Errors: 404 NOT_FOUND（從未填過問卷）、403 FORBIDDEN_RESOURCE
 ```
 
-`description_status` 為 `pending` 時，前端顯示載入指示器並於 2 秒後重取一次；仍為 `pending` 或轉為 `failed` 時顯示重試入口。
+重新產生端點：
+
+```
+POST /risk-profiles/{profile_id}/regenerate-description
+Auth: Cookie
+
+Response 202: { "descriptionStatus": "pending" }   // 已改回 pending 並在背景重新呼叫 AI；前端維持頁面、解析區塊顯示「產生中…」並輪詢（D-74）
+Errors: 404 NOT_FOUND、403 FORBIDDEN_RESOURCE、429 RATE_LIMITED（每人每分鐘 1 次，與送出問卷各自獨立計時）
+```
+
+僅 `description_status = failed` 時才會重新產生；`ready` 或 `pending` 時不動作、不計入限流，直接回目前狀態（`{ "descriptionStatus": "ready" }` 或 `pending`，狀態碼同為 202）。
+
+`description_status` 為 `pending` 時，前端顯示「分析中」遮罩並每 2 秒重取一次，最多約 2 分鐘（D-65）；後端另以 Redis 標記 `description_pending:{id}`（有效 `GEMINI_TIMEOUT_SECONDS + 60` 秒，預設 240 秒）判斷背景工作是否已中斷：標記過期仍是 `pending` 者，讀取時改判為 `failed`（D-75）；轉為 `ready` 才顯示結果，`failed` 時指標照常顯示、「風險屬性解析」標題右側顯示「重新產生」按鈕（下方一行提示文字，見 04 §4.4.2），按下呼叫下方的重新產生端點（D-73）。
+
+**題庫文字**：14 題的題目、補充說明（`note`）與選項文字以柏鈞提供的《風險評估問卷》為準（D-68），實作於 `services/questionnaire.py`；轉換規則只依選項代號（A–E、Q11 的 A–K），文字修改不影響規則。
+
+**送給 Gemini 的 `response_schema`**：Gemini 不接受 `additionalProperties`，故送出的 schema 不含該欄位；「不得有多餘欄位」改由後端以完整 JSON Schema 驗證（§3.11）。
 
 ### 投資組合與買進紀錄
 
@@ -660,7 +686,6 @@ Errors:
 | 422 | INSUFFICIENT_PRICE_DATA      | 無共同期間 |
 | 422 | BENCHMARK_UNAVAILABLE        | IR0001 在該期間無資料 |
 | 422 | RISK_FREE_RATE_UNAVAILABLE   | bank_rates 為空 |
-| 429 | RATE_LIMITED                 | 每使用者每分鐘 3 次 |
 ```
 
 **`overrides` 只允許 `lossTolerance` 與 `investmentHorizon` 兩個鍵**（D-14）。出現其他鍵一律 `400 INVALID_INPUT`，特別是 `financialCapacity` 與 `liquidityNeed`——這兩項鎖死，不接受任何形式的覆寫。
@@ -859,7 +884,7 @@ healthcheck:
 | 重試 | `GEMINI_MAX_RETRIES`，預設 2；**只在 JSON 解析或 schema 驗證失敗時重試**，HTTP 4xx 不重試 |
 | 退避 | 第 1 次重試等 1 秒，第 2 次等 3 秒 |
 | 降級 | 問卷階段：`description_status = failed`，四項核心指標照常顯示。分析階段：`partial` 狀態，四張圖照常顯示（P-38） |
-| 成本控制 | `GEMINI_MAX_OUTPUT_TOKENS` 硬上限；分析端點每使用者每分鐘 3 次；報告快取 24 小時；報告 `ready` 後不重打 |
+| 成本控制 | `GEMINI_MAX_OUTPUT_TOKENS` 硬上限；問卷送出每使用者每分鐘 1 次（分析端點不另設限流，D-70）；報告快取 24 小時；報告 `ready` 後不重打 |
 | 未設定金鑰 | 後端照常啟動，AI 相關端點回 `503 AI_NOT_CONFIGURED` |
 
 ### 五大公股銀行牌告網頁

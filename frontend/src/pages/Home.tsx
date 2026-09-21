@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
 
-// 【首頁】登入後看到的畫面，顯示歡迎詞、設定連結與登出按鈕。無參數。
+// 【首頁】登入後看到的畫面，顯示歡迎詞、風險屬性與設定連結、登出按鈕。無參數。
 export default function Home() {
   const { username, setUsername } = useAuth();
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ export default function Home() {
     <div style={{ fontFamily: "sans-serif", padding: "2rem" }}>
       <h1>診股整股-投資組合量化風險分析平台</h1>
       <p>歡迎，{username}</p>
-      <Link to="/settings">使用者設定</Link> <button onClick={logout}>登出</button>
+      <Link to="/risk-profile">風險屬性問卷</Link> <Link to="/settings">使用者設定</Link> <button onClick={logout}>登出</button>
     </div>
   );
 }
