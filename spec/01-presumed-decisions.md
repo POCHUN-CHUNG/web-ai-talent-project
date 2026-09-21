@@ -153,7 +153,7 @@ n8n 的格式定義於 `services/n8n_result.py`，符合 `CLAUDE.md` §8：只�
 | `adj_close` | `NUMERIC(14,4) NOT NULL CHECK (adj_close > 0)` | **一律為含息基準**：個股存 yfinance 的 `Adj Close`（已還原除權息），指數存報酬指數收盤值 |
 | `trade_date` | `DATE NOT NULL` | 交易日（台北時區的日期） |
 
-`UNIQUE (symbol, trade_date)`；索引 `(symbol, trade_date DESC)`。**三個資料欄位，無 `source`、無 `asset_type`、無 `updated`。**
+`UNIQUE (symbol, trade_date)`（其索引同時負責查詢，**不另建**倒序索引，D-64）。**三個資料欄位，無 `source`、無 `asset_type`、無 `updated`。**
 
 **為什麼不設 `updated`**（D-50）：這張表只有兩種操作——寫入新交易日、覆寫同一交易日的值。`trade_date` 已足以定位每一列，再記一個寫入時間對查詢、除錯與稽核都沒有貢獻，只是每列多 8 bytes 與一個可能忘記更新的欄位。
 

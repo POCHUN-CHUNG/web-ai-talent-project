@@ -48,17 +48,15 @@ def fetch(db: Session = Depends(get_db)):
         "index_success_count": report.index_success,  # 大盤指數成功筆數（0 或 1）
         "rows_written": report.rows_written,  # 實際寫入（新增或覆寫）的資料列數
         "deleted_count": report.deleted,  # 清除的過期資料列數
-        "restated": report.restated,  # 因除權息還原基準改變而整檔重抓的代號
-        "abnormal": report.abnormal,  # 近 14 天單日漲跌幅超過 11% 的紀錄（僅提醒）
         "failed": report.failed[
             :FAILED_LIST_LIMIT
-        ],  # 失敗的代號與原因（最多列 100 項）
+        ],  # 失敗清單：[{"symbol": 代號, "name": 名稱, "reason": 原因}]（最多列 100 項）
         "no_data_count": len(
             report.no_data
         ),  # 查無資料的代號數（Yahoo 沒有該檔價格，不算失敗）
         "no_data": report.no_data[
             :FAILED_LIST_LIMIT
-        ],  # 查無資料的代號（最多列 100 項）
+        ],  # 查無資料清單：[{"symbol": 代號, "name": 名稱}]（最多列 100 項）
     }
     if report.success_count == 0 and report.fail_count == 0 and not report.no_data:
         raise fail_error(

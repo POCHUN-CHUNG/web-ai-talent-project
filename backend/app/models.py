@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -62,5 +62,4 @@ class DailyQuote(Base):
     __table_args__ = (
         UniqueConstraint("symbol", "trade_date", name="uq_daily_quotes"),  # 覆寫的依據：代號＋日期
         CheckConstraint("adj_close > 0", name="ck_daily_quotes_positive"),
-        Index("idx_daily_quotes_symbol_date", "symbol", text("trade_date DESC")),  # 查最新價、區間用
     )

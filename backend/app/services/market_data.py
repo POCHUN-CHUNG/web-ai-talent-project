@@ -10,7 +10,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import delete, select, text, tuple_
+from sqlalchemy import delete, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -46,7 +46,6 @@ LOOKBACK_YEARS = _env_int("ANALYSIS_MAX_LOOKBACK_YEARS", 10, 1, 10)  # 首次全
 LOOKBACK_BUFFER_DAYS = _env_int("PRICE_RETENTION_BUFFER_DAYS", 31, 0, 366)  # 在上述年數之外多留的緩衝天數（預設 31 天）
 RECENT_MONTHS = 1  # 日常只抓過去 1 個月（已有資料的股票；大盤從 1 個月前的那個月 1 日起），同一代號同一天直接覆蓋
 RESTATE_TOLERANCE = Decimal("0.0001")  # 舊資料與新抓取同一天的價格相差超過 0.01% 視為除權息還原基準改變
-JUMP_THRESHOLD = 0.11  # 單日漲跌幅超過 11%（台股漲跌幅上限 10%）列為異常，僅提醒不擋
 SMALL_BATCH = 5  # 小於這個檔數的批次若全空，視為「查無資料」而非被擋（日常只會剩少數 Yahoo 沒有的代號）
 YF_BATCH_SIZE = 50  # 每批向 yfinance 一次抓幾檔
 YF_BATCH_PAUSE = 1  # 批次之間休息幾秒，降低被擋機率
@@ -69,9 +68,8 @@ class FetchReport:
     # 查無資料的代號（不算失敗）：同一批其他檔都抓得到，只有它 Yahoo 本來就沒有價格（如部分債券 ETF、剛上市的標的）
     no_data: list = field(default_factory=list)  # 抓取當下是代號字串；彙整時換成 {"symbol", "name"}
     rows_written: int = 0  # 實際寫入（新增或覆寫）的資料列數
-    restated: list[str] = field(default_factory=list)  # 因除權息還原基準改變而整檔重抓的代號
+    restated: list[str] = field(default_factory=list)  # 因除權息還原基準改變而整檔重抓的代號（只記日誌，不回傳給 n8n）
     deleted: int = 0  # 清除的過期資料列數
-    abnormal: list[dict] = field(default_factory=list)  # 近期單日漲跌幅異常的紀錄（僅提醒）
 
     @property
     def fail_count(self) -> int:
@@ -375,30 +373,16 @@ def _purge_expired(db: Session, today: date) -> int:
         return 0
 
 
-def _find_abnormal_jumps(db: Session, today: date) -> list[dict]:
-    # 【找出近期異常跳動】列出近 14 天內單日漲跌幅超過 11% 的紀錄（台股漲跌幅上限為 10%），
-    # 常見原因是新上市初期、除權息還原問題或來源資料錯誤。僅提醒，不影響成敗。參數：db=資料庫連線、today=今天
-    rows = db.execute(
-        text(
-            """
-            SELECT symbol, trade_date, prev, adj_close FROM (
-                SELECT symbol, trade_date, adj_close,
-                       LAG(adj_close) OVER (PARTITION BY symbol ORDER BY trade_date) AS prev
-                FROM daily_quotes WHERE trade_date >= :since
-            ) t
-            WHERE prev IS NOT NULL AND trade_date >= :report_from
-              AND ABS(adj_close / prev - 1) > :threshold
-            ORDER BY ABS(adj_close / prev - 1) DESC LIMIT :limit
-            """
-        ),
-        {"since": today - timedelta(days=30), "report_from": today - timedelta(days=14),
-         "threshold": JUMP_THRESHOLD, "limit": FAILED_LIST_LIMIT},
-    ).all()
-    return [
-        {"symbol": r.symbol, "trade_date": r.trade_date.isoformat(),
-         "change": round(float(r.adj_close / r.prev - 1), 4)}
-        for r in rows
-    ]
+def _attach_names(db: Session, report: FetchReport) -> None:
+    # 【清單補上股票名稱】把失敗、查無資料兩份會回傳給 n8n 的清單，每一項都補上名稱（代號之後），方便人直接閱讀。
+    # 名稱查不到（例如已不在基本資料表）時留空字串。參數：db=資料庫連線、report=要補名稱的抓取結果
+    symbols = set(report.no_data) | {f["symbol"] for f in report.failed}
+    names = {}
+    if symbols:
+        names = dict(db.execute(select(StockInfo.symbol, StockInfo.name).where(StockInfo.symbol.in_(symbols))).all())
+    name_of = lambda sym: names.get(sym, "")  # noqa: E731
+    report.no_data = [{"symbol": sym, "name": name_of(sym)} for sym in report.no_data]
+    report.failed = [{"symbol": f["symbol"], "name": name_of(f["symbol"]), "reason": f["reason"]} for f in report.failed]
 
 
 def run_daily_fetch(db: Session) -> FetchReport:
@@ -437,11 +421,11 @@ def run_daily_fetch(db: Session) -> FetchReport:
         rows_written=stocks.rows_written + index.rows_written,
         restated=stocks.restated,
     )
-    # 4-1. 「查無資料」清單補上股票名稱，讓人一看就知道是哪一檔
-    names = dict(db.execute(select(StockInfo.symbol, StockInfo.name).where(StockInfo.symbol.in_(total.no_data))).all())
-    total.no_data = [{"symbol": sym, "name": names.get(sym, "")} for sym in total.no_data]
-    # 5. 有抓到資料且全部成功才清除過期資料；並列出近期異常跳動供人工確認
+    # 5. 有抓到資料且全部成功才清除過期資料
     if total.fail_count == 0 and total.success_count > 0:
         total.deleted = _purge_expired(db, today)
-    total.abnormal = _find_abnormal_jumps(db, today)
+    # 6. 回傳給 n8n 的清單補上股票名稱（代號之後）；除權息整檔重抓只記日誌，不回傳
+    if total.restated:
+        logger.info("除權息整檔重抓：%s", ",".join(total.restated))
+    _attach_names(db, total)
     return total

@@ -1,7 +1,7 @@
 # 03 · 契約層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.4.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.5.0 ｜ 最後更新：2026-09-21
 
 本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
 
@@ -317,7 +317,7 @@ CREATE TABLE daily_quotes (
     trade_date DATE          NOT NULL,
     CONSTRAINT uq_daily_quotes UNIQUE (symbol, trade_date)
 );
-CREATE INDEX idx_daily_quotes_symbol_date ON daily_quotes (symbol, trade_date DESC);
+-- 查詢使用 uq_daily_quotes 的索引（可反向掃描），不另建倒序索引（D-64）
 
 -- 銀行利率（沿用現況，永遠只有一列）
 CREATE TABLE bank_rates (
@@ -751,21 +751,19 @@ Response 200:
   "success_count": 2268, "fail_count": 0,
   "stock_success_count": 2267, "index_success_count": 1,
   "rows_written": 47609, "deleted_count": 0,
-  "restated": [],
-  "abnormal": [ {"symbol": "6236", "trade_date": "2026-09-18", "change": -0.1601} ],
   "failed": [],
   "no_data_count": 1,
   "no_data": [ {"symbol": "00838B", "name": "永豐7-10年中國債"} ]
 }
 
 Errors（欄位同成功格式，另有 error）：
-| 502 | 部分失敗：成功的資料已寫入並保留，失敗清單見 failed（每項 {symbol, reason}，最多 100 項） |
+| 502 | 部分失敗：成功的資料已寫入並保留，失敗清單見 failed（每項 {symbol, name, reason}，最多 100 項） |
 | 422 | stock_info 是空的，須先執行 /stocks/fetch |
 | 409 | 上一次抓取仍在執行（Redis 鎖，逾 3 小時自動失效） |
 | 500 | 未預期的錯誤 |
 ```
 
-**回傳欄位說明**：`index_success_count` 在 `stock_info` 沒有指數時為 0；`success_count` ＝ 個股成功數 ＋ 大盤成功數（以代號計，一檔算一筆）；`rows_written` 為實際寫入（新增或覆寫）的資料列數；`restated` 為因除權息還原基準改變而整檔重抓的代號；`abnormal` 為近 14 天單日漲跌幅超過 11% 的提醒（僅提醒，不影響成敗）；`no_data` 為 Yahoo 沒有價格的代號（不算失敗）；`deleted_count` 為本次清除的過期列數（只在全部成功時才會清理）。
+**回傳欄位說明**：`index_success_count` 在 `stock_info` 沒有指數時為 0；`success_count` ＝ 個股成功數 ＋ 大盤成功數（以代號計，一檔算一筆）；`rows_written` 為實際寫入（新增或覆寫）的資料列數；除權息整檔重抓由後端自行執行，只記日誌，**不回傳給 n8n**；**所有清單的代號之後都附名稱**，名稱查不到時為空字串；`no_data` 為 Yahoo 沒有價格的清單（每項 {symbol, name}，不算失敗）；`deleted_count` 為本次清除的過期列數（只在全部成功時才會清理）。
 
 **錯誤格式的例外**：金鑰錯誤（401）與後端未設定金鑰（503）亦使用同一格式，`message` 為「後端金鑰驗證」。
 
