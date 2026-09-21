@@ -107,3 +107,38 @@ class RiskProfile(Base):
         CheckConstraint("description_status IN ('pending','ready','failed')", name="ck_rp_description_status"),
         Index("idx_rp_user_created", "user_id", "created"),
     )
+
+
+class Portfolio(Base):
+    # 【投資組合資料表】使用者建立的一組持股集合；同一使用者不可有同名組合
+    __tablename__ = "portfolios"
+
+    id: Mapped[int] = mapped_column(primary_key=True)  # 組合編號（自動遞增）
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))  # 所屬使用者（刪帳號時一併清除）
+    name: Mapped[str] = mapped_column(String(30))  # 組合名稱（1～30 字）
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 建立時間（UTC）
+    updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, onupdate=_utc_now)  # 最後更新時間（UTC）
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_portfolio_name"),  # 同一使用者不可重複命名
+        Index("idx_portfolios_user", "user_id"),
+    )
+
+
+class HoldingLot(Base):
+    # 【買進紀錄資料表】一次買進一列；同一檔、同一天可有多筆（不設唯一限制）。不支援賣出，減碼請直接修改或刪除該筆
+    __tablename__ = "holding_lots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)  # 買進紀錄編號（自動遞增）
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"))  # 所屬組合（刪組合時一併清除）
+    # 股票代號（股票下市時不可悄悄刪掉使用者的紀錄，故不允許刪除仍被引用的股票）
+    symbol: Mapped[str] = mapped_column(String(10), ForeignKey("stock_info.symbol", ondelete="RESTRICT"))
+    trade_date: Mapped[date] = mapped_column(Date)  # 買進日期
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4))  # 股數（支援零股），必須大於 0
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 4))  # 每股價格，必須大於 0
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 建立時間（UTC）
+    updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, onupdate=_utc_now)  # 最後更新時間（UTC）
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_holding_lots_quantity"),
+        CheckConstraint("unit_cost > 0", name="ck_holding_lots_unit_cost"),
+        Index("idx_holding_lots_pf_symbol", "portfolio_id", "symbol", "trade_date"),
+    )

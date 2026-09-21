@@ -27,7 +27,7 @@ ai-talent-project/
 ├── frontend/                # React 原始碼
 ├── backend/                 # FastAPI 原始碼
 ├── spec/                    # 系統規格（問卷規則、Prompt 等；SPEC.md 為索引）
-├── tests/                   # 自動化測試（問卷規則、AI 輸出驗證）
+├── tests/                   # 自動化測試（問卷規則、AI 輸出驗證、投資組合損益計算）
 ├── references/              # 爬蟲原型腳本（實際執行的版本在 backend/app/services/）
 ├── database/
 │   ├── postgres_data/       # PostgreSQL 資料（本地掛載）
@@ -144,6 +144,17 @@ n8n 端設定（一次即可，在 n8n 網頁操作）：
 
 登入後若尚未填寫問卷（或上次作答有前後矛盾），會被導向問卷頁；填完 14 題後可查看「我的風險屬性」：四項核心風險指標、交叉分析與 AI 產生的描述。AI 金鑰設定見〈環境變數〉；未設定金鑰或 AI 失敗時，四項指標仍正常顯示。規則細節見 `spec/04-behavior.md`，API 清單見後端 `/docs` 頁面。
 
+## 投資組合
+
+首頁就是「我的投資組合」：以卡片列出每個組合的持股檔數、市值與未實現損益，可新增組合（每人最多 20 個）。點進組合可看到：總覽數字（投入成本、市值、未實現損益、報酬率、平均持有天數、年化持有報酬率）、配置比例圖與各檔損益圖、持股列表（每檔一列，可展開看全部買進紀錄並修改／刪除）、新增買進紀錄表單（輸入代號或名稱搜尋股票，再填買進日期與股數；日期只能選該股票有資料的交易日（假日、休市日灰掉不能選），每股價格由系統自動帶入該日的調整後收盤價；同一檔可有多筆）。圖表使用 Nivo。
+
+- 每股價格是還原除權息後的「調整後收盤價」，可能與實際成交價不同，系統統一以此計算成本與損益；該日沒有價格資料就無法新增。
+- 損益一律**未納入手續費與交易稅**；不支援賣出紀錄，減碼請直接修改或刪除該筆買進紀錄。
+- 市值使用資料庫中每檔最新一筆還原收盤價，因此需先由 n8n 抓過股票基本資料與每日股價；某檔沒有報價時，該檔與組合總覽的市值、損益顯示「—」。
+- 持有天數未滿 30 日時不計算年化報酬率。
+- 「開始分析」與歷史分析報告區塊目前為預留位置，量化分析完成後啟用。
+- API 清單見後端 `/docs` 頁面。
+
 ## 常用指令
 
 ```bash
@@ -179,7 +190,7 @@ docker compose down -v
 
 ## 開發備註
 
-- 問卷規則與 AI 輸出驗證的自動化測試（需先 `pip install pytest jsonschema fastapi sqlalchemy argon2-cffi redis psycopg2-binary`）：`python -m pytest tests -q`。
+- 問卷規則、AI 輸出驗證與投資組合損益計算的自動化測試（需先 `pip install pytest jsonschema fastapi sqlalchemy argon2-cffi redis psycopg2-binary`）：`python -m pytest tests -q`。
 - frontend、backend 皆以 bind mount 方式掛進容器（`./frontend:/app`、`./backend:/app`），修改本機程式碼即時生效（熱重載），不需要重新 build image。
 - 新增前端套件（`npm install <pkg>`）或後端套件（更新 `requirements.txt`）後，需要重新建置對應 image：
   ```bash

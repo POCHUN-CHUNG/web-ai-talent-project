@@ -1,7 +1,7 @@
 # 03 · 契約層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.6.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.7.0 ｜ 最後更新：2026-09-21
 
 本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
 
@@ -71,15 +71,23 @@ type Position = {        // 由 holding_lots 即時彙總，不落表
   quantity: string;      // Σ 股數
   averageCost: string;   // Σ(股數×單價) ÷ Σ股數
   costAmount: string;    // Σ(股數×單價)
-  latestPrice: string;   // 最新 adjClose
-  latestPriceDate: string;
-  marketValue: string;   // 股數 × 最新價
-  unrealizedPnl: string; // 市值 − 投入成本
-  unrealizedReturn: number;
+  latestPrice: string | null;   // 最新 adjClose；該檔無任何報價時為 null
+  latestPriceDate: string | null;
+  marketValue: string | null;   // 股數 × 最新價；無報價時為 null
+  unrealizedPnl: string | null; // 市值 − 投入成本；無報價時為 null
+  unrealizedReturn: number | null;
   holdingDays: number;          // 以投入成本加權的平均持有日曆天數
   annualizedReturn: number | null;  // 持有天數 < 30 時為 null
-  weight: number;        // 目前市值權重
-  lots: HoldingLot[]; // 展開用
+  weight: number | null; // 目前市值權重；只要組合內有任一檔無報價，全部檔的權重皆為 null（權重須加總為 1）
+  lots: PositionLot[];   // 展開用
+};
+
+type PositionLot = HoldingLot & {  // 買進紀錄加上該筆的損益資料（C10）
+  costAmount: string;    // 股數 × 單價
+  marketValue: string | null;
+  unrealizedPnl: string | null;
+  unrealizedReturn: number | null;
+  holdingDays: number;   // 今日 − tradeDate（日曆日，台北時區）
 };
 ```
 
@@ -606,7 +614,7 @@ Errors: 404 NOT_FOUND、403 FORBIDDEN_RESOURCE、429 RATE_LIMITED（每人每分
 | `PATCH` | `/portfolios/{id}` | `{name}` | `200 Portfolio` |
 | `DELETE` | `/portfolios/{id}` | — | `204` |
 
-`PortfolioSummary` 含 `id`、`name`、`symbolCount`、`marketValue`、`unrealizedPnl`、`unrealizedReturn`、`latestPriceDate`、`lastAnalysisAt`。
+`PortfolioSummary` 含 `id`、`name`、`created`、`updated`、`symbolCount`、`costAmount`、`marketValue`、`unrealizedPnl`、`unrealizedReturn`、`latestPriceDate`、`lastAnalysisAt`。組合內有任一檔無報價時，`marketValue`、`unrealizedPnl`、`unrealizedReturn` 為 `null`（不拿不完整資料相加）；空組合的 `unrealizedReturn` 為 `null`；尚無分析時 `lastAnalysisAt` 為 `null`。`totals` 的處理方式相同。
 
 ```
 GET /portfolios/{id}
@@ -635,7 +643,7 @@ POST /portfolios/{id}/holding-lots
 Auth: Cookie
 
 Request:
-{ "symbol": "2330", "tradeDate": "2026-03-14", "quantity": "1000", "unitCost": "780.0000" }
+{ "symbol": "2330", "tradeDate": "2026-03-14", "quantity": "1000" }   // 不接受 unitCost：每股價格由系統帶入
 
 Response 201: HoldingLot
 
@@ -643,10 +651,25 @@ Errors:
 | 400 | INVALID_INPUT | 代號不符白名單、日期晚於今日或早於 1990-01-01、股數或單價 ≤ 0 |
 | 404 | NOT_FOUND | 代號不在 stock_info |
 | 422 | LIMIT_EXCEEDED | 超過 50 檔不同股票或該檔已有 100 筆 |
-| 422 | INVALID_INPUT | 代號的 market 為「指數」 |
+| 422 | INSUFFICIENT_PRICE_DATA | 買進日當天查無該檔收盤價（假日、休市日或尚無資料） |
+| 400 | INVALID_INPUT | 代號的 market 為「指數」（與驗收 C3、§4.2.1 一致） |
 ```
 
-`PATCH /portfolios/{id}/holding-lots/{lot_id}` 接受 `tradeDate`、`quantity`、`unitCost` 的任意子集，**不得修改 `symbol`**（要改代號等於刪掉重建）。
+`PATCH /portfolios/{id}/holding-lots/{lot_id}` 接受 `tradeDate`、`quantity` 的任意子集，**不得修改 `symbol` 與 `unitCost`**（要改代號等於刪掉重建）；修改 `tradeDate` 時 `unitCost` 重新帶入新日期的收盤價。
+
+**每股價格由系統帶入（D-77）**：`unitCost` = 買進日當天該檔的還原收盤價（`daily_quotes.adj_close`）；**不往前遞補**：該日沒有資料就拒絕。買進日期選擇器只開放該檔有資料的日期（見下方 `trading-dates`）。畫面須說明為調整後價格、可能與實際成交價不同。
+
+```
+GET /stocks/{symbol}/close?date=YYYY-MM-DD
+Auth: Cookie
+Response 200: { "symbol": "2330", "date": "2026-03-13", "adjClose": "1810.0000" }
+Errors: 400 INVALID_INPUT（代號格式錯、指數、日期不合法）、404 NOT_FOUND、422 INSUFFICIENT_PRICE_DATA
+
+GET /stocks/{symbol}/trading-dates
+Auth: Cookie
+Response 200: { "symbol": "2330", "dates": ["2016-09-22", "...", "2026-09-21"] }   // 由舊到新，僅含有收盤價的日期
+Errors: 400 INVALID_INPUT、404 NOT_FOUND
+```
 `DELETE /portfolios/{id}/holding-lots/{lot_id}` 回 `204`。
 
 ### 股票查詢

@@ -138,11 +138,11 @@ export default function RiskProfile() {
       {regenError && <p style={{ color: "#c00" }}>{regenError}</p>}
 
       {/* 按鈕依情境變化：剛填完＝回首頁＋新增投資組合；從首頁查看＝回首頁＋重新填寫問卷。
-          之後有投資組合頁時，「新增投資組合」改導向新增畫面；目前先回首頁 */}
+          「新增投資組合」回首頁並直接展開新增表單 */}
       <p style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
         <button onClick={() => navigate("/")}>回首頁</button>
         {justSubmitted ? (
-          <button onClick={() => navigate("/")}>新增投資組合</button>
+          <button onClick={() => navigate("/", { state: { openCreate: true } })}>新增投資組合</button>
         ) : (
           <button onClick={startRefill}>重新填寫問卷</button>
         )}
