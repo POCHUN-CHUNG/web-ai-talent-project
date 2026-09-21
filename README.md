@@ -26,6 +26,7 @@ ai-talent-project/
 ├── changelog/               # main 每個版本的變更說明（改了哪些檔案、各檔案功能）
 ├── frontend/                # React 原始碼
 ├── backend/                 # FastAPI 原始碼
+├── references/              # 爬蟲原型腳本（實際執行的版本在 backend/app/services/）
 ├── database/
 │   ├── postgres_data/       # PostgreSQL 資料（本地掛載）
 │   └── pgadmin_data/        # pgAdmin 連線設定（本地掛載）
@@ -121,6 +122,22 @@ n8n 端設定（一次即可，在 n8n 網頁操作）：
 
 `docker-compose.yml` 已為 n8n 設定 `GENERIC_TIMEZONE=Asia/Taipei` 與 `TZ=Asia/Taipei`，所有工作流程（含排程觸發）預設使用台北時間；更改設定後需 `docker compose up -d n8n` 重建容器。若個別流程在 **Settings → Timezone** 手動指定過其他時區，會覆蓋預設值，需改回 *Default* 。
 
+## n8n 排程呼叫的抓取功能
+
+後端提供三項「只給 n8n 呼叫」的抓取功能，實際 API 路徑請看後端 API 文件頁（見〈存取各服務〉）。n8n 只負責排程啟動與顯示結果，呼叫時除了金鑰不需帶任何參數：
+
+| 功能 | 說明 |
+| ---- | ---- |
+| 抓取五大公股銀行利率 | 取得 1 年期定存機動利率，覆寫資料庫中唯一一列 |
+| 抓取股票基本資料 | 取得上市櫃股票與 ETF 的代號、名稱、市場別、產業別（含大盤指數），已存在的代號直接覆寫 |
+| 抓取每日股價與大盤指數 | 依股票基本資料建立清單（上市、上櫃向 yfinance 抓，指數向證交所抓；基本資料是空的就什麼都不抓），抓取個股還原收盤價與大盤報酬指數，起訖日由後端自行決定（首次上線抓保留期，預設 10 年，之後個股與大盤都只抓近 1 個月；個股若因除權息使還原價基準改變，後端會自動整檔重抓（不需 n8n 處理，也不回報）），同一代號同一天直接覆寫，全部成功後清除超過 10 年又 31 天的舊資料 |
+
+**建議執行順序**：先抓股票基本資料，再抓每日股價與大盤指數（後者依前者的清單抓取）。
+
+**回傳欄位**（三項一致，n8n 可直接顯示；不含時間，時間由 n8n 自己取得）：`message`（抓取訊息）、`status`（成功／失敗）、`success_count`（成功筆數）、`fail_count`（失敗筆數），失敗時另有 `error`（原因）。每日股價的「筆」以代號計（一檔股票或大盤指數算一筆），另附 `stock_success_count`／`index_success_count`（個股與大盤各自的成功筆數）、`rows_written`（實際寫入列數）與 `failed`（失敗的代號、名稱與原因）、`no_data_count`／`no_data`（Yahoo 本來就沒有價格的筆數與清單，含代號與名稱，不算失敗）。
+
+**中斷與被擋的處理**：每個來源失敗會自動重試；每一批抓完立即寫入資料庫；失敗的部分維持舊資料不動、下次執行會整段補回；連續多批失敗會判定被封鎖並中止；同一時間只允許執行一次。有任何失敗時回傳失敗狀態，讓 n8n 依流程重試或通知。日常執行約數分鐘；首次上線要抓 10 年，需數十分鐘，n8n 呼叫節點的逾時（Timeout）請設 60 分鐘以上。
+
 ## 常用指令
 
 ```bash
@@ -149,6 +166,7 @@ docker compose down -v
 - `REDIS_PASSWORD` / `REDIS_PORT`
 - `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` / `N8N_PORT` / `N8N_API_KEY`（n8n 呼叫後端專用 API 的金鑰，見下方〈n8n 呼叫後端 API 的金鑰〉）
 - `FRONTEND_PORT` / `BACKEND_PORT`
+- `ANALYSIS_MAX_LOOKBACK_YEARS` / `PRICE_RETENTION_BUFFER_DAYS`（日行情資料的保留年數與額外緩衝天數，預設 10 年與 31 天；也決定首次抓取的區間，不設定則用預設值，設定不合法時後端無法啟動）
 
 正式分享或部署前，請務必修改 `.env` 中的預設密碼。
 

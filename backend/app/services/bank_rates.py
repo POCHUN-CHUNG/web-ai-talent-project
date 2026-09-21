@@ -1,7 +1,11 @@
-import time
+import logging
 
 from bs4 import BeautifulSoup
 from curl_cffi import requests
+
+from app.services.n8n_result import with_retry
+
+logger = logging.getLogger(__name__)
 
 
 # 以下各函式皆為「爬取」：模擬瀏覽器開啟銀行牌告利率網頁，從中挖出 1 年期定期存款機動利率（%，回傳數字）。
@@ -79,11 +83,8 @@ def get_huanan_bank_rate() -> float:
     # 【華南銀行】無參數。
     # 1. 向銀行的資料介面取得利率清單（時間戳記避免拿到舊快取）
     url = "https://www.hncb.com.tw/hncb/rest/inRateTW/imm"
-    params = {
-        "_": int(time.time() * 1000),
-    }
     session = requests.Session(impersonate="chrome")
-    response = session.get(url, params=params, timeout=15)
+    response = session.get(url, timeout=15)
     data = response.json()
 
     # 2. 從清單挑出「定期存款一年～未滿二年」（且無金額門檻）那一筆
@@ -123,12 +124,30 @@ def get_first_bank_rate() -> float:
     return float(target_rate)
 
 
-def fetch_five_bank_rates() -> dict[str, float]:
-    # 【彙整五家銀行利率】無參數，回傳「銀行代號 → 利率」的對照表。
-    return {
-        "taiwan_bank": get_taiwan_bank_rate(),
-        "tcb_bank": get_tcb_bank_rate(),
-        "land_bank": get_land_bank_rate(),
-        "huanan_bank": get_huanan_bank_rate(),
-        "first_bank": get_first_bank_rate(),
-    }
+# 銀行代號 → 爬取函式
+BANK_FETCHERS = {
+    "taiwan_bank": get_taiwan_bank_rate,
+    "tcb_bank": get_tcb_bank_rate,
+    "land_bank": get_land_bank_rate,
+    "huanan_bank": get_huanan_bank_rate,
+    "first_bank": get_first_bank_rate,
+}
+MAX_REASONABLE_RATE = 10  # 1 年期定存利率超過這個值（%）視為網頁解析錯誤，不寫入
+
+
+def fetch_five_bank_rates() -> tuple[dict[str, float], dict[str, str]]:
+    # 【彙整五家銀行利率】無參數。逐家爬取（單家失敗會自動重試），回傳（成功的利率, 失敗的原因）兩份對照表，
+    # 皆以「銀行代號」為鍵。利率不合理（≤ 0 或過高）視為解析錯誤而算失敗，避免把爬歪的數字寫進資料庫。
+    rates: dict[str, float] = {}
+    errors: dict[str, str] = {}
+    for bank, fetcher in BANK_FETCHERS.items():
+        # 1. 抓取並自動重試
+        try:
+            rate = with_retry(fetcher, f"銀行利率 {bank}", logger)
+            # 2. 檢查數值合理
+            if not 0 < rate < MAX_REASONABLE_RATE:
+                raise ValueError(f"利率數值不合理：{rate}")
+            rates[bank] = rate
+        except Exception as exc:  # noqa: BLE001  網頁改版、逾時、被擋等都算該家失敗
+            errors[bank] = f"{type(exc).__name__}: {exc}"[:200]
+    return rates, errors

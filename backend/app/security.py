@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db, redis_client
 from app.models import User
+from app.services.n8n_result import fail_error
 
 # ── 登入相關設定 ──
 SESSION_COOKIE = "session_id"  # 瀏覽器中存放「通行證」的名稱
@@ -111,7 +112,7 @@ def require_n8n_key(x_api_key: str | None = Header(default=None)) -> None:
     # 1. 後端沒設定金鑰時一律拒絕（寧可全擋，也不要無防護）
     expected = os.getenv("N8N_API_KEY", "")
     if not expected:
-        raise HTTPException(status_code=503, detail="伺服器未設定 N8N_API_KEY")
+        raise fail_error(503, "後端金鑰驗證", "伺服器未設定 N8N_API_KEY")
     # 2. 用固定時間比對，避免以回應時間猜出金鑰；錯誤或缺少一律回 401
     if not x_api_key or not hmac.compare_digest(x_api_key, expected):
-        raise HTTPException(status_code=401, detail="金鑰錯誤或缺少")
+        raise fail_error(401, "後端金鑰驗證", "金鑰錯誤或缺少")

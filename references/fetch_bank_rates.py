@@ -63,11 +63,8 @@ def get_land_bank_rate() -> float:
 def get_huanan_bank_rate() -> float:
     """華南銀行 1年期定期存款機動利率"""
     url = "https://www.hncb.com.tw/hncb/rest/inRateTW/imm"
-    params = {
-        "_": int(time.time() * 1000),
-    }
     session = requests.Session(impersonate="chrome")
-    response = session.get(url, params=params, timeout=15)
+    response = session.get(url, timeout=15)
     data = response.json()
 
     target_rate = next(

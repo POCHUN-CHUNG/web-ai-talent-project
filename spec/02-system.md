@@ -1,7 +1,7 @@
 # 02 · 系統層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.2.0 ｜ 最後更新：2026-09-20
+> 文件版本：1.5.0 ｜ 最後更新：2026-09-21
 
 本層定義技術棧版本、執行環境、系統架構與資料流、檔案結構、模組相依規則與環境變數。任何實作開始前必須先讀完本檔。
 
@@ -36,7 +36,11 @@
 | `python-dotenv` | `1.0.1` | 環境變數載入 | 現有 |
 | `beautifulsoup4` | `4.12.3` | 銀行利率爬取 | 現有 |
 | `lxml` | `5.3.0` | HTML 解析 | 現有 |
-| `curl_cffi` | `0.7.4` | 模擬瀏覽器請求 | 現有 |
+| `curl_cffi` | `0.16.3` | 模擬瀏覽器請求（yfinance 需要 ≥ 0.15） | 升級 |
+| `yfinance` | `1.7.0` | 個股日收盤價（還原權息） | **新增** |
+| `pandas` | `3.0.6` | 解析證交所 HTML 表格、整理價格資料 | **新增** |
+| `requests` | `2.34.2` | 證交所 ISIN 與報酬指數請求 | **新增** |
+| `python-dateutil` | `2.9.0.post0` | 以日曆計算「10 年 + 31 天」等日期 | **新增** |
 | `argon2-cffi` | `23.1.0` | 密碼雜湊 | 現有 |
 | `numpy` | `2.5.3` | 量化指標運算 | **新增** |
 | `google-genai` | `2.16.0` | Gemini API 客戶端 | **新增** |
@@ -152,8 +156,8 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
        ▲
        │ X-API-Key
  ┌─────┴──────┐
- │    n8n      │  排程觸發，不直接連 DB
- │   :5679     │  台股與 IR0001 的抓取程式（柏鈞自行撰寫）
+ │    n8n      │  排程觸發並顯示結果，不直接連 DB
+ │   :5679     │  抓取由 backend 執行（D-56）
  └─────────────┘
 ```
 
@@ -162,8 +166,8 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
 | 邊界 | 不可信輸入 |
 | --- | --- |
 | 瀏覽器 → backend | 所有請求主體、查詢參數、Cookie 值 |
-| n8n → backend | `X-API-Key` 標頭、批次寫入的每一列資料 |
-| 外部網頁 → backend | 銀行牌告頁面的 HTML 內容 |
+| n8n → backend | `X-API-Key` 標頭（除此之外不傳任何參數） |
+| 外部網頁與資料來源 → backend | 銀行牌告頁面的 HTML、證交所 ISIN 表格與報酬指數、Yahoo 的價格資料（寫入前過濾週六日、盤中價、空值、非正數） |
 | Gemini API → backend | 模型回傳的全部內容（含 JSON 結構本身） |
 | 資料庫 → Prompt | 問卷自由文字（Q11 選項 J）、投資組合名稱 |
 
@@ -179,7 +183,7 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
 | 量化分析 | 同步 | < 3 s（10 檔、5 年） |
 | AI 報告產生 | 同步，但**與量化分析分成兩支端點** | < 60 s（逾時上限 180 s） |
 | 銀行利率抓取 | 同步，由 n8n 觸發 | < 20 s |
-| 報價批次寫入 | 同步，由 n8n 觸發 | < 5 s／5000 列 |
+| 每日股價與大盤抓取 | 同步，由 n8n 觸發 | 日常數分鐘；首次全量（約 2,270 檔、10 年）需數十分鐘，n8n 節點逾時設 60 分鐘 |
 
 **量化分析與 AI 報告必須分成兩支端點**，理由是**故障隔離**，不是為了提早顯示圖表。
 
@@ -205,8 +209,8 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
   → POST /portfolios/{id}/analysis       body: lookback_years, mode, overrides
   → 前端進入 computing 狀態（不顯示圖表）
        ├─ 讀 holding_lots → 彙總部位與目前市值權重
-       ├─ 讀 daily_prices（持股代號）→ 求最長共同期間（D-09）
-       ├─ 讀 daily_prices（symbol = MARKET_BENCHMARK_SYMBOL）→ 對齊同一期間
+       ├─ 讀 daily_quotes（持股代號）→ 求最長共同期間（D-09）
+       ├─ 讀 daily_quotes（symbol = MARKET_BENCHMARK_SYMBOL）→ 對齊同一期間
        ├─ 讀 bank_rates 最新一批 → 算術平均得 risk_free_rate
        ├─ 計算 11 項純量 + RC/PCR + 相關矩陣
        ├─ 以 effective profile 重算 2 條 finding
@@ -275,6 +279,9 @@ web-ai-talent-project/
 │       │   └── bank_rates.py
 │       └── services/             # 業務邏輯層
 │           ├── bank_rates.py     # 銀行牌告爬取
+│           ├── n8n_result.py     # 【新增】n8n 回傳格式（成功／失敗同一層）與重試工具
+│           ├── stock_info.py     # 【新增】抓取並寫入股票基本資料
+│           ├── market_data.py    # 【新增】抓取並寫入個股與大盤日收盤價、清理、異常提醒
 │           ├── questionnaire.py  # 【新增】14 題 → 指標與 finding 的轉換規則
 │           ├── portfolio.py      # 【新增】買進紀錄彙總、權重、損益
 │           ├── metrics.py        # 【新增】11 項純量指標
@@ -408,9 +415,9 @@ CI 檢查：`src/` 底下除 `tokens.css` 外，不得出現 `#[0-9a-fA-F]{3,8}`
 | `GEMINI_MAX_RETRIES` | int | `2` | all | JSON 解析失敗的重試次數 | 否 |
 | `ANALYSIS_DEFAULT_LOOKBACK_YEARS` | int | `5` | all | 滑桿預設值 | 否 |
 | `ANALYSIS_MIN_LOOKBACK_YEARS` | int | `1` | all | 滑桿下界 | 否 |
-| `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | all | 滑桿上界 | 否 |
+| `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | all | 滑桿上界；同時是日行情的保留年數與首次抓取年數，範圍 1～10，不合法即無法啟動 | 否 |
 | `MARKET_BENCHMARK_SYMBOL` | string | `IR0001` | all | 市場基準代號 | 否 |
-| `PRICE_RETENTION_BUFFER_DAYS` | int | `31` | all | 保留期在 `ANALYSIS_MAX_LOOKBACK_YEARS` 之外的緩衝天數。實際保留期 = 上限年數 + 此緩衝，不另設固定天數 | 否 |
+| `PRICE_RETENTION_BUFFER_DAYS` | int | `31` | all | 保留期在 `ANALYSIS_MAX_LOOKBACK_YEARS` 之外的緩衝天數，範圍 0～366，不合法即無法啟動。實際保留期 = 上限年數 + 此緩衝，不另設固定天數 | 否 |
 | `ANALYSIS_CACHE_TTL_SECONDS` | int | `86400` | all | 分析結果快取秒數 | 否 |
 | `RATE_LIMIT_AUTH_PER_MINUTE` | int | `10` | all | 登入／註冊每 IP 每分鐘上限 | 否 |
 | `RATE_LIMIT_ANALYSIS_PER_MINUTE` | int | `3` | all | 分析每使用者每分鐘上限 | 否 |

@@ -21,7 +21,7 @@
 
 **既有程式需配合修改**：`backend/app/models.py` 的 `User.created_at` → `created`。
 `bank_rates.updated` 已符合本規則，不需修改。
-`daily_prices` **不設 `updated`**（D-50）：該表只有寫入與覆寫兩種操作，`trade_date` 已足以定位每一列，多一個時間欄位對查詢與除錯都沒有貢獻。
+`daily_quotes` **不設 `updated`**（D-50）：該表只有寫入與覆寫兩種操作，`trade_date` 已足以定位每一列，多一個時間欄位對查詢與除錯都沒有貢獻。
 
 ### P-46 命名以「看名字就懂」為準
 
@@ -37,7 +37,7 @@
 | API 路徑 `/analyses/...` | **`/analysis/...`** | 路徑一律用單數 `analysis`，避開拼寫陷阱 |
 | 前端 `Landing.tsx` | **`Login.tsx`** | 這頁做的是登入與註冊，不是 landing page |
 
-最終資料表共 10 張：`users`、`stock_info`、`daily_prices`、`bank_rates`、`questionnaire_answers`、`risk_profiles`、`portfolios`、`holding_lots`、`analysis_results`、`analysis_reports`。
+最終資料表共 10 張：`users`、`stock_info`、`daily_quotes`、`bank_rates`、`questionnaire_answers`、`risk_profiles`、`portfolios`、`holding_lots`、`analysis_results`、`analysis_reports`。
 
 ## 一、命名與語言慣例（→ SPEC §0.4）
 
@@ -98,9 +98,8 @@
 | `GET` | `/stocks?q=` | 股票代號／名稱查詢 | Cookie |
 | `GET` | `/bank-rates/latest` | 最新一批五家銀行利率 | Cookie |
 | `POST` | `/bank-rates/fetch` | 抓取並寫入利率（現況既有端點，路徑不變） | `X-API-Key` |
-| `POST` | `/market-data/daily-prices` | 批次寫入個股與指數的日收盤價 | `X-API-Key` |
-| `POST` | `/stocks/sync` | 批次寫入或更新股票基本資料 | `X-API-Key` |
-| `POST` | `/market-data/purge` | 執行 TTL 滾動清理 | `X-API-Key` |
+| `POST` | `/stocks/fetch` | 抓取並寫入股票基本資料（後端自行抓取，D-56） | `X-API-Key` |
+| `POST` | `/market-data/fetch` | 抓取並寫入個股與大盤日收盤價，成功後清理過期資料（後端自行抓取，D-56） | `X-API-Key` |
 | `GET` | `/health` | 健康檢查 | **僅限容器內部**（來源須為 127.0.0.1／::1） |
 
 ### P-03b `/health` 的存取限制（D-51）
@@ -121,9 +120,9 @@ Docker healthcheck 在容器內以 `curl -fsS http://127.0.0.1:8000/health` 呼�
 | 呼叫對象 | 成功回應 | 失敗回應 |
 | --- | --- | --- |
 | 前端（Cookie 驗證） | 資源本身的 JSON | `{"detail": {"code": "SNAKE_CASE_CODE", "message": "中文訊息", "trace_id": "uuid"}}` |
-| n8n（`X-API-Key`） | `{"status": "成功", "message": "中文訊息", ...資料}` | `{"detail": {"status": "失敗", "message": "中文訊息"}}` |
+| n8n（`X-API-Key`） | `{"message", "status": "成功", "success_count", "fail_count", ...資料}` | 同一層：`{"message", "status": "失敗", "success_count", "fail_count", "error", ...}`（不包 `detail`，D-59） |
 
-n8n 的格式沿用現況 `routers/bank_rates.py` 的實作，並符合 `CLAUDE.md` §8：只回執行狀態與資料本身，方便 n8n 直接顯示，不帶 `trace_id` 這類對自動化流程無意義的欄位。
+n8n 的格式定義於 `services/n8n_result.py`，符合 `CLAUDE.md` §8：只回執行狀態、成敗筆數與資料本身，**不含時間**，成功與失敗欄位同一層，方便 n8n 以同一組運算式處理。
 前端的格式需要 `code` 供程式分支、`trace_id` 供對照日誌，兩者缺一不可。
 
 | 項目 | 規範 |
@@ -132,18 +131,18 @@ n8n 的格式沿用現況 `routers/bank_rates.py` 的實作，並符合 `CLAUDE.
 | 排序 | `?sort=field` 升冪、`?sort=-field` 降冪 |
 | 日期 | 輸入輸出皆 ISO 8601；含時刻者一律 UTC 並帶 `Z`；純日期用 `YYYY-MM-DD` |
 | 認證 | 前端一律 Cookie（`session_id`, HttpOnly, SameSite=Lax）；n8n 一律 `X-API-Key` |
-| 冪等 | `POST /internal/market-data/daily-prices` 以 `(symbol, trade_date)` UPSERT，重送不產生重複列 |
+| 冪等 | `POST /market-data/fetch` 以 `(symbol, trade_date)` 覆寫，重跑不產生重複列 |
 | 限流 | 登入／註冊每 IP 每分鐘 10 次；分析每使用者每分鐘 3 次 |
 
 ## 三、資料表（→ SPEC §3.2）
 
 ### P-05 表清單
 
-`users`、`stock_info`、`daily_prices`、`bank_rates`、`questionnaire_answers`、`risk_profiles`、`portfolios`、`holding_lots`、`analysis_results`、`analysis_reports`。共 10 張。
+`users`、`stock_info`、`daily_quotes`、`bank_rates`、`questionnaire_answers`、`risk_profiles`、`portfolios`、`holding_lots`、`analysis_results`、`analysis_reports`。共 10 張。
 
-「持股部位」不落表，由 `holding_lots` 依 `symbol` 即時彙總。個股與指數報價共用 `daily_prices`（P-06）。
+「持股部位」不落表，由 `holding_lots` 依 `symbol` 即時彙總。個股與指數報價共用 `daily_quotes`（P-06）。
 
-### P-06 `daily_prices`（個股與指數共用，2026-09-20 二次修訂）
+### P-06 `daily_quotes`（個股與指數共用，2026-09-20 二次修訂）
 
 **只保留收盤價。** 開盤價、最高價、最低價、成交量經確認**不被任何指標、任何圖表使用**，全部不存。
 
@@ -154,7 +153,7 @@ n8n 的格式沿用現況 `routers/bank_rates.py` 的實作，並符合 `CLAUDE.
 | `adj_close` | `NUMERIC(14,4) NOT NULL CHECK (adj_close > 0)` | **一律為含息基準**：個股存 yfinance 的 `Adj Close`（已還原除權息），指數存報酬指數收盤值 |
 | `trade_date` | `DATE NOT NULL` | 交易日（台北時區的日期） |
 
-`UNIQUE (symbol, trade_date)`；索引 `(symbol, trade_date DESC)`。**三個資料欄位，無 `source`、無 `asset_type`、無 `updated`。**
+`UNIQUE (symbol, trade_date)`（其索引同時負責查詢，**不另建**倒序索引，D-64）。**三個資料欄位，無 `source`、無 `asset_type`、無 `updated`。**
 
 **為什麼不設 `updated`**（D-50）：這張表只有兩種操作——寫入新交易日、覆寫同一交易日的值。`trade_date` 已足以定位每一列，再記一個寫入時間對查詢、除錯與稽核都沒有貢獻，只是每列多 8 bytes 與一個可能忘記更新的欄位。
 
@@ -162,20 +161,15 @@ n8n 的格式沿用現況 `routers/bank_rates.py` 的實作，並符合 `CLAUDE.
 
 **欄位命名的約束意義**：叫 `adj_close` 而非 `close`，是為了讓「這一欄永遠是還原權息後的值」寫在名字裡。**嚴禁**寫入未還原的原始收盤價——那不會報錯，只會讓長期報酬與 Beta 靜默失真。報酬指數本身即為還原除權息後的指數，與個股 `Adj Close` 同基準，因此共用此欄名在語意上成立。
 
-**寫入範例（個股與指數同格式、同端點）**
+**寫入內容範例（個股與指數同格式，由後端抓取後直接寫入，不經 API 傳入）**
 
-```json
-{
-  "rows": [
-    {"symbol": "2330", "adj_close": 1190.0000, "trade_date": "2026-09-19"},
-    {"symbol": "2330", "adj_close": 1185.0000, "trade_date": "2026-09-18"},
-    {"symbol": "IR0001", "adj_close": 14790.7400, "trade_date": "2016-09-01"}
-  ]
-}
-```
+| `symbol` | `adj_close` | `trade_date` |
+| --- | --- | --- |
+| `2330` | `1190.0000` | `2026-09-19` |
+| `2330` | `1185.0000` | `2026-09-18` |
+| `IR0001` | `14790.7400` | `2016-09-01` |
 
-回應：`{"success": true, "inserted": 3, "updated": 0, "skipped": 0}`。單次上限 5000 列。
-`market_index_prices` 表與 `/market-data/index-prices` 端點**取消**。
+同一 `(symbol, trade_date)` 已有資料時**直接覆寫** `adj_close`。`market_index_prices` 表與 `/market-data/index-prices` 端點**取消**。
 
 ### P-06c `stock_info`（股票基本資料）
 
@@ -189,41 +183,27 @@ n8n 的格式沿用現況 `routers/bank_rates.py` 的實作，並符合 `CLAUDE.
 
 以 `symbol` 為自然主鍵，不另設流水號。索引：`(name)` 供搜尋使用（FR-21）。
 
-**資料來源**：證交所 ISIN 分類表 `https://isin.twse.com.tw/isin/class_main.jsp?market={m}&issuetype={i}`，四個組合涵蓋上市普通股（含 KY）、上櫃普通股、上市 ETF、上櫃 ETF。抓取程式由柏鈞自行撰寫。
+**資料來源**：證交所 ISIN 分類表 `https://isin.twse.com.tw/isin/class_main.jsp?market={m}&issuetype={i}`，四個組合涵蓋上市普通股（含 KY）、上櫃普通股、上市 ETF、上櫃 ETF。由後端 `services/stock_info.py` 抓取（D-56）。
 
-**代號白名單**：抓取端以 `^([1-9]\d{3}|00\d{2,3}[A-Za-z]?)$` 過濾，只留四位數普通股與 `00` 開頭的 ETF（含 `00981A` 這類帶字尾者）。後端寫入時以同一規則驗證，或代號等於 `MARKET_BENCHMARK_SYMBOL`，兩者皆不符即拒絕。
+**代號白名單**：後端抓取時以 `^([1-9]\d{3}|00\d{2,3}[A-Za-z]?)$` 過濾，只留四位數普通股與 `00` 開頭的 ETF（含 `00981A` 這類帶字尾者）。後端寫入時以同一規則過濾，或代號等於 `MARKET_BENCHMARK_SYMBOL`，兩者皆不符即拒絕。
 
-**`IR0001` 亦寫入本表**（`name` = `加權報酬指數`、`market` = `指數`、`industry` = `大盤`）。因此 `daily_prices.symbol` 與 `holding_lots.symbol` 都能建立外鍵，代號體系完全統一。
+**`IR0001` 亦寫入本表**（`name` = `加權報酬指數`、`market` = `指數`、`industry` = `大盤`）。因此 `daily_quotes.symbol` 與 `holding_lots.symbol` 都能建立外鍵，代號體系完全統一。
 但 `holding_lots.symbol` 另加 `CHECK`：不得為 `market = '指數'` 的代號——使用者不能把指數當持股輸入。此約束以應用層驗證實作（PostgreSQL 的 CHECK 無法跨表查詢）。
 
-**與 yfinance 的代號轉換由抓取端負責**：`market` 為「上市」時對應 `{symbol}.TW`，「上櫃」時對應 `{symbol}.TWO`。**資料庫內一律只存純代號**，後端不做任何後綴拼接。
+**與 yfinance 的代號轉換由後端抓取服務負責**：`market` 為「上市」時對應 `{symbol}.TW`，「上櫃」時對應 `{symbol}.TWO`。**資料庫內一律只存純代號**。
 
 ### P-06b IR0001 的來源端點特性
 
-**來源**：`https://www.twse.com.tw/indicesReport/MFI94U?response=json&date=YYYYMM01`
+**來源**：`https://www.twse.com.tw/rwd/zh/TAIEX/MFI94U?response=json&date=YYYYMM01`（與舊路徑 `indicesReport/MFI94U` 回傳相同，實作採此路徑）
 
 | 特性 | 說明 |
 | --- | --- |
-| 回傳粒度 | **一次一個月**，`total` 為該月交易日數（例：2016-09 為 19 日）。回補 10 年需呼叫 120 次 |
-| 日期格式 | 民國年，`"105/09/01"`。**轉換為西元 ISO 日期由抓取端負責**（民國年 + 1911） |
-| 數值格式 | 含千分位逗號，`"14,790.74"`。**去逗號轉 float 由抓取端負責** |
-| 成功判定 | `stat == "OK"`。非 `OK` 時該月視為失敗，不得寫入部分資料 |
+| 回傳粒度 | **一次一個月**，`total` 為該月交易日數（例：2016-09 為 19 日）。首次回補 10 年需呼叫約 120 次 |
+| 日期格式 | 民國年，`"105/09/01"`。**轉換為西元 ISO 日期由後端抓取服務負責**（民國年 + 1911） |
+| 數值格式 | 含千分位逗號，`"14,790.74"`。**去逗號轉數值由後端抓取服務負責** |
+| 成功判定 | `stat == "OK"` 為成功；`stat` 含「沒有符合條件」為該月確實無資料（不算失敗）；其他一律視為失敗（被擋、出錯），**不可當成無資料**，否則資料庫會出現缺口 |
 
-寫入格式見 P-06 的指數寫入範例，與個股共用同一支端點。
-
-**寫入 API 的請求範例（你自行撰寫的爬蟲需對齊這個格式）**
-
-```json
-{
-  "source": "yfinance",
-  "rows": [
-    {"symbol": "2330.TW", "trade_date": "2026-09-19", "open": 1185.0000, "high": 1195.0000, "low": 1180.0000, "close": 1190.0000, "adj_close": 1190.0000, "volume": 28451000},
-    {"symbol": "2330.TW", "trade_date": "2026-09-18", "open": 1175.0000, "high": 1188.0000, "low": 1172.0000, "close": 1185.0000, "adj_close": 1185.0000, "volume": 31002000}
-  ]
-}
-```
-
-回應：`{"success": true, "inserted": 2, "updated": 0, "skipped": 0}`。單次上限 5000 列。
+寫入內容與個股相同（見 P-06），由 `POST /market-data/fetch` 一併處理。
 
 ### P-07 `holding_lots` 的欄位與型別（買進紀錄）
 
@@ -297,13 +277,13 @@ n8n 的格式沿用現況 `routers/bank_rates.py` 的實作，並符合 `CLAUDE.
 | P-14 | $R_f$ 取值 | `bank_rates` 唯一一列的五個欄位算術平均：$(taiwan+tcb+land+huanan+first)/5$。該表永遠只有一列，不需分組也不需排序。表為空時回 `RISK_FREE_RATE_UNAVAILABLE` |
 | P-15 | ES95 分位數（原 G-07） | 線性內插（NumPy 預設 `method="linear"`，等同 R type 7）；$ES_{95}=-\text{mean}(R \le q_{0.05})$ |
 | P-16 | Beta / R² | 以 OLS 含截距對市場日報酬迴歸；$R^2=\text{Corr}(R_p,R_m)^2$ |
-| P-17 | 市場基準 | **`IR0001`**（臺灣證券交易所發行量加權股價**報酬**指數，TAIEX TRI，含息）。與個股採用的 `adj_close`（已還原除權息）基準一致，Beta 與 R² 的分子分母定義相同。抓取程式由柏鈞自行撰寫，後端只認 `daily_prices` 的寫入契約 |
+| P-17 | 市場基準 | **`IR0001`**（臺灣證券交易所發行量加權股價**報酬**指數，TAIEX TRI，含息）。與個股採用的 `adj_close`（已還原除權息）基準一致，Beta 與 R² 的分子分母定義相同。抓取由後端 `services/market_data.py` 執行（D-56） |
 | P-18 | 相關係數 | Pearson，成對皆有值才計算；缺值輸出 `null`，不得補 0 |
 | P-19 | 權重 | 目前市值權重 $w_i=P_iQ_i/\sum P_jQ_j$，$Q_i$ 為該檔全部買進紀錄的股數加總，價格取最新交易日 `adj_close`。**買進日期不影響權重**：14 項風險指標一律為「固定目前權重的歷史模擬」，這是刻意設計，AI Prompt 已明文載明此口徑 |
 | P-20 | 浮點比較容差（原 §5.6） | 相對誤差 $<10^{-6}$；黃金測試向量以此標準比對 |
 | P-21 | 單一持股（原 G-06） | HHI=1、$N_{eff}$=1、Beta 與 R² 照算、相關矩陣為 1×1、熱圖 `status="unavailable"`；`diversification` 段照常輸出並說明原因 |
 | P-22 | 組合上限（原 G-16） | 每使用者最多 20 個投資組合；每組合最多 50 檔**不同股票**；每檔最多 100 筆買進紀錄 |
-| P-23 | 資料保留（原 G-09，2026-09-20 修訂） | `daily_prices` 的保留期由分析上限推導，不寫死天數：刪除 `trade_date < CURRENT_DATE - interval 'ANALYSIS_MAX_LOOKBACK_YEARS years' - interval 'PRICE_RETENTION_BUFFER_DAYS days'` 的列。預設為 10 年 + 31 天。個股與指數同規則。`bank_rates` **只保留當前一列，不留歷史**（現況實作即為先刪後寫），不需清理 |
+| P-23 | 資料保留（原 G-09，2026-09-21 修訂，D-62） | `daily_quotes` 的保留期為 **`ANALYSIS_MAX_LOOKBACK_YEARS` 年 + `PRICE_RETENTION_BUFFER_DAYS` 天**（預設 10 年 + 31 天），由每日抓取（`POST /market-data/fetch`）**有抓到資料且全部成功後**自動清理，刪除 `trade_date` 早於「今天 − 保留期」的列（以日曆計算，閏年由日期函式處理，不以固定天數近似）。兩個變數啟動時驗證，不合法即無法啟動。個股與指數同規則。`bank_rates` **只保留當前一列，不留歷史**，不需清理 |
 | P-24 | 快取（原 G-17） | Redis 快取 `analysis_results` 的量化結果與 AI 報告，鍵為 `analysis:{analysis_id}`，TTL 24 小時；問卷與買進紀錄不快取 |
 
 ## 五、指標識別碼（原 E-2，→ SPEC §3.1）
@@ -330,9 +310,9 @@ n8n 的格式沿用現況 `routers/bank_rates.py` 的實作，並符合 `CLAUDE.
 | `GEMINI_MAX_RETRIES` | int | `2` | 否 | JSON 解析失敗的重試次數 |
 | `ANALYSIS_DEFAULT_LOOKBACK_YEARS` | int | `5` | 否 | 滑桿預設值 |
 | `ANALYSIS_MIN_LOOKBACK_YEARS` | int | `1` | 否 | 滑桿下界 |
-| `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | 否 | 滑桿上界 |
+| `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | 否 | 滑桿上界；同時是日行情的保留年數與首次抓取年數（1～10） |
 | `MARKET_BENCHMARK_SYMBOL` | string | `IR0001` | 否 | 市場基準（發行量加權股價報酬指數） |
-| `PRICE_RETENTION_BUFFER_DAYS` | int | `31` | 否 | 保留期在分析上限之外的緩衝天數 |
+| `PRICE_RETENTION_BUFFER_DAYS` | int | `31` | 否 | 保留期在分析上限之外的緩衝天數（0～366） |
 | `ANALYSIS_CACHE_TTL_SECONDS` | int | `86400` | 否 | Redis 快取秒數 |
 
 既有變數（`POSTGRES_*`、`PGADMIN_*`、`REDIS_*`、`N8N_*`、`FRONTEND_PORT`、`BACKEND_PORT`、`COOKIE_SECURE`）維持不變。新增變數需同步更新 `.env.example` 與 `docker-compose.yml` 的 `backend.environment`（`CLAUDE.md` §6 規定）。
@@ -376,16 +356,16 @@ web-ai-talent-project/
 
 | # | 項目 | 決策 |
 | --- | --- | --- |
-| P-32 | n8n 排程（2026-09-20 修訂） | 三條流程皆為**每日 00:00（台北時間）**。n8n 容器已設 `GENERIC_TIMEZONE=Asia/Taipei`，排程直接填本地時間，不需換算 UTC。後端不做排程（`CLAUDE.md` §8）。失敗重試 2 次、間隔 5 分鐘；非交易日抓不到資料時後端回 `inserted: 0`，不視為錯誤 |
-| P-32b | 日收盤價的抓取區間 | 每次抓取**過去 1 個月**，而非只抓當日。以 `(symbol, trade_date)` UPSERT，重複寫入無副作用。目的是自我修復：任一天失敗，隔天自動補回，不需人工介入 |
-| P-32c | 清理的執行時機 | 清理併入日收盤價流程的最後一步，**每日執行**，且必須在寫入成功之後才執行。寫入失敗時跳過清理——避免資料既停止更新又持續縮短 |
+| P-32 | n8n 排程（2026-09-21 修訂，D-58） | 銀行利率每日 **00:00**；股票基本資料每日 **13:30**；每日股價與大盤每日 **14:00 與 00:00**（台北時間）。n8n 容器已設 `GENERIC_TIMEZONE=Asia/Taipei`，排程直接填本地時間。後端不做排程（`CLAUDE.md` §8）。重試由後端負責（3 次，間隔 5、20 秒），n8n 不設重試；非交易日抓不到新資料不視為錯誤 |
+| P-32b | 日收盤價的抓取區間（D-57） | 資料庫已有價格的個股與大盤只抓**近 1 個月**（大盤為 1 個月前的月初至本月）；沒有任何價格者（首次上線、新上市）抓 10 年 + 31 天。以 `(symbol, trade_date)` 覆寫，重跑無副作用，漏抓的日子下次自動補回；停機或連續失敗超過 1 個月則中間缺口補不回來。起訖日由後端計算，n8n 不傳參數 |
+| P-32c | 清理的執行時機 | 清理併入每日抓取的最後一步，**全部成功（無失敗）才執行**——避免資料既停止更新又持續縮短 |
 | P-33 | findings priority（原 Q-07） | `1 = primary_financial_constraints`、`2 = willingness_capacity_gap`、`3 = horizon_liquidity_consistency`、`4 = knowledge_experience_consistency`。四項全部存入 DB，AI 只在文章中解釋前兩項 |
 | P-34 | `cash_flow` fact（原 Y-05） | 列為獨立 fact 輸出，`id = cash_flow`，來源 Q3。理由：`financial_capacity` 判為「低」時，AI 需要指出是哪一項拉低的，缺這個 fact 就只能含糊帶過 |
 | P-35 | Q11 選項 J 自由文字 | 欄位 `other_product_text`，`VARCHAR(100)`，僅允許中英數與全形標點，送入 Prompt 前移除換行與控制字元，並以獨立 JSON 欄位傳遞（不串接進任何指令句）。不參與商品經驗分類 |
 | P-36 | 圖表元件對應（修訂） | `@nivo/heatmap` → 相關係數熱圖；`@nivo/bar`（水平、分組）→ 權重 vs 風險貢獻、風險落差對照條；`@nivo/line`（含 `enableArea`）→ 淨值走勢與回撤面積。四張圖共用一個 `nivoTheme` 物件，其值全部讀自 `tokens.css` 的 CSS 變數（透過 `getComputedStyle` 取得，深色模式切換時重新計算） |
 | P-37 | 分析時的錯誤碼 | `INSUFFICIENT_PRICE_DATA`（無任何共同期間）、`BENCHMARK_UNAVAILABLE`（市場指數缺資料）、`RISK_FREE_RATE_UNAVAILABLE`（無完整五家利率）、`PROFILE_LIMITED`（readiness=limited，依 D-17 擋住）、`AI_REPORT_FAILED`（模型連續解析失敗） |
 | P-38 | AI 失敗降級 | 模型逾時或連續 `GEMINI_MAX_RETRIES` 次無法解析為合法 JSON 時，量化結果與四張圖照常顯示，AI 解說區塊顯示「暫時無法產生解說」與重試按鈕，回應 `report.status = "failed"`，不阻擋整頁 |
-| P-39 | 交易明細的日期驗證 | `trade_date` 不得晚於今日，不得早於 1990-01-01。日期早於該檔 `daily_prices` 最早一筆時仍可輸入，僅在持有天數說明旁標註「早於可取得的價格資料起點」 |
+| P-39 | 交易明細的日期驗證 | `trade_date` 不得晚於今日，不得早於 1990-01-01。日期早於該檔 `daily_quotes` 最早一筆時仍可輸入，僅在持有天數說明旁標註「早於可取得的價格資料起點」 |
 | P-40 | 年化持有報酬率的下限 | 持有天數 < 30 日時不計算年化值，顯示「持有期間過短，暫不年化」。理由：短期報酬年化會產生數百甚至上千 % 的誤導性數字 |
 | P-41 | 持股列表呈現 | 預設每檔一列，顯示加權平均成本、部位股數、市值、未實現損益、年化持有報酬率；點擊展開顯示該檔的全部買進紀錄（日期、股數、單價、該筆損益、該筆持有天數） |
 | P-42 | 熱圖的深色模式色階 | 淺色端使用 `info-container` 與 `error-container`，深色端使用 `dark-info-container` 與 `dark-error-container`，中點一律為當前主題的 `surface`。色階以 `@nivo/heatmap` 的 `colors: {type: "diverging", divergeAt: 0.5}` 設定，定義域固定為 [−1, 1]，不隨資料自動縮放 |

@@ -29,6 +29,8 @@ services:
       - FRONTEND_ORIGIN=http://localhost:${FRONTEND_PORT}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - N8N_API_KEY=${N8N_API_KEY}
+      - ANALYSIS_MAX_LOOKBACK_YEARS=${ANALYSIS_MAX_LOOKBACK_YEARS:-10}
+      - PRICE_RETENTION_BUFFER_DAYS=${PRICE_RETENTION_BUFFER_DAYS:-31}
     depends_on:
       postgres:
         condition: service_healthy

@@ -22,6 +22,14 @@
 | 006  | 2026-09-20 | `bd745af` | 合併 PR #2（中文註解）          | [006-bd745af-merge-pr2.md](006-bd745af-merge-pr2.md)                           |
 | 007  | 2026-09-20 | `ba6dcbe` | 版本變更說明與 CLAUDE.md        | [007-ba6dcbe-changelog-and-claude-md.md](007-ba6dcbe-changelog-and-claude-md.md) |
 | 008  | 2026-09-20 | `baee1b3` | 合併 PR #3（變更說明與規範）    | [008-baee1b3-merge-pr3.md](008-baee1b3-merge-pr3.md)                           |
+| 009  | 2026-09-20 | `8533aaf` | n8n 金鑰驗證與時區              | [009-8533aaf-n8n-api-key.md](009-8533aaf-n8n-api-key.md)                       |
+| 010  | 2026-09-20 | `6820e7e` | 合併 PR #4（n8n 金鑰驗證）      | [010-6820e7e-merge-pr4.md](010-6820e7e-merge-pr4.md)                           |
+| 011  | 2026-09-20 | `594b829` | API 文件分類改中文              | [011-594b829-chinese-api-tags.md](011-594b829-chinese-api-tags.md)             |
+| 012  | 2026-09-20 | `3afad85` | 合併 PR #5（API 文件分類）      | [012-3afad85-merge-pr5.md](012-3afad85-merge-pr5.md)                           |
+| 013  | 2026-09-20 | `5061aa0` | 銀行利率存入資料庫              | [013-5061aa0-save-bank-rates.md](013-5061aa0-save-bank-rates.md)               |
+| 014  | 2026-09-20 | `77b052d` | 合併 PR #6（銀行利率存入資料庫） | [014-77b052d-merge-pr6.md](014-77b052d-merge-pr6.md)                           |
+| 015  | 2026-09-20 | `d378262` | 系統規格書與設計文件            | [015-d378262-spec-and-design.md](015-d378262-spec-and-design.md)               |
+| 016  | 2026-09-20 | `21de53c` | 合併 PR #7（規格書與設計文件）  | [016-21de53c-merge-pr7.md](016-21de53c-merge-pr7.md)                           |
 
 ## 維護規則
 
