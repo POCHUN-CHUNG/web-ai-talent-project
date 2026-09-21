@@ -1,8 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider, RequireAuth } from "./auth";
+import { AuthProvider, RequireAuth, RequireProfile } from "./auth";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Settings from "./pages/Settings";
+import Questionnaire from "./pages/Questionnaire";
+import RiskProfile from "./pages/RiskProfile";
 
 // 【App 根元件】決定「哪個網址顯示哪個頁面」。
 export default function App() {
@@ -14,12 +16,17 @@ export default function App() {
           {/* 2. 公開頁面：登入、註冊（同一元件，以 mode 區分） */}
           <Route path="/login" element={<Landing key="login" mode="login" />} />
           <Route path="/register" element={<Landing key="register" mode="register" />} />
-          {/* 3. 需登入頁面：首頁、使用者設定（未登入會被導到登入頁） */}
+          {/* 3. 需登入頁面（未登入會被導到登入頁）：問卷與風險屬性結果頁隨時可進入 */}
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/questionnaire" element={<Questionnaire />} />
+            <Route path="/risk-profile" element={<RiskProfile />} />
+            {/* 4. 其餘頁面須先有可用的風險屬性，否則導向問卷 */}
+            <Route element={<RequireProfile />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
           </Route>
-          {/* 4. 其他網址一律導回首頁 */}
+          {/* 5. 其他網址一律導回首頁 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

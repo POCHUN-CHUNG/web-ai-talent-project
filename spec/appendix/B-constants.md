@@ -182,6 +182,8 @@ AI 只解釋 `priority` 最小的前兩項，四項皆存入資料庫。
 | 使用者的通行證清單 | `user_sessions:{user_id}` | 7 天 |
 | 分析結果快取 | `analysis:{analysis_id}` | 24 小時 |
 | 登入限流 | `rl:auth:{ip}` | 60 秒 |
-| 分析限流 | `rl:analysis:{user_id}` | 60 秒 |
+| 問卷送出限流 | `rate:questionnaire:{user_id}` | 60 秒 |
+| 重新產生解析限流 | `rate:description:{user_id}` | 60 秒 |
+| 解析產生中標記 | `description_pending:{profile_id}` | `GEMINI_TIMEOUT_SECONDS + 60` 秒 |
 | 報告重試限流 | `rl:report:{analysis_id}` | 60 秒 |
 | 一般限流 | `rl:general:{user_id}` | 60 秒 |

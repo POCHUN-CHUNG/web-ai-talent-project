@@ -26,6 +26,8 @@ ai-talent-project/
 ├── changelog/               # main 每個版本的變更說明（改了哪些檔案、各檔案功能）
 ├── frontend/                # React 原始碼
 ├── backend/                 # FastAPI 原始碼
+├── spec/                    # 系統規格（問卷規則、Prompt 等；SPEC.md 為索引）
+├── tests/                   # 自動化測試（問卷規則、AI 輸出驗證）
 ├── references/              # 爬蟲原型腳本（實際執行的版本在 backend/app/services/）
 ├── database/
 │   ├── postgres_data/       # PostgreSQL 資料（本地掛載）
@@ -138,6 +140,10 @@ n8n 端設定（一次即可，在 n8n 網頁操作）：
 
 **中斷與被擋的處理**：每個來源失敗會自動重試；每一批抓完立即寫入資料庫；失敗的部分維持舊資料不動、下次執行會整段補回；連續多批失敗會判定被封鎖並中止；同一時間只允許執行一次。有任何失敗時回傳失敗狀態，讓 n8n 依流程重試或通知。日常執行約數分鐘；首次上線要抓 10 年，需數十分鐘，n8n 呼叫節點的逾時（Timeout）請設 60 分鐘以上。
 
+## 問卷與風險屬性
+
+登入後若尚未填寫問卷（或上次作答有前後矛盾），會被導向問卷頁；填完 14 題後可查看「我的風險屬性」：四項核心風險指標、交叉分析與 AI 產生的描述。AI 金鑰設定見〈環境變數〉；未設定金鑰或 AI 失敗時，四項指標仍正常顯示。規則細節見 `spec/04-behavior.md`，API 清單見後端 `/docs` 頁面。
+
 ## 常用指令
 
 ```bash
@@ -166,12 +172,14 @@ docker compose down -v
 - `REDIS_PASSWORD` / `REDIS_PORT`
 - `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` / `N8N_PORT` / `N8N_API_KEY`（n8n 呼叫後端專用 API 的金鑰，見下方〈n8n 呼叫後端 API 的金鑰〉）
 - `FRONTEND_PORT` / `BACKEND_PORT`
+- `GEMINI_API_KEY`（AI 金鑰，用於產生風險屬性描述；留空時後端照常啟動，描述會顯示「暫時無法產生」）與 `GEMINI_MODEL` / `GEMINI_TIMEOUT_SECONDS` / `GEMINI_MAX_OUTPUT_TOKENS` / `GEMINI_TEMPERATURE` / `GEMINI_MAX_RETRIES`（模型與呼叫參數，皆有預設值）
 - `ANALYSIS_MAX_LOOKBACK_YEARS` / `PRICE_RETENTION_BUFFER_DAYS`（日行情資料的保留年數與額外緩衝天數，預設 10 年與 31 天；也決定首次抓取的區間，不設定則用預設值，設定不合法時後端無法啟動）
 
 正式分享或部署前，請務必修改 `.env` 中的預設密碼。
 
 ## 開發備註
 
+- 問卷規則與 AI 輸出驗證的自動化測試（需先 `pip install pytest jsonschema fastapi sqlalchemy argon2-cffi redis psycopg2-binary`）：`python -m pytest tests -q`。
 - frontend、backend 皆以 bind mount 方式掛進容器（`./frontend:/app`、`./backend:/app`），修改本機程式碼即時生效（熱重載），不需要重新 build image。
 - 新增前端套件（`npm install <pkg>`）或後端套件（更新 `requirements.txt`）後，需要重新建置對應 image：
   ```bash

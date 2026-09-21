@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import User
+from app.models import RiskProfile, User
 from app.security import (
     SESSION_COOKIE,
     create_session,
@@ -77,10 +77,11 @@ def logout(response: Response, session_id: str | None = Cookie(default=None)):
 
 
 @router.get("/me", summary="查詢目前登入者")
-def me(user: User = Depends(current_user)):
-    # 【查詢登入者】回傳目前登入的帳號；未登入會回 401。
-    # 參數：user=目前登入者（由通行證自動查出）
-    return {"username": user.username}
+def me(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    # 【查詢登入者】回傳目前登入的帳號與是否已有風險屬性（前端用來決定要不要導向問卷）；未登入會回 401。
+    # 參數：user=目前登入者（由通行證自動查出）、db=資料庫連線
+    has_profile = db.scalar(select(RiskProfile.id).where(RiskProfile.user_id == user.id).limit(1)) is not None
+    return {"username": user.username, "hasRiskProfile": has_profile}
 
 
 @router.post("/change-password", status_code=204, summary="修改密碼")
