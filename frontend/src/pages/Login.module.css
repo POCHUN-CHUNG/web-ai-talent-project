@@ -71,14 +71,6 @@
   margin-top: var(--space-sm);
 }
 
-/* 平板 */
-@media (max-width: 1068px) {
-  .card {
-    max-width: 440px;
-    padding: var(--space-xl);
-  }
-}
-
 /* 手機 */
 @media (max-width: 734px) {
   .card {

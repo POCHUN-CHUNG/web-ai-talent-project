@@ -6,7 +6,7 @@ import Icon from "../ui/Icon";
 import IconButton from "../ui/IconButton";
 import styles from "./TopBar.module.css";
 
-// 【入口頁頂列】固定在頁面最上方，左邊放系統 logo，右邊放帳戶選單。無參數。
+// 【入口頁頂列】固定在頁面最上方，左邊放系統 logo（登入後才顯示文字），右邊放帳戶選單。只有登入後才會顯示，登入／註冊頁不顯示。無參數。
 export default function TopBar() {
   const navigate = useNavigate();
   const { username, setUsername } = useAuth();
@@ -37,15 +37,27 @@ export default function TopBar() {
     navigate("/login", { replace: true });
   }
 
+  // 未登入（登入／註冊頁）不顯示整個頂列
+  if (!username) return null;
+
   return (
     <header className={styles.bar}>
       <div className={styles.inner}>
-        <div className={styles.logo}>
-          <Icon name="query_stats" size={22} />
+        <div
+          className={`${styles.brand} ${styles.brandClickable}`}
+          onClick={() => navigate("/")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate("/")}
+          role="link"
+          tabIndex={0}
+        >
+          <div className={styles.logo}>
+            <Icon name="query_stats" size={22} />
+          </div>
+          <span className={styles.brandText}>診股整股</span>
         </div>
         <div className={styles.actions}>
           <div className={styles.menuWrap} ref={menuRef}>
-            <IconButton icon="person" label="帳戶" onClick={() => username && setMenuOpen((v) => !v)} />
+            <IconButton icon="person" label="帳戶" onClick={() => setMenuOpen((v) => !v)} />
             {menuOpen && (
               <div className={styles.menu} role="menu">
                 <button type="button" role="menuitem" className={styles.menuItem} onClick={goSettings}>

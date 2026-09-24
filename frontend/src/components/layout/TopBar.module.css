@@ -16,18 +16,21 @@
   padding: var(--space-lg) var(--space-margin);
 }
 
-/* 平板：左右留白縮小一階 */
-@media (max-width: 1068px) {
-  .inner {
-    padding: var(--space-lg) var(--space-lg);
-  }
-}
-
 /* 手機：留白再縮小 */
 @media (max-width: 734px) {
   .inner {
     padding: var(--space-md) var(--space-md);
   }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.brandClickable {
+  cursor: pointer;
 }
 
 .logo {
@@ -40,6 +43,15 @@
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-level-1);
+  flex-shrink: 0;
+}
+
+/* 登入後才顯示，點整個區塊可回首頁；不需要 hover 效果 */
+.brandText {
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  font-weight: 700;
+  color: var(--color-primary);
 }
 
 .actions {

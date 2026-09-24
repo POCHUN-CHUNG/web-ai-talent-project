@@ -39,9 +39,9 @@
   opacity: 0.6;
 }
 
+/* 聚焦只換框線顏色，寬度與位置不變，邊框不會位移 */
 .input:focus {
-  border-color: transparent;
-  box-shadow: 0 0 0 2px var(--color-focus-ring);
+  border-color: var(--color-focus-ring);
 }
 
 .hasEndAdornment {

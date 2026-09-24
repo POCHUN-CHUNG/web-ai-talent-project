@@ -17,18 +17,11 @@
 }
 
 .footer {
-  padding: var(--space-2xl) var(--space-md) var(--space-xl);
+  padding: var(--space-lg) var(--space-md);
   text-align: center;
   font-family: var(--font-family);
   font-size: var(--text-body-sm-size);
   color: var(--color-neutral-500);
-}
-
-/* 平板：頂列與內容留白縮小一階 */
-@media (max-width: 1068px) {
-  .main {
-    padding: 88px var(--space-md) var(--space-xl);
-  }
 }
 
 /* 手機：頂列留白再縮小，避免頭部擠壓內容 */
