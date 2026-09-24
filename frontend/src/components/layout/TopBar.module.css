@@ -11,9 +11,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1080px;
-  margin: 0 auto;
+  /* 不設最大寬度：logo 貼齊視窗左緣、圖示貼齊視窗右緣，只用左右留白控制間距 */
+  width: 100%;
   padding: var(--space-lg) var(--space-margin);
+}
+
+/* 平板：左右留白縮小一階 */
+@media (max-width: 1068px) {
+  .inner {
+    padding: var(--space-lg) var(--space-lg);
+  }
+}
+
+/* 手機：留白再縮小 */
+@media (max-width: 734px) {
+  .inner {
+    padding: var(--space-md) var(--space-md);
+  }
 }
 
 .logo {

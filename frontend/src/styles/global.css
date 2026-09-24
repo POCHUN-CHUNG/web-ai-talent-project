@@ -1,4 +1,4 @@
-/* 【全站基礎樣式】reset、字型、預設背景暈染（玻璃卡的預設底色，DESIGN.md「Backdrop for glass」）。 */
+/* 【全站基礎樣式】reset、字型、全站共用的背景暈染（DESIGN.md「Page backdrop」）。 */
 @import "./tokens.css";
 
 *,
@@ -11,6 +11,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  width: 100%;
 }
 
 body {
@@ -20,7 +21,36 @@ body {
   line-height: var(--text-body-md-line-height);
   color: var(--color-on-surface);
   background-color: var(--color-background);
+  /* 全站統一的斜角暈染：左上到右下，用輔助色（accent-1/2/3）疊色；不設最大寬度，蓋滿整個視窗 */
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-1-500) var(--page-wash-stop-1-opacity), transparent) 0%,
+    color-mix(in srgb, var(--color-accent-2-500) var(--page-wash-stop-2-opacity), transparent) 50%,
+    color-mix(in srgb, var(--color-accent-3-500) var(--page-wash-stop-3-opacity), transparent) 100%
+  );
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   transition: background-color 0.3s ease;
+}
+
+:root[data-theme="dark"] body {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-1-800) var(--page-wash-dark-stop-1-opacity), transparent) 0%,
+    color-mix(in srgb, var(--color-accent-2-800) var(--page-wash-dark-stop-2-opacity), transparent) 50%,
+    color-mix(in srgb, var(--color-accent-3-800) var(--page-wash-dark-stop-3-opacity), transparent) 100%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body {
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-accent-1-800) var(--page-wash-dark-stop-1-opacity), transparent) 0%,
+      color-mix(in srgb, var(--color-accent-2-800) var(--page-wash-dark-stop-2-opacity), transparent) 50%,
+      color-mix(in srgb, var(--color-accent-3-800) var(--page-wash-dark-stop-3-opacity), transparent) 100%
+    );
+  }
 }
 
 ::selection {
@@ -30,6 +60,12 @@ body {
 
 button {
   font-family: inherit;
+}
+
+/* 統一的鍵盤焦點樣式：取代瀏覽器預設外框（通常是刺眼的黃／藍色），改用設計系統的 focus-ring */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
 }
 
 /* Material Symbols 圖示字型的預設樣式（連字啟用、避免換行、對齊文字基線） */

@@ -1,41 +1,14 @@
 .wrap {
+  width: 100%;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  /* 斜角暈染：左上到右下，使用輔助色（accent-1/2/3）疊色，取代單一頁面一種暈染的預設規則
-     （DESIGN.md「Entry-page backdrop」，登入／註冊／設定頁專用的例外） */
-  background-image: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent-1-500) var(--entry-wash-stop-1-opacity), transparent) 0%,
-    color-mix(in srgb, var(--color-accent-2-500) var(--entry-wash-stop-2-opacity), transparent) 50%,
-    color-mix(in srgb, var(--color-accent-3-500) var(--entry-wash-stop-3-opacity), transparent) 100%
-  );
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-}
-
-:root[data-theme="dark"] .wrap {
-  background-image: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent-1-800) var(--entry-wash-dark-stop-1-opacity), transparent) 0%,
-    color-mix(in srgb, var(--color-accent-2-800) var(--entry-wash-dark-stop-2-opacity), transparent) 50%,
-    color-mix(in srgb, var(--color-accent-3-800) var(--entry-wash-dark-stop-3-opacity), transparent) 100%
-  );
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .wrap {
-    background-image: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-accent-1-800) var(--entry-wash-dark-stop-1-opacity), transparent) 0%,
-      color-mix(in srgb, var(--color-accent-2-800) var(--entry-wash-dark-stop-2-opacity), transparent) 50%,
-      color-mix(in srgb, var(--color-accent-3-800) var(--entry-wash-dark-stop-3-opacity), transparent) 100%
-    );
-  }
+  /* 背景暈染改在 body 上（global.css），所有頁面共用同一套，這裡不設最大寬度，蓋滿整個視窗 */
 }
 
 .main {
   flex-grow: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -49,4 +22,18 @@
   font-family: var(--font-family);
   font-size: var(--text-body-sm-size);
   color: var(--color-neutral-500);
+}
+
+/* 平板：頂列與內容留白縮小一階 */
+@media (max-width: 1068px) {
+  .main {
+    padding: 88px var(--space-md) var(--space-xl);
+  }
+}
+
+/* 手機：頂列留白再縮小，避免頭部擠壓內容 */
+@media (max-width: 734px) {
+  .main {
+    padding: 80px var(--space-sm) var(--space-lg);
+  }
 }

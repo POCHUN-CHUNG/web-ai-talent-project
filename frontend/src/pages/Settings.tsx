@@ -4,7 +4,6 @@ import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
-import cardStyles from "../components/ui/Card.module.css";
 import Chip from "../components/ui/Chip";
 import Icon from "../components/ui/Icon";
 import IconButton from "../components/ui/IconButton";
@@ -30,22 +29,31 @@ export default function Settings() {
   // 【送出修改】按下修改密碼鈕時執行。
   // 參數：e=表單事件
   async function submit(e: FormEvent) {
-    // 1. 阻止網頁預設的重新整理，並清除舊訊息、進入送出中
+    // 1. 阻止網頁預設的重新整理與瀏覽器原生的必填提示框，並清除舊訊息
     e.preventDefault();
     setMsg(null);
+    // 2. 必填與格式檢查（取代瀏覽器原生提示框，改用跟送出結果一致的樣式顯示）
+    if (!oldPw || !newPw) {
+      setMsg({ ok: false, text: "請輸入舊密碼與新密碼" });
+      return;
+    }
+    if (!/^[A-Za-z0-9]+$/.test(newPw)) {
+      setMsg({ ok: false, text: "新密碼僅限英文與數字" });
+      return;
+    }
     setBusy(true);
     try {
-      // 2. 把新舊密碼送給後端
+      // 3. 把新舊密碼送給後端
       await api("/auth/change-password", { old_password: oldPw, new_password: newPw });
-      // 3. 成功：清空輸入欄並提示
+      // 4. 成功：清空輸入欄並提示
       setOldPw("");
       setNewPw("");
       setMsg({ ok: true, text: "密碼已更新" });
     } catch (err) {
-      // 4. 失敗：顯示後端說明，連不上則顯示通用訊息
+      // 5. 失敗：顯示後端說明，連不上則顯示通用訊息
       setMsg({ ok: false, text: err instanceof ApiError ? err.message : "無法連線，請稍後再試" });
     } finally {
-      // 5. 結束送出中
+      // 6. 結束送出中
       setBusy(false);
     }
   }
@@ -58,7 +66,7 @@ export default function Settings() {
 
   return (
     <EntryPage>
-      <Card className={`${styles.card} ${cardStyles.entryBlur}`}>
+      <Card className={styles.card}>
         <h1 className={styles.heading}>使用者設定</h1>
 
         <section>
@@ -72,7 +80,7 @@ export default function Settings() {
         <section>
           <p className={styles.sectionTitle}>修改密碼</p>
           <Card variant="nested">
-            <form className={styles.form} onSubmit={submit}>
+            <form className={styles.form} onSubmit={submit} noValidate>
               <Input
                 id="oldPasswordInput"
                 label="舊密碼"

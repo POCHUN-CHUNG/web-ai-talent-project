@@ -16,9 +16,25 @@
   color: var(--color-on-surface);
 }
 
-@media (max-width: 480px) {
+/* 平板 */
+@media (max-width: 1068px) {
   .card {
+    max-width: 460px;
+    padding: var(--space-xl);
+  }
+}
+
+/* 手機 */
+@media (max-width: 734px) {
+  .card {
+    max-width: 100%;
     padding: var(--space-xl) var(--space-lg);
+  }
+
+  .row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
   }
 }
 

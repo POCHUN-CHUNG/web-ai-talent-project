@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: 'Glass Console'
-description: 'Translucent white cards on soft blue, yellow and pink accent-wash backgrounds, with pill labels, highlighted keywords and glass orbs on a monochrome light and dark system; deep navy for the main action; all radii follow the token set (cards 30px, inputs 30px, buttons 25px, nested 20px).'
+description: 'Translucent white cards on soft blue, yellow and pink accent-wash backgrounds, with pill labels and glass orbs on a monochrome light and dark system; deep navy for the main action; all radii follow the token set (cards 30px, inputs 30px, buttons 25px, nested 20px).'
 colors:
   background: '#ebebeb'  # color.light.surface.bg
   on-background: '#000000'  # color.light.surface.text
@@ -378,11 +378,10 @@ components:
 Signature traits (what makes it recognizable):
 
 1. **Accent-wash backgrounds** — pages sit on soft gradients built from the three accent palettes: blue `accent-1` (#aecbfa), yellow `accent-2` (#fef08a), pink `accent-3` (#ffc9c9).
-2. **White rounded cards on color** — neutral cards (glass at 65% opacity, 12px blur) float on the wash and carry all the reading content.
+2. **White rounded cards on color** — neutral cards (glass at 80% opacity, 12px blur, a 1px edge) float on the wash and carry all the reading content.
 3. **Glass orbs** on covers and closing pages: three overlapping translucent circles in the three accents.
-4. **Highlighted keyword** — one word in a heading gets an accent-colored marker block.
-5. **Pill labels** for meta information (company, date, numbers, links) and monochrome chrome; deep navy `primary` (#1e3a8a) only for the main action.
-6. **Depth without lines** — no decorative borders; separation comes from color, blur and soft shadow.
+4. **Pill labels** for meta information (company, date, numbers, links) and monochrome chrome; deep navy `primary` (#1e3a8a) only for the main action.
+5. **Depth, not lines** — separation comes from color, blur and soft shadow, plus the thin glass edge (see Elevation & Depth).
 
 ## Colors
 
@@ -425,11 +424,11 @@ Signature traits (what makes it recognizable):
 | Yellow (`accent-2`) | `linear-gradient(90deg, accent-2-500 (#fef08a) 0%, transparent 60%)` over `background` (vertical edge glow on the left) | Projects, goals, metrics, progress |
 | Pink (`accent-3`) | `radial-gradient(70% 80% at 0% 0%, accent-3-500 (#ffc9c9), transparent 70%)` over `background` | People, welcome, celebration, timeline |
 
-Dark-mode washes swap the 500 stop for the 800 shade over `dark-background`: blue `linear-gradient(135deg, accent-1-900 (#032359) 0%, accent-1-800 (#214b90) 100%)`, yellow uses `accent-2-800` (#655b00), pink uses `accent-3-800` (#8f2834). White text (`dark-on-surface`) stays readable on all three.
+**Superseded by Elevation & Depth → Page backdrop below**: the per-page single-accent wash system (one of the three washes chosen per page, dark mode swapping the 500 stop for an 800 two-stop gradient) is no longer how page backgrounds work. Every page now uses the one shared diagonal three-accent wash. The per-page wash recipes above remain valid for narrower decorative uses (a card's corner-gradient, an orb cluster, a slide background) — just not for the page canvas itself.
 
-Rules for washes: one wash per page; the wash colors are never mixed on one page except in the orb cluster and in phase-coded charts; a wash never sits behind small body text without a card; do not stack a wash on a wash.
+Rules for washes: a wash never sits behind small body text without a card; do not stack a wash on a wash; the orb cluster and phase-coded charts remain the only places multiple accents are allowed to mix outside the shared page backdrop.
 
-**Solid accent fills.** The same pastels, unchanged in both modes, are used for: heading marker blocks (`accent-1-500`, `accent-2-500`, `accent-3-500`), stat tiles (`accent-1-200` (#e3edff), `accent-2-300` (#fff9ca), `accent-3-200` (#ffebeb)), category dots, phase bars and legend circles. Their label color is always #000000; contrast against it is above 12:1 for the 500 shades. Palette shades do not swap on theme change, so never pair them with `on-surface`.
+**Solid accent fills.** The same pastels, unchanged in both modes, are used for: stat tiles (`accent-1-200` (#e3edff), `accent-2-300` (#fff9ca), `accent-3-200` (#ffebeb)), category dots, phase bars and legend circles. Their label color is always #000000; contrast against it is above 12:1 for the 500 shades. Palette shades do not swap on theme change, so never pair them with `on-surface`.
 
 **Palettes.** `primary-50…950`, `secondary-*`, `tertiary-*`, `link-*`, `neutral-*` exist for charts and illustration. Palette shades are the same in both modes.
 
@@ -456,11 +455,9 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 | `label-lg` | 16px / 500 / 1.4 | Button and pill labels, form field labels |
 | `label-md` | 13px / 500 / 1.35 | Slide chrome (company, date, page number), chips, table headers, "Slide 03" references |
 | `label-sm` | 10px / 600 / 1.3 | Micro badges only (see below) |
-| `brand-title` | 36px / 700 / 1.2, `0.2em` tracking | Wordmark only (the product name on the entry pages' card, e.g. Login) |
+| `brand-title` | 36px / 700 / 1.2, `0.2em` tracking (28px on mobile, ≤734px) | Wordmark only (the product name on the entry pages' card, e.g. Login) |
 | `form-heading` | 22px / 700 / 1.3 | Form title inside an entry card (Login / Register / Settings section heading) |
 | `input-text` | 14px / 400 / 1.4 | Text typed into a pill-shaped entry-page input (Login, Settings password fields) |
-
-**Heading emphasis: the highlight mark.** In a page or slide title, one key word (for example the topic noun) is set on a solid accent block: `accent-1-500`, `accent-2-500` or `accent-3-500` as background, #000000 text, horizontal padding `xs` (4px), radius `rounded.sm` (4px). Use the accent that belongs to the page's wash (blue mark on blue wash, yellow on yellow, pink on pink; blue on neutral pages). At most one mark per title. Weight stays as defined by the level; emphasis is color, not a weight change. For CJK titles the mark wraps whole words or 2–4 characters, never a single punctuation mark.
 
 **Hierarchy collision.** `headline-sm` and `body-lg` are both 20px. Never place `body-lg` directly under `headline-sm`; they differ only by weight and would read as one level. Under `headline-sm` use `body-md`. Use `body-lg` only under `headline-md` or larger, or as a standalone statement.
 
@@ -470,7 +467,7 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 
 - Headline levels use negative letter-spacing (`headline-display` -0.025em, `headline-lg` -0.02em, `headline-md` -0.01em). This is tuned for Latin. **Set letter-spacing to 0 on any CJK text** in those levels.
 - Body line-height for CJK paragraphs is at least 1.6. `body-md` already meets it; `body-lg` and `body-sm` (1.55) are for short CJK strings only. Long CJK paragraphs use `body-md`.
-- No italics on CJK; use weight 600 or a highlight mark for emphasis. Latin subtitles or role names are set upright in `body-sm` with `on-surface-variant`, not italic.
+- No italics on CJK; use weight 600 for emphasis. Latin subtitles or role names are set upright in `body-sm` with `on-surface-variant`, not italic.
 - Keep a half-width space between CJK text and Latin words or digits; do not mix full-width and half-width punctuation in one sentence.
 
 **Measure.** 60–75 characters per line for Latin, about 30–40 characters per line for CJK.
@@ -501,7 +498,7 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 
 **Strategy: glass.** Depth is built from a translucent surface, a backdrop blur and a soft tinted shadow. The source tokens use `intensity` 0.35 and tint `shadow-tint` (#0f172a).
 
-**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 80%, transparent)` (surface opacity 0.8, revised up from the initial 0.65 — cards read as too faint against a saturated wash at 0.65, especially in dark mode) with `backdrop-filter: blur(12px)`, plus the 1px edge described below. In dark mode the same formula applies to `dark-surface`. **Entry-page cards** (Login, Register, Settings — see Backdrop for glass) use a stronger `blur(16px)`, because they sit over a saturated diagonal wash instead of the calmer default radial backdrop and need the extra blur to keep card text legible.
+**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 80%, transparent)` (surface opacity 0.8, revised up from the initial 0.65 — cards read as too faint against a saturated wash at 0.65, especially in dark mode) with `backdrop-filter: blur(16px)` (revised up from 12px to match: every page now sits on the same saturated diagonal wash, so every glass card needs the stronger blur to keep card text legible), plus the 1px edge described below. In dark mode the same formula applies to `dark-surface`.
 
 **Shadow levels** (light mode uses tinted shadows; dark mode uses black at 2.5× the light opacity):
 
@@ -515,9 +512,7 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 
 **Which level for what.** `card` uses `level-1` (the only assignment given by the tokens). The rest is guidance: `level-2` for hovered or raised tiles and sticky toolbars, `level-3` for menus, popovers and tooltips, `level-4` for modal sheets and dialogs, `level-5` for full-screen overlays. Nested cards, pills and chips have no shadow.
 
-**Backdrop for glass.** Glass reads as glass over the accent washes. Default backdrop when no specific wash is chosen: over `background`, three soft radial washes: `accent-3-500` (#ffc9c9) at the top-left `radial-gradient(45% 55% at 12% 15%, accent-3-500, transparent 70%)`, `accent-1-500` (#aecbfa) at the top-right `radial-gradient(40% 50% at 88% 20%, accent-1-500, transparent 70%)`, and `accent-2-500` (#fef08a) at the bottom `radial-gradient(45% 55% at 55% 95%, accent-2-500, transparent 70%)`. In dark mode the same three use the 800 shades (`accent-3-800`, `accent-1-800`, `accent-2-800`) over `dark-background`. On a flat `background` with no wash, a glass card degrades to a plain white card, which is acceptable.
-
-**Entry-page backdrop (deliberate exception to "one wash per page").** Login, Register and Settings — the pages a person sees before or around authentication — use a single diagonal linear wash instead of the radial default, so the three accents read as one continuous gradient rather than three separate blobs: `linear-gradient(135deg, color-mix(in srgb, accent-1-500 32%, transparent) 0%, color-mix(in srgb, accent-2-500 22%, transparent) 50%, color-mix(in srgb, accent-3-500 28%, transparent) 100%)` over `background`. Direction is fixed top-left to bottom-right (135deg). In dark mode, swap in the 800 shades at slightly lower stop opacities (25%, 20%, 25%) over `dark-background`: `linear-gradient(135deg, color-mix(in srgb, accent-1-800 25%, transparent) 0%, color-mix(in srgb, accent-2-800 20%, transparent) 50%, color-mix(in srgb, accent-3-800 25%, transparent) 100%)`. This wash is `background-attachment: fixed` so it does not scroll with page content.
+**Page backdrop (revised — this is now the one default for every page, not a per-page choice).** Earlier drafts had each page pick one of three radial washes; the product now uses a single diagonal wash everywhere, applied once on `body` rather than per page, so it is automatically consistent across the whole app: `linear-gradient(135deg, color-mix(in srgb, accent-1-500 32%, transparent) 0%, color-mix(in srgb, accent-2-500 22%, transparent) 50%, color-mix(in srgb, accent-3-500 28%, transparent) 100%)` over `background`, direction fixed top-left to bottom-right (135deg), `background-attachment: fixed` so it does not scroll with page content. In dark mode, swap in the 800 shades at **brighter** stop opacities than the light recipe (dark surfaces need a stronger wash to read at all): `linear-gradient(135deg, color-mix(in srgb, accent-1-800 50%, transparent) 0%, color-mix(in srgb, accent-2-800 40%, transparent) 50%, color-mix(in srgb, accent-3-800 46%, transparent) 100%)`. There is no flat, wash-less page anymore — every page sits on this gradient; a glass card over it always has something to read as "glass" against.
 
 **Rules.**
 
@@ -552,7 +547,6 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 | Stat tiles, sub-panels, list rows inside a card | 20px (nested card) |
 | Next-steps rows and other full-width rows | 30px (card); they render as pills at row height |
 | Meta pills, number pills, legend pills, Gantt bars, avatars, orbs, dots | `rounded.full` |
-| Highlight mark | `rounded.sm` (4px) |
 | Standalone images outside the grid | `rounded.lg` (18px); large hero media `rounded.xl` (24px) |
 | Tooltips, popovers | `rounded.xl` |
 
@@ -580,7 +574,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Meta pill / link pill.** `rounded.full`, `surface` fill, `on-surface` label in `label-lg` (or `label-md` for chrome-sized pills), padding `sm` (8px) vertical and `lg` (24px) horizontal. Used on washes and photos for company name, date, "Add a link" and speaker-name captions. On a white card use `button-secondary` fill instead so the pill remains visible. No shadow.
 
-**Input.** `surface-container-lowest` fill, `on-surface` text in `body-md`, radius 30px, padding 8px 16px, 1px `outline` edge, placeholder in `on-surface-variant`. Focus: 2px `focus-ring` outline, edge becomes transparent. Error: edge in `error`, helper text in `body-sm` using `on-error-container` on `error-container`. Labels sit above in `label-lg`.
+**Input.** `surface-container-lowest` fill, `on-surface` text in `body-md` (or `input-text` on an entry-page pill input), radius 30px, padding 8px 16px, 1px `outline` edge, placeholder in `on-surface-variant`. On a glass card, the fill is translucent (`color-mix(in srgb, surface 70%, transparent)`) with its own `backdrop-filter: blur(16px)` — glass on glass is otherwise disallowed (see Elevation & Depth → Rules), but a same-surface-toned input inside a card is a control, not a second card, so it is the one allowed case. Focus: 2px `focus-ring` outline, edge becomes transparent. Error: edge in `error`, helper text in `body-sm` using `on-error-container` on `error-container`. Labels sit above in `label-lg`. Never rely on the browser's native validation bubble (`required`'s default tooltip) — submit with `noValidate` and show the same failure as an inline status chip below the form, styled like any other error.
 
 **Card.** `surface` fill (glass at 65% over a wash; opaque over photography), `on-surface` text, radius 30px, padding 20px, `level-1`, no border. Anatomy for contents/agenda cards: number in `label-lg` top-left, optional accent dot top-right (16px, `accent-N-500`), title in `headline-md` (`headline-sm` in six-column layouts) in the middle, reference in `label-md` `on-surface-variant` at the bottom ("Slide 03").
 
@@ -594,13 +588,11 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Slider.** Track 8px high in `primary-container`, radius 15px; filled portion and thumb in `primary`; thumb 24px, radius 15px. Show the current value as text next to the label, in `label-md`.
 
-**Chip.** Neutral chip: `surface-container-high` fill, `on-surface` text in `label-md`, radius `rounded.full`, padding 4px 8px. Status chips use the `*-container` fill with `on-*-container` text for success, warning, error, info. Never use `secondary-container` or `tertiary-container` for a neutral chip; they look like the success and warning containers.
+**Chip.** Neutral chip: `surface-container-high` fill, `on-surface` text in `label-md`, radius `rounded.full`, padding 4px 8px. Status chips use the `*-container` fill with the raw status color (not `on-*-container`) as the text/icon color — `error` text on `error-container`, etc. — plus a 1px edge at `color-mix(in srgb, [status] 35%, transparent)`: at the container tint's usual low contrast, a status chip on a busy wash background reads as "roughly the same beige as the page" without the saturated text and the edge doing the work of separating it. Never use `secondary-container` or `tertiary-container` for a neutral chip; they look like the success and warning containers.
 
 **Link.** `link` color, `body-md`, underlined with a small offset. Hover darkens or lightens one step (light: `link-700`; dark: `link-200`).
 
 **Number pill and category dot.** Number pill: `rounded.full`, `surface` fill, `label-lg`, padding `xs` (4px) vertical and `sm` (8px) horizontal (e.g. "01"). Legend circle: `rounded.full`, accent-N-500 fill with #000000 number. Category dot: 16px circle in `accent-N-500`. The accent order is fixed: 1 = pink (`accent-3`), 2 = yellow (`accent-2`), 3 = blue (`accent-1`), matching the template's phase order.
-
-**Heading marker.** See Typography.
 
 **Agenda / next-steps row.** Full-width row card: radius 30px (a pill at row height), `surface` fill, padding `md` (16px) vertical and `lg` (24px) horizontal; columns: date (`label-lg`, fixed width), step description (`headline-sm`, flexible), owner (`label-lg`, right-aligned). Rows are separated by `md` (16px), no lines.
 
@@ -610,7 +602,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Toolbar / navigation bar.** Sticky, glass at `level-2`, radius `rounded.full` when floating or full-width with no radius when docked. Title in `label-lg`, actions as circular icon buttons (44px hit target) on `surface-container-high`.
 
-**Entry header.** Fixed to the top of Login, Register and Settings, transparent (no glass, no shadow, sits directly on the entry backdrop), full width, content capped at the same max width as the page content with `margin` (32px) side padding and `lg` (24px) top/bottom padding. Left: a 40px circular `primary` badge with an `on-primary` icon (the product mark). Right: two circular icon buttons, 36px, transparent, `on-surface-variant` icon, hover fill `surface-container-high` — the theme toggle (`dark_mode`/`light_mode`, reflects and controls the current mode) and the account icon (`person`, links to Settings when signed in). No title text; the wordmark lives in the card below, not the header.
+**Entry header.** Fixed to the top of Login, Register and Settings, transparent (no glass, no shadow, sits directly on the page backdrop), edge-to-edge — **no max-width or centered content column**: the logo sits flush against the true left edge of the viewport and the two icon buttons flush against the true right edge, each inset only by `margin` (32px), `lg` (24px) top/bottom padding. Left: a 40px circular `primary` badge with an `on-primary` icon (the product mark). Right: two circular icon buttons, 36px, transparent, `on-surface-variant` icon, hover fill a translucent `on-surface` overlay (not a flat token, so it reads as gray over any part of the wash) — the theme toggle (`dark_mode`/`light_mode`, reflects and controls the current mode) and the account icon (`person`, links to Settings when signed in). No title text; the wordmark lives in the card below, not the header. Each icon button's `:focus-visible` state is the standard 2px `focus-ring` outline with 1px offset, not the browser default.
 
 **Sidebar.** `surface-container-low` panel, grouped lists with `label-md` section labels in `on-surface-variant`. Selected row: `surface-container-high` fill with `rounded.md`.
 
@@ -633,7 +625,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 | Slide | Background | Layout |
 |---|---|---|
 | Cover | `background` with the orb cluster | Title top-left (bold, 2× display), company and date meta pills bottom-left, orbs at the right edge |
-| Contents (4 or 6 items) | Blue wash | Title with highlight mark, one row of equal agenda cards |
+| Contents (4 or 6 items) | Blue wash | Title, one row of equal agenda cards |
 | Speakers / team | Blue or pink wash, or `background` | Row of six circular avatars in one card, or six photo tiles with bios beneath |
 | Welcome / people | Pink (or yellow) wash | Title and one short text left, large photo tile right, name as meta pill |
 | Promotion / achievements | `background`, yellow or pink corner-gradient cards | Photo tile beside a gradient title card and a text card |
@@ -648,7 +640,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Full-bleed photo slide.** Photo fills the canvas with a `inverse-surface` scrim at about 35%; title and chrome in `inverse-on-surface`; text cards are opaque `surface`.
 
-**Social and graphic cards (1080×1350 and 1200×630).** Same recipe as a slide: one accent wash, one opaque or glass white card, one highlight-marked headline in `headline-display`, one meta pill. Safe margin is 6% of the shorter edge. At most two type levels. Do not put text directly over a busy image without a card.
+**Social and graphic cards (1080×1350 and 1200×630).** Same recipe as a slide: one accent wash, one opaque or glass white card, one headline in `headline-display`, one meta pill. Safe margin is 6% of the shorter edge. At most two type levels. Do not put text directly over a busy image without a card.
 
 **Image generation prompt fragment.** "Soft pastel gradient backdrop in powder blue, butter yellow and blush pink on a light gray background; overlapping translucent frosted-glass spheres with smooth gradients and gentle diffused studio lighting; clean, airy, friendly, minimal, generous negative space; no text in the image." Avoid: saturated neon, heavy outlines, harsh drop shadows, cluttered compositions, skeuomorphic chrome or metal, film grain, embedded lettering.
 
@@ -666,9 +658,8 @@ Two image families. **Portraits:** bright, evenly lit studio portraits with plai
 
 **Do**
 
-- Give each page one accent wash (blue, yellow or pink) and put reading content on white cards.
+- Put reading content on white (glass) cards over the shared diagonal accent wash — see Elevation & Depth → Page backdrop.
 - Use the 30px card radius for cards and same-row photo tiles, 20px for tiles inside cards, and `rounded.full` for pills, bars and avatars, exactly as the tokens define.
-- Highlight one key word per title with the accent marker in the wash's own color; keep the marker text #000000.
 - Reserve `primary` fills for one main action per view; use `button-inverted` for a second strong action or on imagery.
 - Use the fixed phase order pink, yellow, blue for staged content and charts.
 - Keep neutrals at roughly 85–90% of the content area; separate content with `md`, `gutter`, `xl`, `3xl` spacing and tonal steps, not lines.
@@ -678,9 +669,9 @@ Two image families. **Portraits:** bright, evenly lit studio portraits with plai
 **Don't**
 
 - Don't copy radii, sizes or weights from a template, OS or platform when the tokens define them.
-- Don't mix two washes on one page (the orb cluster and phase-coded charts are the only exceptions), and don't put small body text on a wash without a card.
+- Don't mix multiple accent washes outside of the shared page backdrop, the orb cluster or phase-coded charts, and don't put small body text on a wash without a card.
 - Don't pair accent fills with `on-surface` in dark mode; their label color is always #000000.
-- Don't draw decorative borders or hairline dividers around cards, nested cards or list rows.
+- Don't draw a border around a nested card or a list row (those still have none); a glass card's own 1px edge is the one allowed exception, not a general license to add borders.
 - Don't stack glass on glass, and don't use blurred glass cards over photography; use opaque `surface`.
 - Don't set text smaller than `headline-sm` on a `secondary` (#0d9488) fill, or rely on `tertiary` as a lone button boundary.
 - Don't use `label-sm` (10px) for CJK text, and don't use italics on CJK.

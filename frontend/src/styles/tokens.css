@@ -84,16 +84,17 @@
 
   /* ── 玻璃卡效果 ── */
   --glass-opacity: 0.8; /* 提高不透明度讓卡片邊界更清楚，避免疊在暈染背景上時太淡 */
-  --glass-blur: 12px;
-  --glass-blur-entry: 16px; /* 登入／註冊／設定頁的入口卡片，疊在較搶眼的斜角暈染上，需要更強的模糊 */
+  --glass-blur: 16px; /* 所有頁面都疊在同一套斜角暈染上，統一用較強的模糊維持卡片文字可讀性 */
+  --glass-edge-opacity: 10%; /* 玻璃卡的 1px 描邊透明度 */
 
-  /* ── 入口頁（登入／註冊／設定）背景暈染的疊色透明度 ── */
-  --entry-wash-stop-1-opacity: 32%;
-  --entry-wash-stop-2-opacity: 22%;
-  --entry-wash-stop-3-opacity: 28%;
-  --entry-wash-dark-stop-1-opacity: 25%;
-  --entry-wash-dark-stop-2-opacity: 20%;
-  --entry-wash-dark-stop-3-opacity: 25%;
+  /* ── 全站頁面背景暈染（DESIGN.md「Page backdrop」）：左上到右下的斜角疊色，淺色用 500 色階、深色用 800 色階 ── */
+  --page-wash-stop-1-opacity: 32%;
+  --page-wash-stop-2-opacity: 22%;
+  --page-wash-stop-3-opacity: 28%;
+  /* 深色模式的疊色要更明顯，不然在深色底下幾乎看不出來 */
+  --page-wash-dark-stop-1-opacity: 50%;
+  --page-wash-dark-stop-2-opacity: 40%;
+  --page-wash-dark-stop-3-opacity: 46%;
 
   /* ── 色階（兩種模式皆相同，供圖表與延伸使用） ── */
   --color-primary-50: #f5f8ff;
@@ -226,6 +227,7 @@
   --text-label-sm-line-height: 1.3;
   --text-label-sm-letter-spacing: 0.04em;
   --text-brand-title-size: 36px;
+  --text-brand-title-size-mobile: 28px; /* 手機版（≤734px）縮小，避免字距寬的標題被卡片擠壓換行 */
   --text-brand-title-weight: 700;
   --text-brand-title-line-height: 1.2;
   --text-brand-title-letter-spacing: 0.2em;

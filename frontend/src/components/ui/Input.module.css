@@ -23,7 +23,10 @@
   font-size: var(--text-input-text-size);
   line-height: var(--text-input-text-line-height);
   color: var(--color-on-surface);
+  /* 輸入框本身也是玻璃態：半透明底色 + 自己的模糊，跟卡片一樣的作法 */
   background-color: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--color-outline);
   border-radius: var(--radius-input);
   padding: 12px var(--space-lg);
