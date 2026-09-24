@@ -1,9 +1,26 @@
+.pageWrap {
+  flex-grow: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 112px var(--space-md) 0;
+}
+
 .page {
   width: 100%;
   max-width: 480px;
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  margin-bottom: auto;
+}
+
+@media (max-width: 734px) {
+  .pageWrap {
+    padding: 96px var(--space-md) 0;
+  }
 }
 
 .heading {
@@ -25,7 +42,7 @@
 .sectionTitle {
   margin: 0;
   font-family: var(--font-family);
-  font-size: var(--text-label-md-size);
+  font-size: var(--text-body-md-size);
   font-weight: var(--text-label-md-weight);
   letter-spacing: var(--text-label-md-letter-spacing);
   color: var(--color-on-surface-variant);
@@ -40,13 +57,13 @@
 
 .rowLabel {
   font-family: var(--font-family);
-  font-size: var(--text-body-md-size);
+  font-size: var(--text-label-md-size);
   color: var(--color-on-surface);
 }
 
 .rowValue {
   font-family: var(--font-family);
-  font-size: var(--text-body-md-size);
+  font-size: var(--text-label-md-size);
   color: var(--color-on-surface-variant);
 }
 
@@ -54,13 +71,4 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-}
-
-/* 手機：基本資料那一列改直排，避免帳號太長被擠壓 */
-@media (max-width: 734px) {
-  .row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-xs);
-  }
 }

@@ -21,12 +21,19 @@ def ratio(x: Decimal) -> float:
 
 
 def annualized_return(unrealized_return: Decimal, holding_days: int) -> float | None:
-    # 【年化持有報酬率】(1+未實現報酬率)^(365/持有天數)−1；持有天數未滿 30 日回 None（不年化）。
-    # 參數：unrealized_return=未實現報酬率、holding_days=持有天數
+    # 【年化持有報酬率】把「持有這幾天賺了多少百分比」換算成「若這個報酬率速度延續一整年，全年報酬率會是多少」，
+    # 公式依據一律是投入成本（不是市值）：
+    #   1. unrealized_return 本身就是以投入成本為分母算出來的報酬率：(市值 − 投入成本) ÷ 投入成本
+    #   2. 換算成「持有期間的成長倍數」：growth = 1 + unrealized_return（成本 1 元變成 1+報酬率 元）
+    #   3. 用複利公式往回推「若這個成長速度維持 365 天」的年化倍數：growth^(365/持有天數)
+    #   4. 換回報酬率：年化報酬率 = 年化倍數 − 1
+    # 持有天數未滿 30 日不年化（天數太短，年化會放大成誤導性的大數字），回 None。
+    # 參數：unrealized_return=以投入成本為分母的未實現報酬率、holding_days=持有天數
     if holding_days < MIN_ANNUALIZE_DAYS:
         return None
     try:
-        return round((1 + float(unrealized_return)) ** (365 / holding_days) - 1, 6)
+        growth = 1 + float(unrealized_return)
+        return round(growth ** (365 / holding_days) - 1, 6)
     except (OverflowError, ZeroDivisionError):
         return None  # 數字大到無法表示時視為不可年化
 
@@ -62,9 +69,11 @@ def build_lot(lot, price: Decimal | None, today: date) -> dict:
     }
 
 
-def build_positions(lots: list, names: dict, prices: dict, today: date) -> list[dict]:
+def build_positions(lots: list, names: dict, prices: dict, today: date, prev_prices: dict | None = None) -> list[dict]:
     # 【彙總持股部位】依代號把買進紀錄彙總成每檔一列，並算出權重；依市值由大到小排序。
-    # 參數：lots=買進紀錄清單、names=代號→名稱、prices=代號→(最新價, 價格日期)、today=今日
+    # 參數：lots=買進紀錄清單、names=代號→名稱、prices=代號→(最新價, 價格日期)、today=今日、
+    #      prev_prices=代號→前一日收盤價（沒有就當作無法算最新日損益）
+    prev_prices = prev_prices or {}
     # 1. 依代號分組，每組內依買進日期、編號排序
     groups: dict[str, list] = defaultdict(list)
     for lot in sorted(lots, key=lambda x: (x.trade_date, x.id)):
@@ -73,12 +82,17 @@ def build_positions(lots: list, names: dict, prices: dict, today: date) -> list[
     positions = []
     for symbol, items in groups.items():
         price, price_date = prices.get(symbol, (None, None))
+        prev_price = prev_prices.get(symbol)
         # 2. 股數、投入成本、加權平均成本 = 投入成本 ÷ 股數
         qty = sum((x.quantity for x in items), Decimal(0))
         cost = sum((x.quantity * x.unit_cost for x in items), Decimal(0))
         # 3. 市值與損益（無最新報價時標為不可用 None）
         value = qty * price if price is not None else None
         ret = (value - cost) / cost if value is not None else None
+        # 最新日損益 = (最新價 − 前一日收盤價) × 股數；兩個價格缺一個就不可用
+        day_pnl = qty * (price - prev_price) if price is not None and prev_price is not None else None
+        # 前一日市值 = 前一日收盤價 × 股數；用來當「最新日損益率」的分母（分母是前一天的市值，不是投入成本）
+        prev_value = qty * prev_price if prev_price is not None else None
         day_items = [(x.quantity * x.unit_cost, max((today - x.trade_date).days, 0)) for x in items]
         days = weighted_days(day_items)
         positions.append({
@@ -99,6 +113,8 @@ def build_positions(lots: list, names: dict, prices: dict, today: date) -> list[
             "_value": value,
             "_cost": cost,
             "_day_items": day_items,
+            "_day_pnl": day_pnl,
+            "_prev_value": prev_value,
         })
 
     # 4. 權重 = 該檔市值 ÷ 全部市值；只要有一檔沒報價，權重加總就不是 1，全部標為不可用
@@ -113,13 +129,18 @@ def build_positions(lots: list, names: dict, prices: dict, today: date) -> list[
 
 
 def build_totals(positions: list[dict], today: date) -> dict:
-    # 【組合總覽】把全部部位加總：投入成本、市值、未實現損益、報酬率、持有天數、年化報酬。
-    # 只要有一檔沒報價，市值與損益相關數字一律為 None（不拿不完整的資料相加）。參數：positions=持股部位、today=今日
+    # 【組合總覽】把全部部位加總：投入成本、市值、未實現損益、報酬率、持有天數、年化報酬、最新日損益與其百分比。
+    # 只要有一檔沒報價（或沒有前一日收盤價），對應的加總數字一律為 None（不拿不完整的資料相加）。參數：positions=持股部位、today=今日
     cost = sum((p["_cost"] for p in positions), Decimal(0))
     days = weighted_days([item for p in positions for item in p["_day_items"]])
     complete = all(p["_value"] is not None for p in positions)
     value = sum((p["_value"] for p in positions), Decimal(0)) if complete else None
     ret = (value - cost) / cost if value is not None and cost > 0 else None
+    complete_day = all(p["_day_pnl"] is not None for p in positions)
+    day_pnl = sum((p["_day_pnl"] for p in positions), Decimal(0)) if complete_day else None
+    # 最新日損益率 = 最新日損益 ÷ 前一日總市值（分母是前一天的市值，不是投入成本，才能反映「今天比昨天漲跌了多少百分比」）
+    prev_value = sum((p["_prev_value"] for p in positions), Decimal(0)) if complete_day else None
+    day_pnl_pct = day_pnl / prev_value if day_pnl is not None and prev_value else None
     return {
         "costAmount": money(cost),
         "marketValue": money(value) if value is not None else None,
@@ -127,6 +148,8 @@ def build_totals(positions: list[dict], today: date) -> dict:
         "unrealizedReturn": ratio(ret) if ret is not None else None,
         "holdingDays": days,
         "annualizedReturn": annualized_return(ret, days) if ret is not None else None,
+        "latestDayPnl": money(day_pnl) if day_pnl is not None else None,
+        "latestDayPnlPercent": ratio(day_pnl_pct) if day_pnl_pct is not None else None,
     }
 
 

@@ -144,6 +144,24 @@ def load_market(db: Session, lots: list) -> tuple[dict, dict]:
     return names, {sym: (px, d) for sym, px, d in rows}
 
 
+def load_previous_prices(db: Session, symbols: set) -> dict:
+    # 【查前一日收盤價】為這批代號各查「最新一筆」之前的前一筆還原收盤價，用來算「最新日損益」（沒有前一筆資料的代號不會出現在結果中）。
+    # 參數：db=資料庫連線、symbols=代號集合；回傳 代號→前一日收盤價
+    if not symbols:
+        return {}
+    ranked = (
+        select(
+            DailyQuote.symbol,
+            DailyQuote.adj_close,
+            func.row_number().over(partition_by=DailyQuote.symbol, order_by=DailyQuote.trade_date.desc()).label("rn"),
+        )
+        .where(DailyQuote.symbol.in_(symbols))
+        .subquery()
+    )
+    rows = db.execute(select(ranked.c.symbol, ranked.c.adj_close).where(ranked.c.rn == 2)).all()
+    return dict(rows)
+
+
 def close_on_date(db: Session, symbol: str, d: date) -> Decimal:
     # 【查買進日收盤價】取該檔在指定日期當天的還原收盤價；該日沒有資料（假日、休市、尚未有資料）就回 422 INSUFFICIENT_PRICE_DATA，不往前遞補。
     # 參數：db=資料庫連線、symbol=代號、d=買進日期；回傳收盤價

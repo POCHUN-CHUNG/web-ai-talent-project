@@ -69,8 +69,10 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
     <EntryPage>
       <Card className={styles.card}>
         <div className={styles.brand}>
-          <h1 className={styles.brandTitle}>診 股 整 股</h1>
-          <p className={styles.brandSubtitle}>投資組合量化風險分析平台</p>
+          <div className={styles.brandInner}>
+            <h1 className={styles.brandTitle}>診股整股</h1>
+            <p className={styles.brandSubtitle}>投資組合量化風險分析平台</p>
+          </div>
         </div>
         <h2 className={styles.formHeading}>{isRegister ? "註冊" : "登入"}</h2>
         <form className={styles.form} onSubmit={submit} noValidate>
@@ -106,7 +108,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
           {isRegister && (
             <Input
               id="confirmPasswordInput"
-              label="確認密碼（僅限英文與數字）"
+              label="確認密碼"
               type={showConfirmPassword ? "text" : "password"}
               placeholder="請再次輸入密碼"
               value={confirmPassword}

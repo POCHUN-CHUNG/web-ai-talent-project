@@ -1,32 +1,48 @@
+/* 跟右上角帳戶選單同一套「液態玻璃」材質，取代 Card 元件預設的不透明玻璃（.card 在後面載入，蓋掉 Card.module.css 的設定） */
 .card {
   width: 100%;
   max-width: 480px;
   padding: 48px;
+  background: color-mix(in srgb, var(--color-surface) 30%, transparent);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    0 4px 12px color-mix(in srgb, black 14%, transparent);
 }
 
 .brand {
-  text-align: center;
+  display: flex;
+  justify-content: center;
   margin-bottom: var(--space-lg);
+}
+
+.brandInner {
+  display: flex;
+  flex-direction: column;
 }
 
 .brandTitle {
   margin: 0;
-  /* letter-spacing 也會加在最後一個字之後，用等量負 margin 抵銷，讓標題跟副標題左右對齊 */
-  margin-right: calc(-1 * var(--text-brand-title-letter-spacing));
   font-family: var(--font-family);
   font-size: var(--text-brand-title-size);
   font-weight: var(--text-brand-title-weight);
   line-height: var(--text-brand-title-line-height);
-  letter-spacing: var(--text-brand-title-letter-spacing);
   color: var(--color-primary);
+  text-align: justify;
+  text-align-last: justify;
 }
 
 .brandSubtitle {
   margin: var(--space-sm) 0 0;
   font-family: var(--font-family);
-  font-size: var(--text-body-md-size);
+  font-size: var(--text-brand-subtitle-size);
   font-weight: 700;
   color: var(--color-neutral-500);
+  text-align: justify;
+  text-align-last: justify;
 }
 
 .formHeading {
@@ -46,7 +62,7 @@
 
 .switchRow {
   text-align: center;
-  margin-top: var(--space-lg);
+  margin: var(--space-lg) 0 0;
   font-family: var(--font-family);
   font-size: var(--text-body-sm-size);
   color: var(--color-neutral-600);

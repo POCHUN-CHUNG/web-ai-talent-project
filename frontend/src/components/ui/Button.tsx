@@ -23,7 +23,7 @@ export default function Button({ variant = "primary", busy, fullWidth, disabled,
           />
         </svg>
       )}
-      <span>{children}</span>
+      {children}
     </button>
   );
 }

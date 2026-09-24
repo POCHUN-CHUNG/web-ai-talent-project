@@ -187,7 +187,7 @@ typography:
     letterSpacing: '0em'
   body-sm:
     fontFamily: 'Noto Sans, Noto Sans TC'
-    fontSize: '13px'
+    fontSize: '14px'
     fontWeight: 400
     lineHeight: 1.55
     letterSpacing: '0em'
@@ -199,7 +199,7 @@ typography:
     letterSpacing: '0.01em'
   label-md:
     fontFamily: 'Noto Sans, Noto Sans TC'
-    fontSize: '13px'
+    fontSize: '14px'
     fontWeight: 500
     lineHeight: 1.35
     letterSpacing: '0.02em'
@@ -215,6 +215,12 @@ typography:
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: '0.2em'
+  brand-subtitle:
+    fontFamily: 'Noto Sans, Noto Sans TC'
+    fontSize: '17px'
+    fontWeight: 700
+    lineHeight: 1.6
+    letterSpacing: '0em'
   form-heading:
     fontFamily: 'Noto Sans, Noto Sans TC'
     fontSize: '22px'
@@ -327,7 +333,7 @@ components:
 Signature traits (what makes it recognizable):
 
 1. **Accent-wash backgrounds** — pages sit on soft gradients built from the three accent palettes: blue `accent-1` (#aecbfa), yellow `accent-2` (#fef08a), pink `accent-3` (#ffc9c9).
-2. **White rounded cards on color** — neutral cards (glass at 80% opacity, 12px blur, a 1px edge) float on the wash and carry all the reading content.
+2. **White rounded cards on color** — neutral cards (glass at 75% opacity, 24px blur, 150% saturation, a 1px edge) float on the wash and carry all the reading content.
 3. **Glass orbs** on covers and closing pages: three overlapping translucent circles in the three accents.
 4. **Pill labels** for meta information (company, date, numbers, links) and monochrome chrome; deep navy `primary` (#1e3a8a) only for the main action.
 5. **Depth, not lines** — separation comes from color, blur and soft shadow, plus the thin glass edge (see Elevation & Depth).
@@ -393,11 +399,12 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 | `headline-sm` | 20px / 600 / 1.3 | Tile title, dialog title, row titles |
 | `body-lg` | 20px / 400 / 1.55 | Lead paragraph, short statements |
 | `body-md` | 16px / 400 / 1.6 | Default reading text |
-| `body-sm` | 13px / 400 / 1.55 | Captions, footnotes, helper text |
+| `body-sm` | 14px / 400 / 1.55 | Captions, footnotes, helper text |
 | `label-lg` | 16px / 500 / 1.4 | Button and pill labels, form field labels |
-| `label-md` | 13px / 500 / 1.35 | Slide chrome (company, date, page number), chips, table headers, "Slide 03" references |
+| `label-md` | 14px / 500 / 1.35 | Slide chrome (company, date, page number), chips, table headers, "Slide 03" references |
 | `label-sm` | 10px / 600 / 1.3 | Micro badges only (see below) |
 | `brand-title` | 36px / 700 / 1.2, `0.2em` tracking (28px on mobile, ≤734px) | Wordmark only (the product name on the entry pages' card, e.g. Login) |
+| `brand-subtitle` | 17px / 700 / 1.6 | Wordmark subtitle only (the platform description on the entry pages' card) |
 | `form-heading` | 22px / 700 / 1.3 | Form title inside an entry card (Login / Register / Settings section heading) |
 | `input-text` | 14px / 400 / 1.4 | Text typed into a pill-shaped entry-page input (Login, Settings password fields) |
 
@@ -440,7 +447,7 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 
 **Strategy: glass.** Depth is built from a translucent surface, a backdrop blur and a soft tinted shadow. The source tokens use `intensity` 0.35 and tint `shadow-tint` (#0f172a).
 
-**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 80%, transparent)` (surface opacity 0.8, revised up from the initial 0.65 — cards read as too faint against a saturated wash at 0.65) with `backdrop-filter: blur(16px)` (revised up from 12px to match: every page sits on the same saturated diagonal wash, so every glass card needs the stronger blur to keep card text legible), plus the 1px edge described below.
+**Glass surface.** `background-color: rgba(255, 255, 255, 0.75)` (surface opacity 0.75) with `backdrop-filter: blur(24px) saturate(150%)` (increased blur and saturation to maintain text legibility and create a richer glass effect over the diagonal wash), plus the 1px edge described below.
 
 **Shadow levels** (tinted shadows):
 
@@ -521,7 +528,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Checkbox and radio backgrounds follow the same rule**: per Shapes → Checkbox/Radio below, the unchecked/unselected state is already transparent (just the 1px `outline` edge) — that hasn't changed, it's restated here because inputs now match it: no control's resting background should compete with the glass card behind it.
 
-**Card.** `surface` fill (glass at 65% over a wash; opaque over photography), `on-surface` text, radius 30px, padding 20px, `level-1`, no border. Anatomy for contents/agenda cards: number in `label-lg` top-left, optional accent dot top-right (16px, `accent-N-500`), title in `headline-md` (`headline-sm` in six-column layouts) in the middle, reference in `label-md` `on-surface-variant` at the bottom ("Slide 03").
+**Card.** `surface` fill (glass at 75% over a wash; opaque over photography), `on-surface` text, radius 30px, padding 20px, `level-1`, no border. Anatomy for contents/agenda cards: number in `label-lg` top-left, optional accent dot top-right (16px, `accent-N-500`), title in `headline-md` (`headline-sm` in six-column layouts) in the middle, reference in `label-md` `on-surface-variant` at the bottom ("Slide 03").
 
 **Corner-gradient card.** A card may carry one accent gradient in its top-left corner: `radial-gradient(90% 90% at 0% 0%, accent-N-500, transparent 70%)` over `surface`, for hero statements and key stats (yellow for goals, pink for people). Text stays `on-surface`.
 
@@ -595,7 +602,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 ## Iconography
 
-Rounded monoline icons, about 1.5–2px stroke at 20–24px, round caps and joins, no fills except selected states. Section markers and corner arrows are a solid `button-inverted` circle with an `on-button-inverted` glyph (for example a small arrow before a title, or a corner arrow on a tile). Circular icon buttons (44px hit target minimum) sit on `surface-container-high`; a selected state fills the circle with `primary` and the icon with `on-primary`. Icon color is `on-surface` or `on-surface-variant`, never a palette shade.
+Material Symbols Rounded icons, about 1.5–2px stroke at 20–24px, round caps and joins, no fills except selected states. Section markers and corner arrows are a solid `button-inverted` circle with an `on-button-inverted` glyph (for example a small arrow before a title, or a corner arrow on a tile). Circular icon buttons (44px hit target minimum) sit on `surface-container-high`; a selected state fills the circle with `primary` and the icon with `on-primary`. Icon color is `on-surface` or `on-surface-variant`, never a palette shade.
 
 ## Imagery
 
@@ -623,3 +630,4 @@ Two image families. **Portraits:** bright, evenly lit studio portraits with plai
 - Don't set text smaller than `headline-sm` on a `secondary` (#0d9488) fill, or rely on `tertiary` as a lone button boundary.
 - Don't use `label-sm` (10px) for CJK text, and don't use italics on CJK.
 - Don't put a checkbox and a radio in the same group.
+- Don't wrap text and icons inside flex containers (like buttons or tabs) in an extra `<span>`; pass them as direct children and use `line-height: 1` to ensure perfect vertical alignment.

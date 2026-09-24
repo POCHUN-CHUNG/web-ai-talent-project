@@ -7,7 +7,7 @@ import Card from "../components/ui/Card";
 import Chip from "../components/ui/Chip";
 import IconButton from "../components/ui/IconButton";
 import Input from "../components/ui/Input";
-import EntryPage from "../components/layout/EntryPage";
+
 import styles from "./Settings.module.css";
 
 // 【設定頁】帳號資訊、修改密碼、登出。無參數。
@@ -61,7 +61,7 @@ export default function Settings() {
   }
 
   return (
-    <EntryPage>
+    <div className={styles.pageWrap}>
       <div className={styles.page}>
         <h1 className={styles.heading}>設定</h1>
 
@@ -114,6 +114,6 @@ export default function Settings() {
           登出
         </Button>
       </div>
-    </EntryPage>
+    </div>
   );
 }

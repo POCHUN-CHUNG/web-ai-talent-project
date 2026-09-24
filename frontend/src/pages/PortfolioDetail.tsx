@@ -4,6 +4,7 @@ import { api, ApiError } from "../api";
 import LotForm from "../components/LotForm";
 import TradeDatePicker from "../components/TradeDatePicker";
 import { AllocationChart, PnlChart } from "../components/PortfolioCharts";
+import Footer from "../components/layout/Footer";
 import { DISCLAIMER, PRICE_NOTE, TOO_SHORT, checkLotFields, decimal, fix4, money, pct, pnlColor, signedMoney } from "../format";
 
 // 單筆買進紀錄（含該筆損益與持有天數）
@@ -210,12 +211,17 @@ export default function PortfolioDetail() {
   );
 }
 
-// 【頁面外框】置中、限制寬度並附「回首頁」連結。參數：children=頁面內容
+// 【頁面外框】置中、限制寬度並附「回首頁」連結；版權宣告貼在頁面下方（內容短就貼齊畫面下緣，內容長則跟著捲動）。參數：children=頁面內容
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontFamily: "sans-serif", padding: "2rem", maxWidth: 1080, margin: "0 auto" }}>
-      <p><Link to="/">← 回投資組合</Link></p>
-      {children}
+    <div style={{ fontFamily: "sans-serif", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: "1 0 auto", width: "100%" }}>
+        <div style={{ padding: "2rem", maxWidth: 1080, margin: "0 auto" }}>
+          <p><Link to="/portfolios">← 回投資組合</Link></p>
+          {children}
+        </div>
+      </div>
+      <Footer />
     </div>
   );
 }

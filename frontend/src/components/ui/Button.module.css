@@ -1,3 +1,5 @@
+/* 按鈕維持 iOS 傳統的實心扁平樣式（比照 Apple 參考的 Done／Delete 按鈕：純色填滿、無透明模糊），
+   「液態玻璃」只用在導覽的浮動容器（頂端／底部 Tab 列、帳戶選單、彈出視窗），不套用在一般按鈕上。 */
 .button {
   display: inline-flex;
   align-items: center;

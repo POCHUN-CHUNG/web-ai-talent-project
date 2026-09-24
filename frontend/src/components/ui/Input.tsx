@@ -15,12 +15,10 @@ export default function Input({ label, id, endAdornment, error, className, ...re
       <label className={styles.label} htmlFor={id}>
         {label}
       </label>
-      <div className={styles.inputWrap}>
+      <div className={[styles.inputWrap, error ? styles.error : ""].filter(Boolean).join(" ")}>
         <input
           id={id}
-          className={[styles.input, endAdornment ? styles.hasEndAdornment : "", error ? styles.error : "", className]
-            .filter(Boolean)
-            .join(" ")}
+          className={[styles.input, endAdornment ? styles.hasEndAdornment : "", className].filter(Boolean).join(" ")}
           {...rest}
         />
         {endAdornment && <div className={styles.endAdornment}>{endAdornment}</div>}

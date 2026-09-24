@@ -3,33 +3,43 @@
 export const DISCLAIMER = "未納入手續費與交易稅"; // 凡顯示損益處固定標註
 export const TOO_SHORT = "持有期間過短，暫不年化"; // 持有天數未滿 30 日不年化時的說明
 
-// 【金額】千分位、小數 0 位；空值顯示「—」。參數：v=後端回傳的金額字串
+// 【金額】千分位、小數 0 位；空值顯示「-」。參數：v=後端回傳的金額字串
 export function money(v: string | null | undefined): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return Number(v).toLocaleString("zh-TW", { maximumFractionDigits: 0 });
 }
 
 // 【帶正負號的金額】損益用，正數前面加 +。參數：v=後端回傳的金額字串
 export function signedMoney(v: string | null | undefined): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return (Number(v) > 0 ? "+" : "") + money(v);
 }
 
 // 【單價／股數】千分位、最多 4 位小數。參數：v=後端回傳的數字字串
 export function decimal(v: string | null | undefined): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return Number(v).toLocaleString("zh-TW", { maximumFractionDigits: 4 });
 }
 
-// 【百分比】小數 2 位；空值顯示「—」。參數：v=比例（0.1371 代表 13.71%）、signed=正數是否加 +
+// 【百分比】小數 2 位；空值顯示「-」。參數：v=比例（0.1371 代表 13.71%）、signed=正數是否加 +
 export function pct(v: number | null | undefined, signed = false): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return (signed && v > 0 ? "+" : "") + (v * 100).toFixed(2) + "%";
 }
 
 // 【今日（台北）】YYYY-MM-DD，作為買進日期欄位的上限。無參數。
 export function todayTaipei(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei" }).format(new Date());
+}
+
+// 【格式化日期時間】純日期（如「2026-09-24」，沒有時間部分）直接顯示；
+// 完整時間（後端回傳的 UTC ISO 字串）轉成本地時間並精確到秒；空值顯示「-」。參數：v=後端回傳的日期或日期時間字串
+export function formatDateTime(v: string | null | undefined): string {
+  if (!v) return "-";
+  if (!v.includes("T")) return v;
+  const d = new Date(v);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
 // 【損益顏色】台股慣例：賺（正）為紅、賠（負）為綠；零或空值不上色。參數：v=損益或報酬率

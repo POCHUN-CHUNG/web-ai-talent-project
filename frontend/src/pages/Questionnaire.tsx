@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import LoadingOverlay from "../components/LoadingOverlay";
+import Footer from "../components/layout/Footer";
 
 // 題目與選項（後端 GET /questionnaire 提供）
 type Option = { value: string; label: string };
@@ -123,7 +124,9 @@ export default function Questionnaire() {
   if (checking) return null; // 確認冷卻中，先不顯示問卷
 
   return (
-    <form onSubmit={submit} style={{ fontFamily: "sans-serif", padding: "2rem", maxWidth: 720 }}>
+    <div style={{ fontFamily: "sans-serif", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div style={{ flex: "1 0 auto" }}>
+    <form onSubmit={submit} style={{ padding: "2rem", maxWidth: 720 }}>
       <h1>風險評估問卷</h1>
       <p>共 14 題，全部必填。結果只代表這次的回答，重新填寫會產生新的結果。</p>
 
@@ -182,5 +185,8 @@ export default function Questionnaire() {
       )}
       {busy && <LoadingOverlay />}
     </form>
+    </div>
+    <Footer />
+    </div>
   );
 }

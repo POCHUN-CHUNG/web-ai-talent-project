@@ -11,10 +11,29 @@
   color: var(--color-on-surface-variant);
 }
 
+/* 邊框、圓角、focus／error 樣式放在這層外框，而不是 <input> 本身（<input> 只管文字與透明底色） */
 .inputWrap {
   position: relative;
   display: flex;
   align-items: center;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-input);
+  /* 裁掉超出圓角範圍的內容：瀏覽器對原生 <input> 的內建繪製不會完全跟著 border-radius 走，
+     放大檢視時，轉角處可能露出一小段沒被裁到的邊緣，變成一條不該出現的白線；
+     外框自己裁切，才能保證轉角一定跟邊框走同一條弧線 */
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* 聚焦時視覺上變成 2px：border 本身寬度不變（避免改 border-width 讓版面跳動)，
+   改用 inset box-shadow 疊在邊框內側多描一圈，box-shadow 不佔版面、不會觸發任何尺寸變化 */
+.inputWrap:focus-within {
+  border-color: var(--color-focus-ring);
+  box-shadow: inset 0 0 0 1px var(--color-focus-ring);
+}
+
+.error {
+  border-color: var(--color-error);
 }
 
 .input {
@@ -23,15 +42,13 @@
   font-size: var(--text-input-text-size);
   line-height: var(--text-input-text-line-height);
   color: var(--color-on-surface);
-  /* 完全透明底色，只靠邊框與模糊跟卡片區隔，不再疊一層實色 */
+  appearance: none;
+  -webkit-appearance: none;
   background-color: transparent;
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--color-outline);
-  border-radius: var(--radius-input);
+  border: none;
+  border-radius: inherit;
   padding: 12px var(--space-lg);
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .input::placeholder {
@@ -39,17 +56,8 @@
   opacity: 0.6;
 }
 
-/* 聚焦只換框線顏色，寬度與位置不變，邊框不會位移 */
-.input:focus {
-  border-color: var(--color-focus-ring);
-}
-
 .hasEndAdornment {
   padding-right: 48px;
-}
-
-.error {
-  border-color: var(--color-error);
 }
 
 .endAdornment {
