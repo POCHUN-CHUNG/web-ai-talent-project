@@ -1,21 +1,39 @@
 import { FormEvent, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import cardStyles from "../components/ui/Card.module.css";
+import Chip from "../components/ui/Chip";
+import Icon from "../components/ui/Icon";
+import IconButton from "../components/ui/IconButton";
+import Input from "../components/ui/Input";
+import Switch from "../components/ui/Switch";
+import EntryPage from "../components/layout/EntryPage";
+import { useTheme } from "../theme";
+import styles from "./Settings.module.css";
 
-// 【使用者設定頁】顯示帳號並提供修改密碼。無參數。
+// 【使用者設定頁】帳號資訊、修改密碼、深色模式切換。無參數。
 export default function Settings() {
   const { username } = useAuth();
+  const navigate = useNavigate();
   const [oldPw, setOldPw] = useState(""); // 輸入的舊密碼
   const [newPw, setNewPw] = useState(""); // 輸入的新密碼
+  const [showOldPw, setShowOldPw] = useState(false); // 舊密碼是否顯示明文
+  const [showNewPw, setShowNewPw] = useState(false); // 新密碼是否顯示明文
+  const [busy, setBusy] = useState(false); // 送出中（避免重複點擊）
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null); // 結果訊息（ok=是否成功）
+  const [theme, setTheme] = useTheme(); // 目前主題（與頂列的切換鈕同步）
+  const dark = theme === "dark";
 
   // 【送出修改】按下修改密碼鈕時執行。
   // 參數：e=表單事件
   async function submit(e: FormEvent) {
-    // 1. 阻止網頁預設的重新整理，並清除舊訊息
+    // 1. 阻止網頁預設的重新整理，並清除舊訊息、進入送出中
     e.preventDefault();
     setMsg(null);
+    setBusy(true);
     try {
       // 2. 把新舊密碼送給後端
       await api("/auth/change-password", { old_password: oldPw, new_password: newPw });
@@ -26,22 +44,83 @@ export default function Settings() {
     } catch (err) {
       // 4. 失敗：顯示後端說明，連不上則顯示通用訊息
       setMsg({ ok: false, text: err instanceof ApiError ? err.message : "無法連線，請稍後再試" });
+    } finally {
+      // 5. 結束送出中
+      setBusy(false);
     }
   }
 
+  // 【切換深色模式】按下開關時執行，立刻套用並記住選擇（頂列的切換鈕會同步更新）。
+  // 參數：checked=切換後是否為深色模式
+  function toggleTheme(checked: boolean) {
+    setTheme(checked ? "dark" : "light");
+  }
+
   return (
-    <main style={{ fontFamily: "sans-serif", maxWidth: 320, margin: "10vh auto" }}>
-      <h1>使用者設定</h1>
-      <p>帳號：{username}</p>
-      <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
-        <input type="password" placeholder="舊密碼" value={oldPw} onChange={(e) => setOldPw(e.target.value)}
-          maxLength={128} autoComplete="current-password" required />
-        <input type="password" placeholder="新密碼（僅限英文與數字）" value={newPw} onChange={(e) => setNewPw(e.target.value)}
-          maxLength={128} autoComplete="new-password" required />
-        {msg && <div role="alert" style={{ color: msg.ok ? "green" : "crimson" }}>{msg.text}</div>}
-        <button>修改密碼</button>
-      </form>
-      <p><Link to="/">回首頁</Link></p>
-    </main>
+    <EntryPage>
+      <Card className={`${styles.card} ${cardStyles.entryBlur}`}>
+        <h1 className={styles.heading}>使用者設定</h1>
+
+        <section>
+          <p className={styles.sectionTitle}>帳號資訊</p>
+          <Card variant="nested" className={styles.row}>
+            <span className={styles.rowLabel}>帳號</span>
+            <span className={styles.rowValue}>{username}</span>
+          </Card>
+        </section>
+
+        <section>
+          <p className={styles.sectionTitle}>修改密碼</p>
+          <Card variant="nested">
+            <form className={styles.form} onSubmit={submit}>
+              <Input
+                id="oldPasswordInput"
+                label="舊密碼"
+                type={showOldPw ? "text" : "password"}
+                value={oldPw}
+                onChange={(e) => setOldPw(e.target.value)}
+                maxLength={128}
+                autoComplete="current-password"
+                required
+                endAdornment={
+                  <IconButton icon={showOldPw ? "visibility_off" : "visibility"} label="切換舊密碼顯示" onClick={() => setShowOldPw((v) => !v)} />
+                }
+              />
+              <Input
+                id="newPasswordInput"
+                label="新密碼（僅限英文與數字）"
+                type={showNewPw ? "text" : "password"}
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+                maxLength={128}
+                pattern="^[A-Za-z0-9]+$"
+                autoComplete="new-password"
+                required
+                endAdornment={
+                  <IconButton icon={showNewPw ? "visibility_off" : "visibility"} label="切換新密碼顯示" onClick={() => setShowNewPw((v) => !v)} />
+                }
+              />
+              <Button type="submit" variant="secondary" busy={busy}>
+                {busy ? "處理中" : "修改密碼"}
+              </Button>
+              {msg && <Chip variant={msg.ok ? "success" : "error"}>{msg.text}</Chip>}
+            </form>
+          </Card>
+        </section>
+
+        <section>
+          <p className={styles.sectionTitle}>顯示設定</p>
+          <Card variant="nested" className={styles.row}>
+            <span className={styles.rowLabel}>深色模式</span>
+            <Switch checked={dark} onChange={toggleTheme} label="切換深色模式" />
+          </Card>
+        </section>
+
+        <button type="button" className={styles.backLink} onClick={() => navigate("/")}>
+          <Icon name="arrow_back" size={16} />
+          回首頁
+        </button>
+      </Card>
+    </EntryPage>
   );
 }

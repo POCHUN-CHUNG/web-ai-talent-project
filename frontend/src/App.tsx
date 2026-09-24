@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, RequireAuth, RequireProfile } from "./auth";
-import Landing from "./pages/Landing";
+import Login from "./pages/Login";
 import Home from "./pages/Home";
 import PortfolioDetail from "./pages/PortfolioDetail";
 import Settings from "./pages/Settings";
@@ -15,8 +15,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* 2. 公開頁面：登入、註冊（同一元件，以 mode 區分） */}
-          <Route path="/login" element={<Landing key="login" mode="login" />} />
-          <Route path="/register" element={<Landing key="register" mode="register" />} />
+          <Route path="/login" element={<Login key="login" mode="login" />} />
+          <Route path="/register" element={<Login key="register" mode="register" />} />
           {/* 3. 需登入頁面（未登入會被導到登入頁）：問卷與風險屬性結果頁隨時可進入 */}
           <Route element={<RequireAuth />}>
             <Route path="/questionnaire" element={<Questionnaire />} />

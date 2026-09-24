@@ -1,0 +1,44 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* 斜角暈染：左上到右下，使用輔助色（accent-1/2/3）疊色，取代單一頁面一種暈染的預設規則
+     （DESIGN.md「Entry-page backdrop」，登入／註冊／設定頁專用的例外） */
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-1-500) var(--entry-wash-stop-1-opacity), transparent) 0%,
+    color-mix(in srgb, var(--color-accent-2-500) var(--entry-wash-stop-2-opacity), transparent) 50%,
+    color-mix(in srgb, var(--color-accent-3-500) var(--entry-wash-stop-3-opacity), transparent) 100%
+  );
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme="dark"] .wrap {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-1-800) var(--entry-wash-dark-stop-1-opacity), transparent) 0%,
+    color-mix(in srgb, var(--color-accent-2-800) var(--entry-wash-dark-stop-2-opacity), transparent) 50%,
+    color-mix(in srgb, var(--color-accent-3-800) var(--entry-wash-dark-stop-3-opacity), transparent) 100%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wrap {
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-accent-1-800) var(--entry-wash-dark-stop-1-opacity), transparent) 0%,
+      color-mix(in srgb, var(--color-accent-2-800) var(--entry-wash-dark-stop-2-opacity), transparent) 50%,
+      color-mix(in srgb, var(--color-accent-3-800) var(--entry-wash-dark-stop-3-opacity), transparent) 100%
+    );
+  }
+}
+
+.main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 96px var(--space-md) var(--space-2xl);
+}

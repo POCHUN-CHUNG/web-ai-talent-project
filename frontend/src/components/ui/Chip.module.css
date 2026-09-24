@@ -1,0 +1,31 @@
+.chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-full);
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  font-weight: var(--text-label-md-weight);
+}
+
+.error {
+  background-color: var(--color-error-container);
+  color: var(--color-on-error-container);
+}
+
+.success {
+  background-color: var(--color-success-container);
+  color: var(--color-on-success-container);
+}
+
+.warning {
+  background-color: var(--color-warning-container);
+  color: var(--color-on-warning-container);
+}
+
+.info {
+  background-color: var(--color-info-container);
+  color: var(--color-on-info-container);
+}

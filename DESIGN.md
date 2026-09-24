@@ -260,6 +260,24 @@ typography:
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: '0.04em'
+  brand-title:
+    fontFamily: 'Noto Sans, Noto Sans TC'
+    fontSize: '36px'
+    fontWeight: 700
+    lineHeight: 1.2
+    letterSpacing: '0.2em'
+  form-heading:
+    fontFamily: 'Noto Sans, Noto Sans TC'
+    fontSize: '22px'
+    fontWeight: 700
+    lineHeight: 1.3
+    letterSpacing: '0em'
+  input-text:
+    fontFamily: 'Noto Sans, Noto Sans TC'
+    fontSize: '14px'
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: '0em'
 rounded:
   sm: '4px'
   md: '6px'
@@ -438,6 +456,9 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 | `label-lg` | 16px / 500 / 1.4 | Button and pill labels, form field labels |
 | `label-md` | 13px / 500 / 1.35 | Slide chrome (company, date, page number), chips, table headers, "Slide 03" references |
 | `label-sm` | 10px / 600 / 1.3 | Micro badges only (see below) |
+| `brand-title` | 36px / 700 / 1.2, `0.2em` tracking | Wordmark only (the product name on the entry pages' card, e.g. Login) |
+| `form-heading` | 22px / 700 / 1.3 | Form title inside an entry card (Login / Register / Settings section heading) |
+| `input-text` | 14px / 400 / 1.4 | Text typed into a pill-shaped entry-page input (Login, Settings password fields) |
 
 **Heading emphasis: the highlight mark.** In a page or slide title, one key word (for example the topic noun) is set on a solid accent block: `accent-1-500`, `accent-2-500` or `accent-3-500` as background, #000000 text, horizontal padding `xs` (4px), radius `rounded.sm` (4px). Use the accent that belongs to the page's wash (blue mark on blue wash, yellow on yellow, pink on pink; blue on neutral pages). At most one mark per title. Weight stays as defined by the level; emphasis is color, not a weight change. For CJK titles the mark wraps whole words or 2–4 characters, never a single punctuation mark.
 
@@ -480,7 +501,7 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 
 **Strategy: glass.** Depth is built from a translucent surface, a backdrop blur and a soft tinted shadow. The source tokens use `intensity` 0.35 and tint `shadow-tint` (#0f172a).
 
-**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 65%, transparent)` (surface opacity 0.65, derived as 1 − intensity 0.35, inferred) with `backdrop-filter: blur(12px)`. In dark mode the same formula applies to `dark-surface`.
+**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 65%, transparent)` (surface opacity 0.65, derived as 1 − intensity 0.35, inferred) with `backdrop-filter: blur(12px)`. In dark mode the same formula applies to `dark-surface`. **Entry-page cards** (Login, Register, Settings — see Backdrop for glass) use a stronger `blur(16px)`, because they sit over a saturated diagonal wash instead of the calmer default radial backdrop and need the extra blur to keep card text legible.
 
 **Shadow levels** (light mode uses tinted shadows; dark mode uses black at 2.5× the light opacity):
 
@@ -495,6 +516,8 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 **Which level for what.** `card` uses `level-1` (the only assignment given by the tokens). The rest is guidance: `level-2` for hovered or raised tiles and sticky toolbars, `level-3` for menus, popovers and tooltips, `level-4` for modal sheets and dialogs, `level-5` for full-screen overlays. Nested cards, pills and chips have no shadow.
 
 **Backdrop for glass.** Glass reads as glass over the accent washes. Default backdrop when no specific wash is chosen: over `background`, three soft radial washes: `accent-3-500` (#ffc9c9) at the top-left `radial-gradient(45% 55% at 12% 15%, accent-3-500, transparent 70%)`, `accent-1-500` (#aecbfa) at the top-right `radial-gradient(40% 50% at 88% 20%, accent-1-500, transparent 70%)`, and `accent-2-500` (#fef08a) at the bottom `radial-gradient(45% 55% at 55% 95%, accent-2-500, transparent 70%)`. In dark mode the same three use the 800 shades (`accent-3-800`, `accent-1-800`, `accent-2-800`) over `dark-background`. On a flat `background` with no wash, a glass card degrades to a plain white card, which is acceptable.
+
+**Entry-page backdrop (deliberate exception to "one wash per page").** Login, Register and Settings — the pages a person sees before or around authentication — use a single diagonal linear wash instead of the radial default, so the three accents read as one continuous gradient rather than three separate blobs: `linear-gradient(135deg, color-mix(in srgb, accent-1-500 32%, transparent) 0%, color-mix(in srgb, accent-2-500 22%, transparent) 50%, color-mix(in srgb, accent-3-500 28%, transparent) 100%)` over `background`. Direction is fixed top-left to bottom-right (135deg). In dark mode, swap in the 800 shades at slightly lower stop opacities (25%, 20%, 25%) over `dark-background`: `linear-gradient(135deg, color-mix(in srgb, accent-1-800 25%, transparent) 0%, color-mix(in srgb, accent-2-800 20%, transparent) 50%, color-mix(in srgb, accent-3-800 25%, transparent) 100%)`. This wash is `background-attachment: fixed` so it does not scroll with page content.
 
 **Rules.**
 
@@ -586,6 +609,8 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 **Photo tile and avatar.** Photo tile: image clipped by the card radius (30px), same height as the row's cards. Avatar: circle (`rounded.full`), optional 3px rim in `accent-2-500` on one side. Name in `label-lg`, role in `body-sm` `on-surface-variant`. A speaker-name caption may overlay the photo as a meta pill.
 
 **Toolbar / navigation bar.** Sticky, glass at `level-2`, radius `rounded.full` when floating or full-width with no radius when docked. Title in `label-lg`, actions as circular icon buttons (44px hit target) on `surface-container-high`.
+
+**Entry header.** Fixed to the top of Login, Register and Settings, transparent (no glass, no shadow, sits directly on the entry backdrop), full width, content capped at the same max width as the page content with `margin` (32px) side padding and `lg` (24px) top/bottom padding. Left: a 40px circular `primary` badge with an `on-primary` icon (the product mark). Right: two circular icon buttons, 36px, transparent, `on-surface-variant` icon, hover fill `surface-container-high` — the theme toggle (`dark_mode`/`light_mode`, reflects and controls the current mode) and the account icon (`person`, links to Settings when signed in). No title text; the wordmark lives in the card below, not the header.
 
 **Sidebar.** `surface-container-low` panel, grouped lists with `label-md` section labels in `on-surface-variant`. Selected row: `surface-container-high` fill with `rounded.md`.
 
