@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -42,7 +44,7 @@ def register(body: Credentials, response: Response, db: Session = Depends(get_db
     if db.scalar(select(User.id).where(User.username == body.username)):
         raise HTTPException(status_code=409, detail="帳號已存在")
     # 2. 密碼加密後存入資料庫
-    user = User(username=body.username, password_hash=hash_password(body.password))
+    user = User(username=body.username, password=hash_password(body.password))
     db.add(user)
     try:
         db.commit()
@@ -62,7 +64,7 @@ def login(body: Credentials, response: Response, db: Session = Depends(get_db)):
     # 1. 依帳號查使用者
     user = db.scalar(select(User).where(User.username == body.username))
     # 2. 比對密碼；帳號不存在與密碼錯誤給相同訊息，避免洩漏帳號是否存在
-    if not verify_password(body.password, user.password_hash if user else None):
+    if not verify_password(body.password, user.password if user else None):
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
     # 3. 發通行證
     create_session(response, user.id)
@@ -94,10 +96,11 @@ def change_password(
     # 【修改密碼】需先登入。
     # 參數：body=舊密碼與新密碼、response=回傳給瀏覽器的物件、user=目前登入者、db=資料庫連線
     # 1. 舊密碼錯誤則拒絕
-    if not verify_password(body.old_password, user.password_hash):
+    if not verify_password(body.old_password, user.password):
         raise HTTPException(status_code=400, detail="舊密碼錯誤")
-    # 2. 新密碼加密後存入
-    user.password_hash = hash_password(body.new_password)
+    # 2. 新密碼加密後存入，並記錄更新時間
+    user.password = hash_password(body.new_password)
+    user.password_updated = datetime.now(timezone.utc)
     db.commit()
     # 3. 使所有舊登入失效，並讓目前裝置維持登入
     destroy_all_sessions(user.id)

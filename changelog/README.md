@@ -32,6 +32,7 @@
 | 016  | 2026-09-20 | `21de53c` | 合併 PR #7（規格書與設計文件）  | [016-21de53c-merge-pr7.md](016-21de53c-merge-pr7.md)                           |
 | 017  | 2026-09-21 | `b52312d` | 股票資料與每日股價抓取          | [017-b52312d-stock-data-fetch.md](017-b52312d-stock-data-fetch.md)             |
 | 018  | 2026-09-21 | `0cd23eb` | 風險評估問卷與風險屬性          | [018-0cd23eb-questionnaire-risk-profile.md](018-0cd23eb-questionnaire-risk-profile.md) |
+| 019  | 2026-09-21 | `3bc1b5d` | 投資組合首頁、買進紀錄與組合詳情頁 | [019-3bc1b5d-portfolio-home.md](019-3bc1b5d-portfolio-home.md)                 |
 
 ## 維護規則
 

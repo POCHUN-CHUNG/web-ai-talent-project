@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 import requests
+from sqlalchemy import case, or_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -85,23 +86,34 @@ def fetch_stock_info() -> list[dict]:
 
 
 def save_stock_info(db: Session, rows: list[dict]) -> int:
-    # 【寫入股票基本資料】以代號為依據：資料庫沒有就新增，已有就覆寫名稱、市場別、產業別與更新時間。
-    # 只新增與更新、不刪除（下市股票若被使用者持有，紀錄必須保留）。回傳寫入筆數。
-    # 參數：db=資料庫連線、rows=fetch_stock_info 回傳的清單
+    # 【寫入股票基本資料】以代號為依據：資料庫沒有就新增（記為 created）；已有就覆寫名稱、市場別、產業別，
+    # 但只有內容真的改變時才更新 updated，created 永遠不變。只新增與更新、不刪除（下市股票若被使用者持有，紀錄必須保留）。
+    # 回傳寫入筆數。參數：db=資料庫連線、rows=fetch_stock_info 回傳的清單
     # 1. 整批放在同一次提交：任何一步失敗就整批復原
     now = datetime.now(timezone.utc)
     try:
         for i in range(0, len(rows), UPSERT_CHUNK):
-            chunk = [{**r, "updated": now} for r in rows[i : i + UPSERT_CHUNK]]
+            chunk = [{**r, "created": now, "updated": now} for r in rows[i : i + UPSERT_CHUNK]]
             stmt = insert(StockInfo).values(chunk)
-            # 2. 代號重複時改成覆寫
+            # 2. 代號重複時覆寫內容；created 不放進 set_，永遠維持第一次寫入的值
             stmt = stmt.on_conflict_do_update(
                 index_elements=["symbol"],
                 set_={
                     "name": stmt.excluded.name,
                     "market": stmt.excluded.market,
                     "industry": stmt.excluded.industry,
-                    "updated": stmt.excluded.updated,
+                    # 3. 名稱、市場別、產業別任一項跟資料庫不同才算有異動，才更新 updated
+                    "updated": case(
+                        (
+                            or_(
+                                StockInfo.name != stmt.excluded.name,
+                                StockInfo.market != stmt.excluded.market,
+                                StockInfo.industry != stmt.excluded.industry,
+                            ),
+                            stmt.excluded.updated,
+                        ),
+                        else_=StockInfo.updated,
+                    ),
                 },
             )
             db.execute(stmt)

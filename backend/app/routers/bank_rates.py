@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -40,11 +41,17 @@ def fetch(db: Session = Depends(get_db)):
         logger.error("bank rates failed: %s", detail)
         raise fail_error(502, MESSAGE, detail, success_count=len(rates), fail_count=len(errors))
 
-    # 2. 覆寫：先清掉舊的那一列，再寫入新的一列（五家利率＋更新時間），表中永遠只有最新一列
-    # 3. 清舊與寫新在同一次提交；任何一步失敗就復原（舊資料保留）並回 500，讓 n8n 知道沒有存成功
+    # 2. 覆寫：以銀行代號為依據逐家 upsert（沒有就新增、已有就覆寫利率與更新時間），每家只保留最新一列
+    # 3. 五家一起提交；任何一步失敗就復原（舊資料保留）並回 500，讓 n8n 知道沒有存成功
     try:
-        db.query(BankRate).delete()
-        db.add(BankRate(**rates, updated=datetime.now(timezone.utc)))
+        now = datetime.now(timezone.utc)
+        stmt = insert(BankRate).values(
+            [{"bank": bank, "rate": rate, "updated": now} for bank, rate in rates.items()]
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["bank"], set_={"rate": stmt.excluded.rate, "updated": stmt.excluded.updated}
+        )
+        db.execute(stmt)
         db.commit()
     except Exception as exc:
         db.rollback()

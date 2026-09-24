@@ -1,5 +1,4 @@
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -10,7 +9,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import delete, select, tuple_
+from sqlalchemy import select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -27,23 +26,7 @@ INDEX_MARKET = "指數"  # 市場別為「指數」的代號，向證交所抓�
 BENCHMARK_SYMBOL = BENCHMARK_ROW["symbol"]  # 大盤指數代號 IR0001（僅用來登記它的資料來源）
 
 
-def _env_int(name: str, default: int, low: int, high: int) -> int:
-    # 【讀取整數環境變數】沒設定就用預設值；不是整數或超出範圍就直接丟錯，讓後端啟動失敗（不悄悄套用錯誤設定）。
-    # 參數：name=環境變數名稱、default=預設值、low/high=允許的最小／最大值
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        raise RuntimeError(f"環境變數 {name} 必須是整數，目前為 {raw!r}") from None
-    if not low <= value <= high:
-        raise RuntimeError(f"環境變數 {name} 必須介於 {low} 到 {high}，目前為 {value}")
-    return value
-
-
-LOOKBACK_YEARS = _env_int("ANALYSIS_MAX_LOOKBACK_YEARS", 10, 1, 10)  # 首次全量抓取與資料保留期的年數（同分析期間上限，預設 10 年）
-LOOKBACK_BUFFER_DAYS = _env_int("PRICE_RETENTION_BUFFER_DAYS", 31, 0, 366)  # 在上述年數之外多留的緩衝天數（預設 31 天）
+FULL_HISTORY_START = date(2003, 1, 1)  # 沒有舊資料時（首次上線、新上市）一律從這天開始抓到今天，資料永久保留
 RECENT_MONTHS = 1  # 日常只抓過去 1 個月（已有資料的股票；大盤從 1 個月前的那個月 1 日起），同一代號同一天直接覆蓋
 RESTATE_TOLERANCE = Decimal("0.0001")  # 舊資料與新抓取同一天的價格相差超過 0.01% 視為除權息還原基準改變
 SMALL_BATCH = 5  # 小於這個檔數的批次若全空，視為「查無資料」而非被擋（日常只會剩少數 Yahoo 沒有的代號）
@@ -69,18 +52,11 @@ class FetchReport:
     no_data: list = field(default_factory=list)  # 抓取當下是代號字串；彙整時換成 {"symbol", "name"}
     rows_written: int = 0  # 實際寫入（新增或覆寫）的資料列數
     restated: list[str] = field(default_factory=list)  # 因除權息還原基準改變而整檔重抓的代號（只記日誌，不回傳給 n8n）
-    deleted: int = 0  # 清除的過期資料列數
 
     @property
     def fail_count(self) -> int:
         # 失敗筆數（以代號計）
         return len(self.failed)
-
-
-def default_start_date(today: date) -> date:
-    # 【預設起始日期】今天往前 10 年再加 31 天。用日曆計算而非固定天數，閏年才不會少算。
-    # 參數：today=今天（台北時區）
-    return today - relativedelta(years=LOOKBACK_YEARS) - timedelta(days=LOOKBACK_BUFFER_DAYS)
 
 
 def _is_writable_date(trade_date: date, now: datetime) -> bool:
@@ -101,20 +77,22 @@ def _to_decimal(value: float) -> Decimal | None:
     return d if d > 0 else None
 
 
-def _upsert_prices(db: Session, rows: list[dict]) -> int:
-    # 【寫入日收盤價】以（代號＋交易日）為依據：沒有就新增，已有就直接覆寫收盤價。每次呼叫獨立提交，失敗會復原該次寫入。
-    # 參數：db=資料庫連線、rows=[{"symbol":…, "adj_close":Decimal, "trade_date":date}]；回傳寫入列數
+def _upsert_prices(db: Session, rows: list[dict], fetched_at: datetime) -> int:
+    # 【寫入日收盤價】以（代號＋交易日）為依據：沒有就新增，已有就直接覆寫收盤價與抓取時間。不刪除任何舊資料。
+    # 每次呼叫獨立提交，失敗會復原該次寫入。
+    # 參數：db=資料庫連線、rows=[{"symbol":…, "adj_close":Decimal, "trade_date":date}]、fetched_at=這次抓取的時間；回傳寫入列數
     if not rows:
         return 0
-    # 1. 同一代號同一天只留一列（同一道寫入指令不可重複命中同一列）
-    unique = {(r["symbol"], r["trade_date"]): r for r in rows}
+    # 1. 同一代號同一天只留一列（同一道寫入指令不可重複命中同一列），並補上這次抓取的時間
+    unique = {(r["symbol"], r["trade_date"]): {**r, "updated": fetched_at} for r in rows}
     values = list(unique.values())
     try:
         for i in range(0, len(values), UPSERT_CHUNK):
             stmt = insert(DailyQuote).values(values[i : i + UPSERT_CHUNK])
             # 2. 代號＋日期重複時改成覆寫
             stmt = stmt.on_conflict_do_update(
-                constraint="uq_daily_quotes", set_={"adj_close": stmt.excluded.adj_close}
+                constraint="uq_daily_quotes",
+                set_={"adj_close": stmt.excluded.adj_close, "updated": stmt.excluded.updated},
             )
             db.execute(stmt)
         db.commit()
@@ -229,11 +207,11 @@ def _fetch_group(
                 # 同批其他檔正常、單獨重抓也是空表 → Yahoo 沒有這檔的資料（不是被擋），列入「查無資料」而非失敗
                 report.no_data.append(ticker_to_symbol[t])
 
-        # 3. 除權息檢查：基準變了的股票改成整段（10 年）重抓；重抓失敗就這次完全不動它（舊資料一致，明天再試）
+        # 3. 除權息檢查：基準變了的股票改成整段（2003-01-01 起）重抓；重抓失敗就這次完全不動它（舊資料一致，明天再試）
         if check_restate:
             for t in _find_restated(db, data, ticker_to_symbol):
                 try:
-                    full = with_retry(lambda t=t: _download([t], default_start_date(now.date()), end), f"yfinance 重抓 {t}", logger)
+                    full = with_retry(lambda t=t: _download([t], FULL_HISTORY_START, end), f"yfinance 重抓 {t}", logger)
                 except Exception as exc:  # noqa: BLE001
                     full = {}
                     logger.warning("重抓 %s 失敗：%s", t, exc)
@@ -252,7 +230,7 @@ def _fetch_group(
             if _is_writable_date(d, now)
         ]
         try:
-            report.rows_written += _upsert_prices(db, rows)
+            report.rows_written += _upsert_prices(db, rows, now)
             report.success_count += len(data)
         except Exception as exc:  # noqa: BLE001
             logger.exception("寫入個股收盤價失敗")
@@ -262,7 +240,8 @@ def _fetch_group(
 
 def fetch_stock_prices(db: Session, now: datetime, stocks: list) -> FetchReport:
     # 【抓取個股收盤價】依股票基本資料建立清單（上市 .TW、上櫃 .TWO）。
-    # 資料庫「已有價格」的股票只抓過去 1 個月（直接覆蓋原有的值，並檢查除權息還原基準是否改變）；「完全沒有價格」的股票（首次上線、新上市）抓 10 年又 31 天。
+    # 資料庫「已有價格」的股票只抓過去 1 個月（直接覆蓋原有的值，並檢查除權息還原基準是否改變）；
+    # 「完全沒有價格」的股票（首次上線、新上市）從 2003-01-01 抓到今天。
     # 參數：db=資料庫連線、now=現在時間（台北）、stocks=要抓的清單 [(代號, 市場別)]，來自股票基本資料表
     report = FetchReport()
     today = now.date()
@@ -273,8 +252,8 @@ def fetch_stock_prices(db: Session, now: datetime, stocks: list) -> FetchReport:
     backfill = {_yf_ticker(s, m): s for s, m in stocks if s not in have}
     # 2. 日常組：過去 1 個月，同一代號同一天直接覆蓋，並檢查除權息基準是否改變
     _fetch_group(db, recent, today - relativedelta(months=RECENT_MONTHS), end, now, report, check_restate=True)
-    # 3. 首次組：10 年又 31 天（沒有舊資料，不需檢查基準）
-    _fetch_group(db, backfill, default_start_date(today), end, now, report, check_restate=False)
+    # 3. 首次組：2003-01-01 到今天（沒有舊資料，不需檢查基準）
+    _fetch_group(db, backfill, FULL_HISTORY_START, end, now, report, check_restate=False)
     return report
 
 
@@ -344,7 +323,7 @@ def fetch_index_prices(db: Session, symbol: str, start: date, now: datetime) -> 
             if d >= start and _is_writable_date(d, now)
         ]
         try:
-            report.rows_written += _upsert_prices(db, rows)
+            report.rows_written += _upsert_prices(db, rows, now)
         except Exception as exc:  # noqa: BLE001
             logger.exception("寫入大盤指數失敗")
             report.failed.append({"symbol": symbol, "reason": f"{month:%Y-%m} 寫入資料庫失敗：{exc}"[:200]})
@@ -357,20 +336,6 @@ def fetch_index_prices(db: Session, symbol: str, start: date, now: datetime) -> 
 
 
 # ───────────────────────── 每日總流程 ─────────────────────────
-
-
-def _purge_expired(db: Session, today: date) -> int:
-    # 【清除過期資料】刪除超過保留期（10 年又 31 天前）的日收盤價，回傳刪除列數。只在本次抓取全部成功後執行，
-    # 避免「資料停止更新、又持續被刪短」。參數：db=資料庫連線、today=今天
-    cutoff = default_start_date(today)
-    try:
-        result = db.execute(delete(DailyQuote).where(DailyQuote.trade_date < cutoff))
-        db.commit()
-        return result.rowcount or 0
-    except Exception:
-        db.rollback()
-        logger.exception("清除過期資料失敗")
-        return 0
 
 
 def _attach_names(db: Session, report: FetchReport) -> None:
@@ -389,9 +354,9 @@ def run_daily_fetch(db: Session) -> FetchReport:
     # 【每日抓取】要抓什麼完全由「股票基本資料表」決定，再依市場別分流：上市、上櫃 → yfinance；指數 → 證交所。
     # 基本資料表是空的就什麼都不抓（含大盤）。各來源互不影響（其中一個失敗，另一個照常完成）。
     # 起訖日期全部由後端決定，n8n 不需傳任何參數：
-    #   個股：資料庫已有資料的抓過去 1 個月；沒有資料的（首次上線、新上市）抓「保留期」（預設 10 年又 31 天）。
-    #   指數：資料庫已有資料就從「1 個月前的那個月 1 日」抓到本月；完全沒有資料才抓「保留期」。
-    # 全部成功後清除過期資料。同一代號同一天已有資料時直接覆寫。參數：db=資料庫連線
+    #   個股：資料庫已有資料的抓過去 1 個月；沒有資料的（首次上線、新上市）從 2003-01-01 抓到今天。
+    #   指數：資料庫已有資料就從「1 個月前的那個月 1 日」抓到本月；完全沒有資料就從 2003-01-01 抓到今天。
+    # 同一代號同一天已有資料時直接覆寫；所有股價資料永久保留，不執行刪除。參數：db=資料庫連線
     now = datetime.now(TAIPEI)
     today = now.date()
 
@@ -406,7 +371,7 @@ def run_daily_fetch(db: Session) -> FetchReport:
     index = FetchReport()
     for symbol in index_symbols:
         has_data = db.execute(select(DailyQuote.id).where(DailyQuote.symbol == symbol).limit(1)).first()
-        start = (today - relativedelta(months=RECENT_MONTHS)).replace(day=1) if has_data else default_start_date(today)
+        start = (today - relativedelta(months=RECENT_MONTHS)).replace(day=1) if has_data else FULL_HISTORY_START
         part = fetch_index_prices(db, symbol, start, now)
         index.success_count += part.success_count
         index.failed += part.failed
@@ -421,10 +386,7 @@ def run_daily_fetch(db: Session) -> FetchReport:
         rows_written=stocks.rows_written + index.rows_written,
         restated=stocks.restated,
     )
-    # 5. 有抓到資料且全部成功才清除過期資料
-    if total.fail_count == 0 and total.success_count > 0:
-        total.deleted = _purge_expired(db, today)
-    # 6. 回傳給 n8n 的清單補上股票名稱（代號之後）；除權息整檔重抓只記日誌，不回傳
+    # 5. 回傳給 n8n 的清單補上股票名稱（代號之後）；除權息整檔重抓只記日誌，不回傳
     if total.restated:
         logger.info("除權息整檔重抓：%s", ",".join(total.restated))
     _attach_names(db, total)
