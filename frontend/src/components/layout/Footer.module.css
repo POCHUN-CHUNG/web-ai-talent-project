@@ -1,0 +1,7 @@
+.footer {
+  padding: var(--space-md);
+  text-align: center;
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-neutral-500);
+}

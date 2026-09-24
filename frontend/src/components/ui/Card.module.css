@@ -1,0 +1,27 @@
+.card {
+  border-radius: var(--radius-card);
+  padding: 20px;
+}
+
+/* 玻璃卡：不透明度 + 模糊，浮在暈染背景上（DESIGN.md「Glass surface」）；
+   邊緣加一圈極淡的描邊（淺色用深色描邊、深色用淺色描邊，同一個 token 隨主題翻轉），讓卡片邊界更清楚 */
+.glass {
+  background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-level-2);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+}
+
+/* 不透明卡：一般內容卡，不疊在玻璃卡上時使用 */
+.surface {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-level-1);
+}
+
+/* 巢狀卡：卡片內的小卡，20px 圓角、無陰影（DESIGN.md「Nested card」） */
+.nested {
+  background-color: var(--color-surface-raised);
+  border-radius: var(--radius-nested);
+  padding: 20px;
+}

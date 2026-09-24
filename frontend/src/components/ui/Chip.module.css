@@ -1,0 +1,37 @@
+.chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-full);
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  font-weight: var(--text-label-md-weight);
+  border: 1px solid transparent;
+}
+
+/* 狀態 chip 用本色文字（不是 on-*-container）搭配一圈同色系描邊，在暈染背景上才夠明顯、好閱讀 */
+.error {
+  background-color: var(--color-error-container);
+  color: var(--color-error);
+  border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
+}
+
+.success {
+  background-color: var(--color-success-container);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.warning {
+  background-color: var(--color-warning-container);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+}
+
+.info {
+  background-color: var(--color-info-container);
+  color: var(--color-info);
+  border-color: color-mix(in srgb, var(--color-info) 35%, transparent);
+}

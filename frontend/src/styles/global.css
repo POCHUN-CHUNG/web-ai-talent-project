@@ -1,0 +1,68 @@
+/* 【全站基礎樣式】reset、字型、全站共用的背景暈染（DESIGN.md「Page backdrop」）。 */
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 完全隱藏瀏覽器原生捲軸：原生捲軸不管樣式怎麼調，出現時都會真的佔用一段版面寬度，
+   導致「無捲動」跟「要捲動」的頁面寬度不一致、切換頁面時內容會跳一下。
+   改用 <ScrollbarOverlay>（見 components/layout）疊在畫面最上層自畫一條捲軸，完全不佔版面，
+   原生捲軸的捲動功能還在（滾輪、鍵盤、觸控都正常），只是不繪製出來而已。 */
+html {
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  line-height: var(--text-body-md-line-height);
+  color: var(--color-on-surface);
+  background-color: var(--color-background);
+  /* 全站統一的斜角暈染：左上到右下，用輔助色（accent-1/2/3）疊色；不設最大寬度，蓋滿整個視窗 */
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-1-500) var(--page-wash-stop-1-opacity), transparent) 0%,
+    color-mix(in srgb, var(--color-accent-2-500) var(--page-wash-stop-2-opacity), transparent) 50%,
+    color-mix(in srgb, var(--color-accent-3-500) var(--page-wash-stop-3-opacity), transparent) 100%
+  );
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  transition: background-color 0.3s ease;
+}
+
+
+button {
+  font-family: inherit;
+}
+
+/* 統一的鍵盤焦點樣式：取代瀏覽器預設外框（通常是刺眼的黃／藍色），改用設計系統的 focus-ring */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* Material Symbols 圖示字型的預設樣式（連字啟用、避免換行、對齊文字基線） */
+.material-symbols-rounded {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-size: inherit;
+  line-height: 1;
+  vertical-align: middle;
+  user-select: none;
+}

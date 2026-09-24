@@ -1,0 +1,24 @@
+.wrap {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* 背景暈染改在 body 上（global.css），所有頁面共用同一套，這裡不設最大寬度，蓋滿整個視窗 */
+}
+
+.main {
+  flex-grow: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 112px var(--space-md) 112px;
+}
+
+/* 手機：頂列留白再縮小，避免頭部擠壓內容 */
+@media (max-width: 734px) {
+  .main {
+    padding: 96px var(--space-md) 96px;
+  }
+}

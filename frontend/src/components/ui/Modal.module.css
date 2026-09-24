@@ -1,0 +1,63 @@
+/* 遮罩：蓋住整個畫面並整塊模糊＋調暗背景，讓底下忙碌的暈染背景先「退到後面」，卡片才會看得清楚；
+   z-index 刻意比頂端 Tab 列（50）低，讓頂端列疊在遮罩之上，維持清晰、不被模糊到 */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background-color: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+}
+
+/* 視窗本體：跟頂端 Tab 列同一套「液態玻璃」質感（透明模糊＋邊緣打亮），比遮罩再更不透明一點方便閱讀文字 */
+.modal {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-card);
+  padding: 20px;
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    var(--shadow-level-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  line-height: var(--text-headline-sm-line-height);
+  letter-spacing: 0;
+  color: var(--color-on-surface);
+}
+
+/* 底部按鈕列：次要在左、主要在右；手機改直排（主要在上，方便觸控） */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 480px) {
+  .actions {
+    flex-direction: column-reverse;
+  }
+}

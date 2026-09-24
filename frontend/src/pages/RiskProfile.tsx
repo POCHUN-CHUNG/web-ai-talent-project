@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api";
+import { formatDateTime } from "../format";
 import LoadingOverlay from "../components/LoadingOverlay";
 import CooldownModal from "../components/CooldownModal";
+import Button from "../components/ui/Button";
+import Icon from "../components/ui/Icon";
+import styles from "./RiskProfile.module.css";
 
 // 風險屬性（後端 GET /risk-profiles/latest 的內容）
 type Profile = {
@@ -18,20 +22,12 @@ type Profile = {
 const POLL_MS = 2000; // AI 描述尚未完成時，每 2 秒重取一次
 const POLL_MAX = 60; // 最多等約 2 分鐘，之後停止等待
 
-// 【格式化時間】把後端的 UTC 時間轉成使用者本地時間，格式 YYYY-MM-DD HH:MM:SS（精確到秒）。參數：iso=ISO 8601 時間字串
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
-
 // 【風險屬性結果頁】問卷的結果畫面（剛填完或從首頁查看最新一份）：等 AI 描述完成後，一次顯示核心風險指標與風險屬性解析。
 // 指標不可調整；等待期間只顯示「分析中」遮罩。尚未填問卷或作答有衝突時，導回問卷頁。無參數。
 export default function RiskProfile() {
   const navigate = useNavigate();
   // 剛填完問卷送出而來（問卷頁帶的記號）：true 顯示「新增投資組合」；從首頁進來查看：false 顯示「重新填寫問卷」
-  const state = useLocation().state as { justSubmitted?: boolean; cooldown?: number } | null;
-  const justSubmitted = !!state?.justSubmitted;
+  const state = useLocation().state as { cooldown?: number } | null;
   const [cooldown, setCooldown] = useState(state?.cooldown ?? 0); // 大於 0 時跳出「請稍後再填」視窗（剩餘秒數）
   const [profile, setProfile] = useState<Profile | null>(null);
   const [missing, setMissing] = useState(false); // 從未填過問卷
@@ -98,8 +94,17 @@ export default function RiskProfile() {
   // 尚未填問卷、或作答有衝突：一律回問卷頁
   if (missing || profile?.readiness === "limited") return <Navigate to="/questionnaire" replace />;
   if (error) return <p style={{ padding: "2rem", color: "#c00" }}>{error}</p>;
-  // 尚未取得資料，或剛填完問卷、描述還在產生中（未逾時）：只顯示「分析中」遮罩，不先顯示指標（「重新產生」時不走這裡）
-  if (!profile || (profile.descriptionStatus === "pending" && !gaveUp && !regenerating)) return <LoadingOverlay />;
+  // 剛切換過來、資料還沒抓回來：只在頁面內容區顯示文字，不要蓋住整個畫面（含頂端 Tab 列），
+  // 不然每次切到這頁都會像整頁重新整理一樣閃一下白色遮罩。
+  if (!profile) {
+    return (
+      <main className={styles.page}>
+        <p>載入中…</p>
+      </main>
+    );
+  }
+  // 剛填完問卷、描述還在產生中（未逾時）：這裡才是真的要等 AI 跑完，才用「分析中」全螢幕遮罩（「重新產生」時不走這裡）
+  if (profile.descriptionStatus === "pending" && !gaveUp && !regenerating) return <LoadingOverlay />;
 
   const c = profile.coreIndicators;
   const cards: [string, string][] = [
@@ -110,44 +115,54 @@ export default function RiskProfile() {
   ];
 
   return (
-    <div style={{ fontFamily: "sans-serif", padding: "2rem", maxWidth: 800 }}>
-      <h1>我的風險屬性</h1>
-      <p>上次填寫時間：{formatTime(profile.created)}</p>
-
-      <h2>核心風險指標</h2>
-      <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        {cards.map(([label, value]) => (
-          <div key={label} style={{ border: "1px solid #999", padding: "0.75rem 1rem", minWidth: 150 }}>
-            <div style={{ fontSize: "0.85rem" }}>{label}</div>
-            <div style={{ fontSize: "1.3rem", fontWeight: "bold" }}>{value}</div>
+      <main className={styles.page}>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <h1 className={styles.title}>我的風險屬性</h1>
+            <div className={`${styles.metaText} ${styles.metaTextMobile}`}>
+              <Icon name="schedule" size={16} />
+              上次填寫時間：{formatDateTime(profile.created)}
+            </div>
           </div>
-        ))}
-      </div>
+          <div className={styles.headerActions}>
+            <div className={`${styles.metaText} ${styles.metaTextDesktop}`}>
+              <Icon name="schedule" size={16} />
+              上次填寫時間：{formatDateTime(profile.created)}
+            </div>
+            <Button onClick={startRefill}>
+              重新評估
+            </Button>
+          </div>
+        </div>
 
-      {/* 標題列：失敗時「重新產生」按鈕放在標題右側（窄畫面自動換行） */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-        <h2>風險屬性解析</h2>
-        {profile.descriptionStatus === "failed" && !regenerating && <button onClick={regenerate}>重新產生</button>}
-      </div>
-      {regenerating && <p style={{ color: "#555" }}>產生中…</p>}
-      {!regenerating && profile.descriptionStatus === "ready" && <p>{profile.description}</p>}
-      {!regenerating && profile.descriptionStatus === "pending" && <p>描述產生時間較長，請稍後重新整理本頁。</p>}
-      {!regenerating && profile.descriptionStatus === "failed" && (
-        <p style={{ color: "#555" }}>暫時無法產生，請按「重新產生」再試一次。</p>
-      )}
-      {regenError && <p style={{ color: "#c00" }}>{regenError}</p>}
+        <div className={styles.content}>
+          <div className={styles.section}>
+            <div className={styles.cardGrid}>
+              {cards.map(([label, value]) => (
+                <div key={label} className={styles.smallCard}>
+                  <span className={styles.metricLabel}>{label}</span>
+                  <span className={styles.metricValue}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      {/* 按鈕依情境變化：剛填完＝回首頁＋新增投資組合；從首頁查看＝回首頁＋重新填寫問卷。
-          「新增投資組合」回首頁並直接展開新增表單 */}
-      <p style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
-        <button onClick={() => navigate("/")}>回首頁</button>
-        {justSubmitted ? (
-          <button onClick={() => navigate("/", { state: { openCreate: true } })}>新增投資組合</button>
-        ) : (
-          <button onClick={startRefill}>重新填寫問卷</button>
-        )}
-      </p>
-      {cooldown > 0 && <CooldownModal seconds={cooldown} onClose={() => setCooldown(0)} />}
-    </div>
+          <div className={styles.card}>
+            {regenerating && <div className={styles.emptyText}>產生中…</div>}
+            {!regenerating && profile.descriptionStatus === "ready" && (
+              <div className={styles.description}>{profile.description}</div>
+            )}
+            {!regenerating && profile.descriptionStatus === "pending" && (
+              <div className={styles.emptyText}>描述產生時間較長，請稍後重新整理本頁。</div>
+            )}
+            {!regenerating && profile.descriptionStatus === "failed" && (
+              <div className={styles.emptyText}>暫時無法產生，請按「重新產生」再試一次。</div>
+            )}
+            {regenError && <div className={styles.errorText}>{regenError}</div>}
+          </div>
+        </div>
+
+        {cooldown > 0 && <CooldownModal seconds={cooldown} onClose={() => setCooldown(0)} />}
+      </main>
   );
 }

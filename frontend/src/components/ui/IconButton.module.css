@@ -1,0 +1,23 @@
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-on-surface-variant);
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.iconButton:hover {
+  /* 用半透明的文字色疊一層，不管在哪種暈染背景上都會讀成「灰」，比固定色階更明顯 */
+  background-color: color-mix(in srgb, var(--color-on-surface) 14%, transparent);
+  color: var(--color-on-surface);
+}
+
+.iconButton:active {
+  transform: scale(0.95);
+}

@@ -1,0 +1,284 @@
+.bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 50;
+}
+
+.barBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(100% + 16px); /* 延伸到下方 16px 進行漸層消失 */
+  background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black calc(100% - 24px),
+    rgba(0, 0, 0, 0.5) calc(100% - 12px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black calc(100% - 24px),
+    rgba(0, 0, 0, 0.5) calc(100% - 12px),
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* 不設最大寬度：logo 貼齊視窗左緣、圖示貼齊視窗右緣，只用左右留白控制間距 */
+  width: 100%;
+  padding: var(--space-lg) var(--space-margin);
+}
+
+/* 手機：留白再縮小 */
+@media (max-width: 734px) {
+  .inner {
+    padding: var(--space-md) var(--space-md);
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.brandClickable {
+  cursor: pointer;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-level-1);
+  flex-shrink: 0;
+}
+
+/* 登入後才顯示，點整個區塊可回首頁；不需要 hover 效果 */
+.brandText {
+  font-family: var(--font-family);
+  font-size: var(--text-headline-md-size);
+  font-weight: var(--text-headline-md-weight);
+  line-height: var(--text-headline-md-line-height);
+  /* 依據 DESIGN.md 規則，中文 Headline 應設為 0 */
+  letter-spacing: 0;
+  color: var(--color-primary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* 分頁列容器：跟右上角帳戶選單同一套「液態玻璃」材質（透明模糊＋邊緣打亮＋內外陰影），
+   桌機的置中浮動列與手機的底部懸浮列共用這份樣式，只有位置／版面由下方 media query 覆寫 */
+.tabsWrap {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  width: 480px;
+  background: color-mix(in srgb, var(--color-surface) 30%, transparent);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  border-radius: var(--radius-full);
+  padding: 6px;
+  gap: 4px;
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    0 4px 12px color-mix(in srgb, black 14%, transparent);
+}
+
+.tab {
+  position: relative;
+  z-index: 1; /* 蓋在滑動指示條上方，文字才不會被蓋住 */
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
+  line-height: 1;
+  color: var(--color-on-surface-variant);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.tabIcon {
+  display: none;
+}
+
+.tab:hover:not(.tabActive) {
+  background-color: color-mix(in srgb, var(--color-on-surface) 14%, transparent);
+}
+
+.tabActive {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* 滑動指示條：跟著作用中分頁移動的透明玻璃泡泡，平常跟分頁一樣高（不突出），
+   模擬 iOS 26 Liquid Glass 的質感（不用實色填滿，改用透明模糊＋邊緣打亮）。
+   點擊瞬間才用 scale 放大，讓它暫時「鼓」出分頁列上下緣，放開後立刻縮回原本大小。 */
+.indicator {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  bottom: 6px;
+  z-index: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-surface) 30%, transparent);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    0 4px 12px color-mix(in srgb, black 14%, transparent);
+  pointer-events: none;
+  will-change: translate, scale, width;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .indicator {
+    /* translate／width 用稍有回彈的曲線平滑過渡到新分頁，模擬切換開關（toggle）滑動的手感；
+       scale 縮回原本大小則配合同一條曲線，感覺是放開液態玻璃後自然回彈 */
+    transition: translate 0.38s cubic-bezier(0.32, 0.72, 0.35, 1), width 0.38s cubic-bezier(0.32, 0.72, 0.35, 1),
+      scale 0.32s cubic-bezier(0.32, 0.72, 0.35, 1);
+  }
+  /* 剛按下的瞬間：放大的動作要快，才會有「液態玻璃被按壓」的彈性感（跟位置滑動用不同時間） */
+  .indicatorPressed {
+    transition: translate 0.38s cubic-bezier(0.32, 0.72, 0.35, 1), width 0.38s cubic-bezier(0.32, 0.72, 0.35, 1),
+      scale 0.16s ease-out;
+  }
+}
+
+.userIcon {
+  width: 40px;
+  height: 40px;
+}
+
+@media (max-width: 734px) {
+  .brandText {
+    display: none;
+  }
+  
+  .tabsWrap {
+    position: fixed;
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom, 16px) + var(--space-md));
+    left: var(--space-md);
+    right: var(--space-md);
+    width: auto;
+    transform: none;
+    border-radius: var(--radius-full);
+    padding: 6px;
+    gap: 2px;
+    /* 沿用桌機的玻璃內光，只是外陰影加重一點，讓浮在畫面最下層的懸浮列更有立體感 */
+    box-shadow:
+      inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+      inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+      var(--shadow-level-3);
+  }
+  
+  .tab {
+    flex-direction: column;
+    height: auto;
+    padding: 12px 0 8px 0;
+    gap: 4px;
+  }
+  
+  .tabIcon {
+    display: block;
+  }
+  
+  .tabText {
+    font-size: 11px;
+    font-weight: 600;
+  }
+}
+
+.tabText {
+  letter-spacing: 0;
+}
+
+.menuWrap {
+  position: relative;
+}
+
+/* 帳戶選單：液態玻璃特效 */
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  right: 0;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-surface) 30%, transparent);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    0 4px 12px color-mix(in srgb, black 14%, transparent);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: var(--space-sm) var(--space-md);
+  /* 跟外框的 rounded.xl 等比縮小：扣掉選單自己的內距，維持同心圓角 */
+  border-radius: calc(var(--radius-xl) - var(--space-xs));
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface);
+}
+
+.menuItem:hover {
+  background-color: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.menuItemDanger {
+  color: var(--color-error);
+}
+
+.menuItemDanger:hover {
+  background-color: var(--color-error);
+  color: var(--color-on-error);
+}

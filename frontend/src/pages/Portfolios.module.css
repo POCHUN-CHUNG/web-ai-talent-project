@@ -1,0 +1,209 @@
+.page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 112px var(--space-margin) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+@media (max-width: 734px) {
+  .page {
+    padding: 96px var(--space-md) 0;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-lg-size);
+  font-weight: var(--text-headline-lg-weight);
+  color: var(--color-on-background);
+}
+
+.disclaimerText {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+}
+
+.metaTextMobile {
+  display: none;
+}
+.metaTextDesktop {
+  display: flex;
+}
+
+@media (max-width: 734px) {
+  .metaTextMobile {
+    display: flex;
+  }
+  .metaTextDesktop {
+    display: none;
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* 投資組合卡片：單欄區塊，套用透明模糊玻璃設計 */
+.card {
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-level-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-level-3);
+  border-color: color-mix(in srgb, var(--color-outline) 20%, transparent);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-outline-variant);
+  padding-bottom: var(--space-sm);
+}
+
+.cardTitle {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  color: var(--color-on-surface);
+}
+
+.updateTime {
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+}
+
+@media (max-width: 734px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metricLabel {
+  font-family: var(--font-family);
+  font-size: var(--text-label-md-size);
+  color: var(--color-on-surface-variant);
+}
+
+.metricValue {
+  font-family: var(--font-family);
+  font-size: var(--text-headline-md-size);
+  font-weight: var(--text-headline-md-weight);
+  color: var(--color-on-surface);
+}
+
+/* 持有標的一覽：DESIGN.md「Meta pill」樣式，圓角膠囊、surface 底色 */
+.symbolList {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-left: calc(var(--space-lg) * -1);
+  margin-right: calc(var(--space-lg) * -1);
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
+  mask-image: linear-gradient(to right, transparent 0%, black var(--space-lg), black calc(100% - var(--space-lg)), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black var(--space-lg), black calc(100% - var(--space-lg)), transparent 100%);
+}
+
+.symbolList::-webkit-scrollbar {
+  display: none;
+}
+
+
+.symbolPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+  font-family: var(--font-family);
+  font-size: var(--text-label-md-size);
+  padding: var(--space-xs) var(--space-md);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.symbolCode {
+  font-weight: 700;
+  color: var(--color-on-surface-variant);
+}
+
+.positive {
+  color: var(--color-error);
+}
+
+.negative {
+  color: var(--color-success);
+}
+
+.neutral {
+  color: var(--color-on-surface);
+}
+
+.mobileBreak {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .mobileBreak {
+    display: block;
+  }
+}

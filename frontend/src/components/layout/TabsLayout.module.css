@@ -1,0 +1,19 @@
+/* 撐滿整個視窗高度，讓版權宣告在內容較短時貼齊畫面下緣（跟登入頁一樣）；
+   內容較長需要捲動時，版權宣告一樣接在內容後面，不會蓋住內容也不會固定不動。 */
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 734px) {
+  .wrap {
+    padding-bottom: 96px;
+  }
+}

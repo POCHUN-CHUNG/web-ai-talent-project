@@ -1,0 +1,34 @@
+/* 軌道貼齊視窗右緣，蓋在所有內容（含頂端 Tab 列、彈出視窗）之上；軌道本身不擋點擊，只有滑塊會 */
+.track {
+  position: fixed;
+  top: 0;
+  right: 2px;
+  width: 8px;
+  height: 100vh;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+/* 滑塊：細長圓角、半透明，比照 macOS 捲軸質感 */
+.thumb {
+  position: absolute;
+  right: 0;
+  width: 8px;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: none;
+  transition: background-color 0.15s ease;
+}
+
+.thumb:hover {
+  background-color: color-mix(in srgb, var(--color-on-surface) 35%, transparent);
+}
+
+/* 高對比模式：滑塊改用最明顯的黑色，方便辨識 */
+@media (prefers-contrast: more) {
+  .thumb {
+    background-color: #000000;
+  }
+}

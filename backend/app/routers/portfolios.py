@@ -19,6 +19,7 @@ from app.services.portfolio_data import (
     get_owned_portfolio,
     invalid,
     load_market,
+    load_previous_prices,
     lock_user,
     parse_name,
     parse_positive,
@@ -52,11 +53,13 @@ def get_lot(db: Session, portfolio_id: int, lot_id: int) -> HoldingLot:
 
 @router.get("", summary="取得自己的投資組合清單與各組合損益摘要（需登入）")
 def list_portfolios(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    # 【組合清單】依建立時間由新到舊回傳，每個組合含持股檔數、市值、未實現損益與報酬率、最新價格日期、最近分析時間。參數：user=目前登入者
-    # 1. 一次取出全部組合與其買進紀錄，再一次查最新報價（避免每個組合各查一次）
+    # 【組合清單】依建立時間由新到舊回傳，每個組合含持股代號與名稱、市值、未實現損益與報酬率、年化報酬率、
+    # 最新日損益、最新價格日期、最近分析時間。參數：user=目前登入者
+    # 1. 一次取出全部組合與其買進紀錄，再一次查最新報價與前一日收盤價（避免每個組合各查一次）
     portfolios = db.scalars(select(Portfolio).where(Portfolio.user_id == user.id).order_by(Portfolio.created.desc(), Portfolio.id.desc())).all()
     lots = db.scalars(select(HoldingLot).where(HoldingLot.portfolio_id.in_([p.id for p in portfolios]))).all() if portfolios else []
     names, prices = load_market(db, lots)
+    prev_prices = load_previous_prices(db, {x.symbol for x in lots})
     by_pf = defaultdict(list)
     for lot in lots:
         by_pf[lot.portfolio_id].append(lot)
@@ -64,16 +67,20 @@ def list_portfolios(user: User = Depends(current_user), db: Session = Depends(ge
     today = today_taipei()
     items = []
     for p in portfolios:
-        positions = build_positions(by_pf[p.id], names, prices, today)
+        positions = build_positions(by_pf[p.id], names, prices, today, prev_prices)
         totals = build_totals(positions, today)
         dates = [x["latestPriceDate"] for x in positions if x["latestPriceDate"]]
         items.append({
             **serialize_portfolio(p),
             "symbolCount": len(positions),
+            "symbols": [{"symbol": x["symbol"], "name": x["name"]} for x in positions],
             "costAmount": totals["costAmount"],
             "marketValue": totals["marketValue"],
             "unrealizedPnl": totals["unrealizedPnl"],
             "unrealizedReturn": totals["unrealizedReturn"],
+            "annualizedReturn": totals["annualizedReturn"],
+            "latestDayPnl": totals["latestDayPnl"],
+            "latestDayPnlPercent": totals["latestDayPnlPercent"],
             "latestPriceDate": max(dates) if dates else None,
             "lastAnalysisAt": None,  # 量化分析尚未實作，之後改為最近一次分析的時間
         })
