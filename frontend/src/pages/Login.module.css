@@ -11,6 +11,8 @@
 
 .brandTitle {
   margin: 0;
+  /* letter-spacing 也會加在最後一個字之後，用等量負 margin 抵銷，讓標題跟副標題左右對齊 */
+  margin-right: calc(-1 * var(--text-brand-title-letter-spacing));
   font-family: var(--font-family);
   font-size: var(--text-brand-title-size);
   font-weight: var(--text-brand-title-weight);
@@ -23,6 +25,7 @@
   margin: var(--space-sm) 0 0;
   font-family: var(--font-family);
   font-size: var(--text-body-md-size);
+  font-weight: 700;
   color: var(--color-neutral-500);
 }
 
@@ -63,11 +66,9 @@
   text-decoration: underline;
 }
 
-.footer {
-  margin: var(--space-xl) 0 0;
-  font-family: var(--font-family);
-  font-size: var(--text-body-sm-size);
-  color: var(--color-neutral-500);
+/* 密碼（或確認密碼）欄位跟送出按鈕之間，間距比其餘欄位之間再大一點 */
+.submitButton {
+  margin-top: var(--space-sm);
 }
 
 @media (max-width: 480px) {

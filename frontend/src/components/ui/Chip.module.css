@@ -12,7 +12,7 @@
 
 .error {
   background-color: var(--color-error-container);
-  color: var(--color-on-error-container);
+  color: var(--color-error);
 }
 
 .success {

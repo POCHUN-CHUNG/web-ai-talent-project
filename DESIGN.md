@@ -501,7 +501,7 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 
 **Strategy: glass.** Depth is built from a translucent surface, a backdrop blur and a soft tinted shadow. The source tokens use `intensity` 0.35 and tint `shadow-tint` (#0f172a).
 
-**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 65%, transparent)` (surface opacity 0.65, derived as 1 − intensity 0.35, inferred) with `backdrop-filter: blur(12px)`. In dark mode the same formula applies to `dark-surface`. **Entry-page cards** (Login, Register, Settings — see Backdrop for glass) use a stronger `blur(16px)`, because they sit over a saturated diagonal wash instead of the calmer default radial backdrop and need the extra blur to keep card text legible.
+**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 80%, transparent)` (surface opacity 0.8, revised up from the initial 0.65 — cards read as too faint against a saturated wash at 0.65, especially in dark mode) with `backdrop-filter: blur(12px)`, plus the 1px edge described below. In dark mode the same formula applies to `dark-surface`. **Entry-page cards** (Login, Register, Settings — see Backdrop for glass) use a stronger `blur(16px)`, because they sit over a saturated diagonal wash instead of the calmer default radial backdrop and need the extra blur to keep card text legible.
 
 **Shadow levels** (light mode uses tinted shadows; dark mode uses black at 2.5× the light opacity):
 
@@ -524,7 +524,7 @@ Rules for washes: one wash per page; the wash colors are never mixed on one page
 - One glass level only. Never place a glass surface directly on another glass surface. Anything nested inside a glass card is opaque (`surface-raised`), not glass.
 - Over photography, cards are opaque `surface` (no blur, full opacity) so text stays legible; glass is for cards on washes.
 - Text over glass must remain legible on the worst-case backdrop pixel; set text in `on-surface`.
-- No decorative border: the source tokens set `requiresBorder: true` for glass but `borderStrategy: none` / border width 0. The shape setting wins, so no glass edge is drawn. If an edge is ever wanted, use 1px `rgba(15, 23, 42, 0.08)` in light and `rgba(255, 255, 255, 0.08)` in dark.
+- **Revised: glass now always draws a 1px edge** — `color-mix(in srgb, on-background 10%, transparent)`, which resolves to roughly `rgba(0, 0, 0, 0.1)` in light and `rgba(255, 255, 255, 0.1)` in dark. This supersedes the source tokens' `borderStrategy: none`: at 0.8 surface opacity a hairline edge reads as refined rather than decorative, and it's the main thing that keeps a glass card legible as a distinct shape against a busy multi-color wash.
 - Dark mode: shadows barely read on black, so rely on the tonal step, blur and the deep wash; do not increase shadow opacity beyond the table.
 
 ## Shapes

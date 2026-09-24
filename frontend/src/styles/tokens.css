@@ -83,7 +83,7 @@
   --shadow-level-5: 0px 24px 48px -6px rgba(15, 23, 42, 0.2);
 
   /* ── 玻璃卡效果 ── */
-  --glass-opacity: 0.65;
+  --glass-opacity: 0.8; /* 提高不透明度讓卡片邊界更清楚，避免疊在暈染背景上時太淡 */
   --glass-blur: 12px;
   --glass-blur-entry: 16px; /* 登入／註冊／設定頁的入口卡片，疊在較搶眼的斜角暈染上，需要更強的模糊 */
 

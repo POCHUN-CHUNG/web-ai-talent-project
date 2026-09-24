@@ -106,7 +106,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
               required
             />
           )}
-          <Button type="submit" busy={busy} fullWidth>
+          <Button type="submit" busy={busy} fullWidth className={styles.submitButton}>
             {busy ? "處理中" : isRegister ? "註冊" : "登入"}
           </Button>
           {error && <Chip variant="error">{error}</Chip>}
@@ -118,7 +118,6 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
           </button>
         </p>
       </Card>
-      <p className={styles.footer}>© 2026 診股整股 All Rights Reserved.</p>
     </EntryPage>
   );
 }

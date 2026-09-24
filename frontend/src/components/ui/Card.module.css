@@ -3,12 +3,14 @@
   padding: 20px;
 }
 
-/* 玻璃卡：65% 不透明度 + 12px 模糊，浮在暈染背景上（DESIGN.md「Glass surface」） */
+/* 玻璃卡：不透明度 + 模糊，浮在暈染背景上（DESIGN.md「Glass surface」）；
+   邊緣加一圈極淡的描邊（淺色用深色描邊、深色用淺色描邊，同一個 token 隨主題翻轉），讓卡片邊界更清楚 */
 .glass {
   background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--shadow-level-1);
+  box-shadow: var(--shadow-level-2);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) 10%, transparent);
 }
 
 /* 入口頁（登入／註冊／設定）的玻璃卡疊在較搶眼的斜角暈染上，模糊要加強到 16px */

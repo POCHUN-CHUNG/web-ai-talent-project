@@ -13,7 +13,8 @@
 }
 
 .iconButton:hover {
-  background-color: var(--color-surface-container-high);
+  /* 用半透明的文字色疊一層，不管在哪種暈染背景上都會讀成「灰」，比固定色階更明顯 */
+  background-color: color-mix(in srgb, var(--color-on-surface) 14%, transparent);
   color: var(--color-on-surface);
 }
 
