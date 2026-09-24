@@ -108,7 +108,7 @@ export default function Settings() {
                   <IconButton icon={showNewPw ? "visibility_off" : "visibility"} label="切換新密碼顯示" onClick={() => setShowNewPw((v) => !v)} />
                 }
               />
-              <Button type="submit" variant="secondary" busy={busy}>
+              <Button type="submit" busy={busy}>
                 {busy ? "處理中" : "修改密碼"}
               </Button>
               {msg && <Chip variant={msg.ok ? "success" : "error"}>{msg.text}</Chip>}
