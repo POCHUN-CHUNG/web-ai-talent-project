@@ -1,6 +1,9 @@
 # secrets
 .env
 
+# personal Claude Code settings
+.claude/settings.local.json
+
 # postgres data (bind mount, keep folder in git, ignore contents)
 database/postgres_data/*
 !database/postgres_data/.gitkeep

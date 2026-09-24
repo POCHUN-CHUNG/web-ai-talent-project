@@ -14,25 +14,24 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)  # 使用者編號（自動遞增）
     username: Mapped[str] = mapped_column(String(32), unique=True, index=True)  # 帳號（不可重複，最長 32 字）
-    password_hash: Mapped[str] = mapped_column(String(255))  # 加密後的密碼（不存明文）
+    password: Mapped[str] = mapped_column(String(255))  # 加密後的密碼（不存明文）
     # 註冊時間（自動填入目前的 UTC 時間）
-    created_at: Mapped[datetime] = mapped_column(
+    created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    # 密碼更新時間（尚未改過密碼時為 None，改密碼時才填入目前的 UTC 時間）
+    password_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class BankRate(Base):
-    # 【銀行利率資料表】永遠只有 1 列，存最新一次抓到的五家銀行 1 年期定存機動利率（不保留舊資料）
+    # 【銀行利率資料表】每家銀行 1 年期定存機動利率各一列，只保留每家最新一次抓到的值，不留歷史
     __tablename__ = "bank_rates"
 
-    # 各銀行 1 年期定存機動利率（%，如 1.560）
-    taiwan_bank: Mapped[float] = mapped_column(Numeric(5, 3))  # 臺灣銀行
-    tcb_bank: Mapped[float] = mapped_column(Numeric(5, 3))  # 合作金庫銀行
-    land_bank: Mapped[float] = mapped_column(Numeric(5, 3))  # 臺灣土地銀行
-    huanan_bank: Mapped[float] = mapped_column(Numeric(5, 3))  # 華南銀行
-    first_bank: Mapped[float] = mapped_column(Numeric(5, 3))  # 第一銀行
-    # 最後更新時間（UTC）；表中只有 1 列，因此以它作為主鍵
-    updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    bank: Mapped[str] = mapped_column(String(20), primary_key=True)  # 銀行代號，如 taiwan_bank、tcb_bank、land_bank、huanan_bank、first_bank
+    rate: Mapped[float] = mapped_column(Numeric(5, 3))  # 1 年期定存機動利率（%，如 1.560）
+    updated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )  # 最後更新時間（UTC）
 
 
 class StockInfo(Base):
@@ -43,7 +42,11 @@ class StockInfo(Base):
     name: Mapped[str] = mapped_column(String(40))  # 有價證券名稱
     market: Mapped[str] = mapped_column(String(20))  # 市場別：上市、上櫃、指數
     industry: Mapped[str] = mapped_column(String(40))  # 產業別（ETF 為「ETF」、大盤指數為「大盤」）
-    # 最後更新時間（UTC）
+    # 第一次寫入這檔資料的時間（UTC）；之後覆寫不會再變動
+    created: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    # 名稱、市場別或產業別有異動時的時間（UTC）；抓到的內容跟資料庫一樣則不更新
     updated: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -51,7 +54,7 @@ class StockInfo(Base):
 
 
 class DailyQuote(Base):
-    # 【日行情資料表】個股與大盤指數共用；同一代號同一天只有一列，重抓時直接覆寫。目前只存還原收盤價，之後可增加其他成交欄位
+    # 【日行情資料表】個股與大盤指數共用；同一代號同一天只有一列，重抓時直接覆寫，永遠不刪除。目前只存還原收盤價，之後可增加其他成交欄位
     __tablename__ = "daily_quotes"
 
     id: Mapped[int] = mapped_column(primary_key=True)  # 流水號（自動遞增）
@@ -60,6 +63,10 @@ class DailyQuote(Base):
     # 還原除權息後的收盤價（大盤指數為報酬指數收盤值），必須大於 0
     adj_close: Mapped[Decimal] = mapped_column(Numeric(14, 4))
     trade_date: Mapped[date] = mapped_column(Date)  # 交易日（台北時區的日期）
+    # 這一列最後一次抓取／覆寫的時間（台北時區）
+    updated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     __table_args__ = (
         UniqueConstraint("symbol", "trade_date", name="uq_daily_quotes"),  # 覆寫的依據：代號＋日期
         CheckConstraint("adj_close > 0", name="ck_daily_quotes_positive"),

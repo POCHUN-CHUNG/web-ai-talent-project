@@ -24,7 +24,7 @@ router = APIRouter(prefix="/market-data", tags=["市場資料"])
 )
 def fetch(db: Session = Depends(get_db)):
     # 【抓取每日股價】依股票基本資料建立清單，抓取個股收盤價與大盤指數，同一代號同一天已有資料則直接覆寫。僅 n8n 可呼叫。
-    # 起訖日期由後端自行決定（首次抓 10 年，之後只抓近 1 個月），n8n 不需傳參數。無參數。
+    # 起訖日期由後端自行決定（首次從 2003-01-01 抓到今天，之後只抓近 1 個月），n8n 不需傳參數。所有股價資料永久保留，不執行刪除。無參數。
     # 1. 已有一次在執行就拒絕（n8n 逾時重試時不會疊出兩份同時狂抓，造成被擋）
     if not redis_client.set(LOCK_KEY, "1", nx=True, ex=LOCK_TTL):
         raise fail_error(409, MESSAGE, "上一次抓取仍在執行中，請稍後再試")
@@ -47,7 +47,6 @@ def fetch(db: Session = Depends(get_db)):
         "stock_success_count": report.stock_success,  # 個股成功筆數
         "index_success_count": report.index_success,  # 大盤指數成功筆數（0 或 1）
         "rows_written": report.rows_written,  # 實際寫入（新增或覆寫）的資料列數
-        "deleted_count": report.deleted,  # 清除的過期資料列數
         "failed": report.failed[
             :FAILED_LIST_LIMIT
         ],  # 失敗清單：[{"symbol": 代號, "name": 名稱, "reason": 原因}]（最多列 100 項）
