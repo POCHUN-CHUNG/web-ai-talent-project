@@ -27,7 +27,7 @@ def fetch(db: Session = Depends(get_db)):
     # 起訖日期由後端自行決定（首次從 2003-01-01 抓到今天，之後只抓近 1 個月），n8n 不需傳參數。所有股價資料永久保留，不執行刪除。無參數。
     # 1. 已有一次在執行就拒絕（n8n 逾時重試時不會疊出兩份同時狂抓，造成被擋）
     if not redis_client.set(LOCK_KEY, "1", nx=True, ex=LOCK_TTL):
-        raise fail_error(409, MESSAGE, "上一次抓取仍在執行中，請稍後再試")
+        raise fail_error(409, "重複執行檢查", "上一次抓取仍在執行中，請稍後再試")
 
     try:
         # 2. 執行抓取（內部逐批寫入資料庫，中途失敗的部分下次會整段補回）
@@ -59,7 +59,7 @@ def fetch(db: Session = Depends(get_db)):
     }
     if report.success_count == 0 and report.fail_count == 0 and not report.no_data:
         raise fail_error(
-            422, MESSAGE, "股票基本資料是空的，請先執行抓取股票基本資料", **data
+            422, "股票基本資料檢查", "股票基本資料是空的，請先執行抓取股票基本資料", **data
         )
     if report.fail_count:
         # 部分失敗：成功的已寫入並保留；回 502 讓 n8n 判定失敗並重試（重跑會整段補回失敗的部分）

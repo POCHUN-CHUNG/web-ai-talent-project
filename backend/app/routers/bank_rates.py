@@ -56,7 +56,7 @@ def fetch(db: Session = Depends(get_db)):
     except Exception as exc:
         db.rollback()
         logger.exception("save bank rates failed")
-        raise fail_error(500, MESSAGE, "利率已抓取，但存入資料庫失敗", success_count=0, fail_count=len(rates)) from exc
+        raise fail_error(500, "銀行利率存入資料庫", "利率已抓取，但存入資料庫失敗", success_count=0, fail_count=len(rates)) from exc
 
     # 4. 回傳清單格式（含中文銀行名稱）與統一的 n8n 欄位，方便 n8n 直接顯示
     return ok_result(

@@ -85,7 +85,7 @@ def fetch(db: Session = Depends(get_db)):
     except Exception as exc:
         logger.exception("save stock_info failed")
         raise fail_error(
-            500, MESSAGE, "基本資料已抓取，但存入資料庫失敗", fail_count=len(rows)
+            500, "股票基本資料存入資料庫", "基本資料已抓取，但存入資料庫失敗", fail_count=len(rows)
         ) from exc
 
     # 3. 回傳統一的 n8n 欄位
