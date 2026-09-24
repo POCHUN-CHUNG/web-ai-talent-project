@@ -51,18 +51,26 @@
   color: var(--color-button-outlined-text);
   border: 1px solid var(--color-outline);
 }
+/* hover 跟主要按鈕一樣改成實心填滿，不是只加淡淡的底色 */
 .outlined:hover:not(:disabled) {
-  background-color: var(--color-surface-container);
+  background-color: var(--color-button-outlined-text);
+  color: var(--color-surface);
+  border-color: var(--color-button-outlined-text);
+  box-shadow: var(--shadow-level-1);
 }
 
-/* 危險操作（例如登出）：紅色外框，不用實心填滿，避免跟主要動作的深藍實心按鈕搶視覺 */
+/* 危險操作（例如登出）：平常紅色外框、不填滿，避免跟主要動作的深藍實心按鈕搶視覺 */
 .danger {
   background-color: transparent;
   color: var(--color-error);
   border: 1px solid var(--color-error);
 }
+/* hover 跟主要按鈕一樣改成實心填滿，不是只加淡淡的底色 */
 .danger:hover:not(:disabled) {
-  background-color: var(--color-error-container);
+  background-color: var(--color-error);
+  color: var(--color-on-error);
+  border-color: var(--color-error);
+  box-shadow: var(--shadow-level-1);
 }
 
 .spinner {

@@ -5,7 +5,6 @@ import { useAuth } from "../auth";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Chip from "../components/ui/Chip";
-import Icon from "../components/ui/Icon";
 import IconButton from "../components/ui/IconButton";
 import Input from "../components/ui/Input";
 import EntryPage from "../components/layout/EntryPage";
@@ -67,7 +66,7 @@ export default function Settings() {
         <h1 className={styles.heading}>設定</h1>
 
         <Card className={styles.section}>
-          <p className={styles.sectionTitle}>帳號資訊</p>
+          <p className={styles.sectionTitle}>基本資料</p>
           <div className={styles.row}>
             <span className={styles.rowLabel}>帳號</span>
             <span className={styles.rowValue}>{username}</span>
@@ -110,11 +109,6 @@ export default function Settings() {
             {msg && <Chip variant={msg.ok ? "success" : "error"}>{msg.text}</Chip>}
           </form>
         </Card>
-
-        <button type="button" className={styles.backLink} onClick={() => navigate("/")}>
-          <Icon name="arrow_back" size={16} />
-          回首頁
-        </button>
 
         <Button variant="danger" fullWidth onClick={logout}>
           登出

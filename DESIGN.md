@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: 'Glass Console'
-description: 'Translucent white cards on soft blue, yellow and pink accent-wash backgrounds, with pill labels and glass orbs on a monochrome light and dark system; deep navy for the main action; all radii follow the token set (cards 30px, inputs 30px, buttons 25px, nested 20px).'
+description: 'Translucent white cards on soft blue, yellow and pink accent-wash backgrounds, with pill labels and glass orbs on a monochrome light system; deep navy for the main action; all radii follow the token set (cards 30px, inputs 30px, buttons 25px, nested 20px).'
 colors:
   background: '#ebebeb'  # color.light.surface.bg
   on-background: '#000000'  # color.light.surface.text
@@ -54,62 +54,11 @@ colors:
   on-info-container: '#00124d'  # link-900
   link: '#0a48cf'  # link-600 (≥4.5:1 vs background)
   focus-ring: '#1e3a8a'  # primary (≥3:1 vs background and surface)
-  inverse-primary: '#1e3a8a'  # dark primary
-  inverse-secondary: '#0d9488'  # dark secondary
-  inverse-tertiary: '#f59e0b'  # dark tertiary
-  inverse-surface: '#000000'  # dark mode
-  inverse-on-surface: '#ffffff'  # dark mode
-  dark-background: '#141414'  # color.dark.surface.bg
-  dark-on-background: '#ffffff'  # color.dark.surface.text
-  dark-surface: '#000000'  # color.dark.surface.surface
-  dark-on-surface: '#ffffff'  # color.dark.surface.text
-  dark-surface-container-lowest: '#000000'  # surface (darker than background)
-  dark-surface-container-low: '#0a0a0a'  # mix(surface, text, 0.04)
-  dark-surface-container: '#121212'  # mix(surface, text, 0.07)
-  dark-surface-container-high: '#1a1a1a'  # mix(surface, text, 0.1)
-  dark-surface-container-highest: '#242424'  # mix(surface, text, 0.14)
-  dark-surface-raised: '#141414'  # color.dark.surface.surfaceRaised
-  dark-outline-variant: '#0f0f0f'  # color.dark.surface.border
-  dark-outline: '#636363'  # color.dark.surface.borderStrong
-  dark-on-surface-variant: '#a0a0a0'  # color.dark.surface.textMuted
-  dark-button-secondary: '#0a0a0a'  # color.dark.surface.btnSecondaryBg
-  dark-on-button-secondary: '#ffffff'  # first of text/background reaching 4.5:1 (19.8:1)
-  dark-button-inverted: '#ffffff'  # color.dark.surface.btnInvertedBg
-  dark-on-button-inverted: '#000000'  # color.dark.surface.textInverted
-  dark-button-outlined-text: '#ffffff'  # color.dark.surface.btnOutlinedText
-  dark-primary: '#1e3a8a'  # primary-500 (explicit palette `on`)
-  dark-on-primary: '#ffffff'  # color.dark.primary.on (10.36:1)
-  dark-primary-hover: '#4467c0'  # primary-400 (one step lighter)
-  dark-primary-container: '#061752'  # primary-800
-  dark-on-primary-container: '#d8e5ff'  # primary-100
-  dark-secondary: '#0d9488'  # secondary-500 (explicit palette `on`)
-  dark-on-secondary: '#ffffff'  # color.dark.secondary.on (3.74:1)
-  dark-secondary-hover: '#50b1a5'  # secondary-400 (one step lighter)
-  dark-secondary-container: '#003e39'  # secondary-800
-  dark-on-secondary-container: '#daf2ee'  # secondary-100
-  dark-tertiary: '#f59e0b'  # tertiary-500 (explicit palette `on`)
-  dark-on-tertiary: '#000000'  # color.dark.tertiary.on (9.78:1)
-  dark-tertiary-hover: '#fdb559'  # tertiary-400 (one step lighter)
-  dark-tertiary-container: '#633d00'  # tertiary-800
-  dark-on-tertiary-container: '#ffeedc'  # tertiary-100
-  dark-success: '#0d9488'  # color.dark.semantic.success
-  dark-on-success: '#000f0d'  # best contrast (5.22:1)
-  dark-success-container: '#00231f'  # secondary-900
-  dark-on-success-container: '#daf2ee'  # secondary-100
-  dark-warning: '#d37200'  # color.dark.semantic.warning
-  dark-on-warning: '#000000'  # best contrast (6.18:1)
-  dark-warning-container: '#3b2000'  # derived: warning tinted into surface
-  dark-on-warning-container: '#f5e0c7'  # derived: warning mixed toward text (11.75:1)
-  dark-error: '#dc2626'  # color.dark.semantic.error
-  dark-on-error: '#ffffff'  # best contrast (4.83:1)
-  dark-error-container: '#3e0b0b'  # derived: error tinted into surface
-  dark-on-error-container: '#f7cfcf'  # derived: error mixed toward text (11.75:1)
-  dark-info: '#2563eb'  # color.dark.semantic.info
-  dark-on-info: '#ffffff'  # best contrast (5.17:1)
-  dark-info-container: '#00124d'  # link-900
-  dark-on-info-container: '#dfeaff'  # link-100
-  dark-link: '#90b6ff'  # link-300 (≥4.5:1 vs background)
-  dark-focus-ring: '#90b6ff'  # link (≥3:1 vs background and surface)
+  inverse-primary: '#1e3a8a'  # high-contrast inverse of primary
+  inverse-secondary: '#0d9488'  # high-contrast inverse of secondary
+  inverse-tertiary: '#f59e0b'  # high-contrast inverse of tertiary
+  inverse-surface: '#000000'  # for scrims and inverted regions (snackbars etc.)
+  inverse-on-surface: '#ffffff'  # label color on inverse-surface
   primary-50: '#f5f8ff'
   primary-100: '#d8e5ff'
   primary-200: '#aec7ff'
@@ -373,7 +322,7 @@ components:
 
 **Reference basis.** The visual language is taken from the owner's event/meeting agenda slide template (cover with orbs, contents cards, speaker and project pages, Gantt timeline, next-steps rows) combined with the token set. **All component radii, type sizes and colors come from the tokens**, not from any platform's system UI: cards 30px, inputs 30px, buttons 25px, nested cards 20px (see Shapes).
 
-**Default mode is light** (`background` #ebebeb, `surface` #ffffff). Dark mode is a first-class twin built on pure-black cards (`dark-surface` #000000 on `dark-background` #141414).
+**Light only** (`background` #ebebeb, `surface` #ffffff). There is no dark mode.
 
 Signature traits (what makes it recognizable):
 
@@ -387,22 +336,20 @@ Signature traits (what makes it recognizable):
 
 **Proportion.** The page canvas may be `background` or one accent wash. On top of it, neutrals (`surface`, `surface-container-*`, `surface-raised`, text) make up roughly 85–90% of the *content* area. `primary` and `button-inverted` together stay under about 8% of the content area. Secondary, tertiary, semantic colors and solid accent fills (markers, tiles, dots, bars) together stay under about 7%. The wash itself is background, not UI color.
 
-**Surface layering (light).** `background` (#ebebeb) is the page canvas (or the base under a wash). `surface` (#ffffff) is the top layer: cards, sheets, popovers. `surface-raised` (#ebebeb) is the nested-card fill; it equals the page color, so nested cards read as recessed wells inside white cards.
-
-**Surface layering (dark).** The order flips: `dark-surface` (#000000) is darker than `dark-background` (#141414), so cards sink below the page. `dark-surface-raised` (#141414) is the nested-card fill. The surface/background step is only about 1.1:1 in dark and about 1.2:1 in light, so glass blur, shadow and the wash, not color steps, do the separation work.
+**Surface layering.** `background` (#ebebeb) is the page canvas (or the base under a wash). `surface` (#ffffff) is the top layer: cards, sheets, popovers. `surface-raised` (#ebebeb) is the nested-card fill; it equals the page color, so nested cards read as recessed wells inside white cards. The surface/background step is only about 1.2:1, so glass blur, shadow and the wash, not color steps, do most of the separation work.
 
 **Containers.** `surface-container-lowest` is the input fill. `surface-container-low` → `surface-container-highest` are tonal steps: `surface-container-low` for grouped list rows and table hover, `surface-container-high` for secondary-button hover and neutral chips, `surface-container-highest` for inactive tracks and switch-off states.
 
-**Text.** `on-surface` (#000000) is primary text; `dark-on-surface` is #ffffff. `on-surface-variant` is secondary text: #2c2c2c in light, #a0a0a0 in dark. In light mode #2c2c2c is nearly black, so primary/secondary hierarchy must come from size and weight, never from color alone. Text on accent fills is always #000000 (the `on` value of the accent palettes; it equals `on-tertiary`), in both modes.
+**Text.** `on-surface` (#000000) is primary text. `on-surface-variant` (#2c2c2c) is secondary text — nearly black, so primary/secondary hierarchy must come from size and weight, never from color alone. Text on accent fills is always #000000 (the `on` value of the accent palettes; it equals `on-tertiary`).
 
-**Outlines.** `outline` (#878787 light, #636363 dark) is the control boundary for input, outlined button and unchecked checkbox/radio, and the month/axis divider lines in charts. `outline-variant` (#e6e6e6 light, #0f0f0f dark) is a hairline color that is almost invisible; it is not used for decoration because borders are off (see Shapes).
+**Outlines.** `outline` (#878787) is the control boundary for input, outlined button and unchecked checkbox/radio, and the month/axis divider lines in charts. `outline-variant` (#e6e6e6) is a hairline color that is almost invisible; it is not used for decoration because borders are off (see Shapes).
 
 **Buttons and actions.**
 
-- `primary` (#1e3a8a) with `on-primary` (#ffffff), 10.36:1: the single main action per view. Hover uses `primary-hover` (#152d78 light, #4467c0 dark).
-- `button-inverted` (#000000 with `on-button-inverted` #ffffff in light; #ffffff with #000000 in dark): the strongest polarity. Choose it over `primary` when the button sits on imagery or a dark surface, when `primary` would separate poorly (all dark-mode contexts), or for the "Continue / Register" action next to an outlined "Learn more".
-- `button-secondary` (#f5f5f5 light, #0a0a0a dark) with `on-button-secondary`: supporting action on a white card.
-- `button-outlined-text` (#000000 light, #ffffff dark): label of the outlined button (transparent, 1px `outline` edge).
+- `primary` (#1e3a8a) with `on-primary` (#ffffff), 10.36:1: the single main action per view. Hover uses `primary-hover` (#152d78).
+- `button-inverted` (#000000 with `on-button-inverted` #ffffff): the strongest polarity. Choose it over `primary` when the button sits on imagery, when `primary` would separate poorly, or for the "Continue / Register" action next to an outlined "Learn more".
+- `button-secondary` (#f5f5f5) with `on-button-secondary`: supporting action on a white card.
+- `button-outlined-text` (#000000): label of the outlined button (transparent, 1px `outline` edge).
 
 **Secondary (teal) and tertiary (amber).**
 
@@ -410,11 +357,11 @@ Signature traits (what makes it recognizable):
 - `secondary` and `success` are the same value (#0d9488). Never use secondary for something that could be read as a success state.
 - `tertiary` (#f59e0b) with `on-tertiary` (#000000) is for highlights and "new" markers. It is only 1.8:1 against `background`, so it cannot be the only boundary of a button; pair it with a shadow or place it on `surface`.
 
-**Semantic.** `success` (#0d9488), `warning` (#d37200), `error` (#dc2626), `info` (#2563eb), each with an `on-*` label color. These fills are for icons, badges and solid status buttons. Status text on the page uses `on-*-container` on `*-container`, because success and warning fills are below 4.5:1 on `surface` in light mode, and error and info are below 4.5:1 on `dark-surface`.
+**Semantic.** `success` (#0d9488), `warning` (#d37200), `error` (#dc2626), `info` (#2563eb), each with an `on-*` label color. These fills are for icons, badges and solid status buttons. Status text on the page uses `on-*-container` on `*-container`, because success and warning fills are below 4.5:1 on `surface`. Status chips are the one deliberate exception — see Components → Chip — they use the raw status color plus a matching-color edge instead, because they need to read clearly against the page wash.
 
-**Link and focus.** `link` (#0a48cf) in light, `dark-link` (#90b6ff) in dark. `focus-ring` is #1e3a8a in light and `dark-focus-ring` (#90b6ff) in dark. Use the focus color also for any accent stroke that must stay visible on dark surfaces.
+**Link and focus.** `link` (#0a48cf). `focus-ring` is #1e3a8a.
 
-**Inverse.** `inverse-surface` (#000000) with `inverse-on-surface` (#ffffff) for snackbars, scrims and inverted regions in light mode.
+**Inverse.** `inverse-surface` (#000000) with `inverse-on-surface` (#ffffff) for snackbars, scrims and inverted regions.
 
 **Accent washes (page backgrounds).** The accent palettes are the background system. Every wash is a gradient over `background`; the wash never carries content directly, cards do.
 
@@ -424,18 +371,13 @@ Signature traits (what makes it recognizable):
 | Yellow (`accent-2`) | `linear-gradient(90deg, accent-2-500 (#fef08a) 0%, transparent 60%)` over `background` (vertical edge glow on the left) | Projects, goals, metrics, progress |
 | Pink (`accent-3`) | `radial-gradient(70% 80% at 0% 0%, accent-3-500 (#ffc9c9), transparent 70%)` over `background` | People, welcome, celebration, timeline |
 
-**Superseded by Elevation & Depth → Page backdrop below**: the per-page single-accent wash system (one of the three washes chosen per page, dark mode swapping the 500 stop for an 800 two-stop gradient) is no longer how page backgrounds work. Every page now uses the one shared diagonal three-accent wash. The per-page wash recipes above remain valid for narrower decorative uses (a card's corner-gradient, an orb cluster, a slide background) — just not for the page canvas itself.
+**Superseded by Elevation & Depth → Page backdrop below**: the per-page single-accent wash system (one of the three washes chosen per page) is no longer how page backgrounds work. Every page now uses the one shared diagonal three-accent wash. The per-page wash recipes above remain valid for narrower decorative uses (a card's corner-gradient, an orb cluster, a slide background) — just not for the page canvas itself.
 
 Rules for washes: a wash never sits behind small body text without a card; do not stack a wash on a wash; the orb cluster and phase-coded charts remain the only places multiple accents are allowed to mix outside the shared page backdrop.
 
-**Solid accent fills.** The same pastels, unchanged in both modes, are used for: stat tiles (`accent-1-200` (#e3edff), `accent-2-300` (#fff9ca), `accent-3-200` (#ffebeb)), category dots, phase bars and legend circles. Their label color is always #000000; contrast against it is above 12:1 for the 500 shades. Palette shades do not swap on theme change, so never pair them with `on-surface`.
+**Solid accent fills.** The same pastels are used for: stat tiles (`accent-1-200` (#e3edff), `accent-2-300` (#fff9ca), `accent-3-200` (#ffebeb)), category dots, phase bars and legend circles. Their label color is always #000000; contrast against it is above 12:1 for the 500 shades. Never pair them with `on-surface`.
 
-**Palettes.** `primary-50…950`, `secondary-*`, `tertiary-*`, `link-*`, `neutral-*` exist for charts and illustration. Palette shades are the same in both modes.
-
-**Dark mode.** Every role has a `dark-*` twin. Primary, secondary and tertiary keep the same 500 fills in dark mode as in light. Consequences:
-
-- `dark-primary` (#1e3a8a) is only about 1.8:1 against `dark-background` and about 2.0:1 against `dark-surface`. A primary fill alone will not separate from the page in dark mode. Keep the white `dark-on-primary` label as the readable signal, use `button-inverted` for standalone actions, and give `primary`-filled selection controls the 1px `dark-outline` control edge.
-- Interactive text and focus in dark mode use `dark-link` / `dark-focus-ring`, not `dark-primary`.
+**Palettes.** `primary-50…950`, `secondary-*`, `tertiary-*`, `link-*`, `neutral-*` exist for charts and illustration.
 
 ## Typography
 
@@ -498,29 +440,28 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 
 **Strategy: glass.** Depth is built from a translucent surface, a backdrop blur and a soft tinted shadow. The source tokens use `intensity` 0.35 and tint `shadow-tint` (#0f172a).
 
-**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 80%, transparent)` (surface opacity 0.8, revised up from the initial 0.65 — cards read as too faint against a saturated wash at 0.65, especially in dark mode) with `backdrop-filter: blur(16px)` (revised up from 12px to match: every page now sits on the same saturated diagonal wash, so every glass card needs the stronger blur to keep card text legible), plus the 1px edge described below. In dark mode the same formula applies to `dark-surface`.
+**Glass surface.** `background-color: color-mix(in srgb, var(--surface) 80%, transparent)` (surface opacity 0.8, revised up from the initial 0.65 — cards read as too faint against a saturated wash at 0.65) with `backdrop-filter: blur(16px)` (revised up from 12px to match: every page sits on the same saturated diagonal wash, so every glass card needs the stronger blur to keep card text legible), plus the 1px edge described below.
 
-**Shadow levels** (light mode uses tinted shadows; dark mode uses black at 2.5× the light opacity):
+**Shadow levels** (tinted shadows):
 
-| Level | Light | Dark |
-|---|---|---|
-| `level-1` | `0px 1px 3px 0px rgba(15, 23, 42, 0.08)` | `0px 1px 3px 0px rgba(0, 0, 0, 0.2)` |
-| `level-2` | `0px 4px 8px -1px rgba(15, 23, 42, 0.1)` | `0px 4px 8px -1px rgba(0, 0, 0, 0.25)` |
-| `level-3` | `0px 10px 20px -3px rgba(15, 23, 42, 0.12)` | `0px 10px 20px -3px rgba(0, 0, 0, 0.3)` |
-| `level-4` | `0px 16px 30px -4px rgba(15, 23, 42, 0.16)` | `0px 16px 30px -4px rgba(0, 0, 0, 0.4)` |
-| `level-5` | `0px 24px 48px -6px rgba(15, 23, 42, 0.2)` | `0px 24px 48px -6px rgba(0, 0, 0, 0.5)` |
+| Level | Shadow |
+|---|---|
+| `level-1` | `0px 1px 3px 0px rgba(15, 23, 42, 0.08)` |
+| `level-2` | `0px 4px 8px -1px rgba(15, 23, 42, 0.1)` |
+| `level-3` | `0px 10px 20px -3px rgba(15, 23, 42, 0.12)` |
+| `level-4` | `0px 16px 30px -4px rgba(15, 23, 42, 0.16)` |
+| `level-5` | `0px 24px 48px -6px rgba(15, 23, 42, 0.2)` |
 
 **Which level for what.** `card` uses `level-1` (the only assignment given by the tokens). The rest is guidance: `level-2` for hovered or raised tiles and sticky toolbars, `level-3` for menus, popovers and tooltips, `level-4` for modal sheets and dialogs, `level-5` for full-screen overlays. Nested cards, pills and chips have no shadow.
 
-**Page backdrop (revised — this is now the one default for every page, not a per-page choice).** Earlier drafts had each page pick one of three radial washes; the product now uses a single diagonal wash everywhere, applied once on `body` rather than per page, so it is automatically consistent across the whole app: `linear-gradient(135deg, color-mix(in srgb, accent-1-500 32%, transparent) 0%, color-mix(in srgb, accent-2-500 22%, transparent) 50%, color-mix(in srgb, accent-3-500 28%, transparent) 100%)` over `background`, direction fixed top-left to bottom-right (135deg), `background-attachment: fixed` so it does not scroll with page content. In dark mode, swap in the 800 shades at **brighter** stop opacities than the light recipe (dark surfaces need a stronger wash to read at all): `linear-gradient(135deg, color-mix(in srgb, accent-1-800 50%, transparent) 0%, color-mix(in srgb, accent-2-800 40%, transparent) 50%, color-mix(in srgb, accent-3-800 46%, transparent) 100%)`. There is no flat, wash-less page anymore — every page sits on this gradient; a glass card over it always has something to read as "glass" against.
+**Page backdrop (revised — this is now the one default for every page, not a per-page choice).** Earlier drafts had each page pick one of three radial washes; the product now uses a single diagonal wash everywhere, applied once on `body` rather than per page, so it is automatically consistent across the whole app: `linear-gradient(135deg, color-mix(in srgb, accent-1-500 32%, transparent) 0%, color-mix(in srgb, accent-2-500 22%, transparent) 50%, color-mix(in srgb, accent-3-500 28%, transparent) 100%)` over `background`, direction fixed top-left to bottom-right (135deg), `background-attachment: fixed` so it does not scroll with page content. There is no flat, wash-less page anymore — every page sits on this gradient; a glass card over it always has something to read as "glass" against.
 
 **Rules.**
 
 - One glass level only. Never place a glass surface directly on another glass surface. Anything nested inside a glass card is opaque (`surface-raised`), not glass.
 - Over photography, cards are opaque `surface` (no blur, full opacity) so text stays legible; glass is for cards on washes.
 - Text over glass must remain legible on the worst-case backdrop pixel; set text in `on-surface`.
-- **Revised: glass now always draws a 1px edge** — `color-mix(in srgb, on-background 10%, transparent)`, which resolves to roughly `rgba(0, 0, 0, 0.1)` in light and `rgba(255, 255, 255, 0.1)` in dark. This supersedes the source tokens' `borderStrategy: none`: at 0.8 surface opacity a hairline edge reads as refined rather than decorative, and it's the main thing that keeps a glass card legible as a distinct shape against a busy multi-color wash.
-- Dark mode: shadows barely read on black, so rely on the tonal step, blur and the deep wash; do not increase shadow opacity beyond the table.
+- **Revised: glass now always draws a 1px edge** — `color-mix(in srgb, on-background 10%, transparent)`, which resolves to roughly `rgba(0, 0, 0, 0.1)`. This supersedes the source tokens' `borderStrategy: none`: at 0.8 surface opacity a hairline edge reads as refined rather than decorative, and it's the main thing that keeps a glass card legible as a distinct shape against a busy multi-color wash.
 
 ## Shapes
 
@@ -564,15 +505,15 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 
 All components use tokens from the frontmatter. Shared state rules: focus-visible is a 2px `focus-ring` outline with a 1px offset; disabled is 38% opacity with no shadow and no hover; pressed reuses the hover color.
 
-**Button primary.** `primary` fill, `on-primary` label in `label-lg`, radius 25px, padding 8px 24px. Hover `primary-hover`. One per view. In dark mode see Colors.
+**Button primary.** `primary` fill, `on-primary` label in `label-lg`, radius 25px, padding 8px 24px. Hover `primary-hover`. One per view.
 
 **Button secondary.** `button-secondary` fill, `on-button-secondary` label, same geometry. Hover `surface-container-high`.
 
-**Button inverted.** `button-inverted` fill, `on-button-inverted` label, same geometry. Hover drops opacity to about 88%. Use on imagery and dark surfaces, and as the strong action beside an outlined "Learn more".
+**Button inverted.** `button-inverted` fill, `on-button-inverted` label, same geometry. Hover drops opacity to about 88%. Use on imagery, and as the strong action beside an outlined "Learn more".
 
-**Button outlined.** Transparent fill, `button-outlined-text` label, 1px `outline` edge, same radius and padding. Hover fills `surface-container`.
+**Button outlined.** Transparent fill, `button-outlined-text` label, 1px `outline` edge, same radius and padding. Hover matches the primary button's solid identity rather than a light tint: fill becomes `button-outlined-text`, label becomes `surface`, `level-1` shadow appears.
 
-**Button danger.** Transparent fill, `error` label and 1px `error` edge, same radius and padding — an outlined button in the error color rather than a solid error fill, so it doesn't compete with the one `primary` action on the page. Hover fills `error-container`. For destructive-but-common actions like signing out (not data-destroying actions, which still want a confirmation step elsewhere).
+**Button danger.** Transparent fill, `error` label and 1px `error` edge, same radius and padding — an outlined button in the error color rather than a solid error fill at rest, so it doesn't compete with the one `primary` action on the page. Hover matches the primary button's solid identity: fill becomes `error`, label becomes `on-error`, `level-1` shadow appears. For destructive-but-common actions like signing out (not data-destroying actions, which still want a confirmation step elsewhere).
 
 **Meta pill / link pill.** `rounded.full`, `surface` fill, `on-surface` label in `label-lg` (or `label-md` for chrome-sized pills), padding `sm` (8px) vertical and `lg` (24px) horizontal. Used on washes and photos for company name, date, "Add a link" and speaker-name captions. On a white card use `button-secondary` fill instead so the pill remains visible. No shadow.
 
@@ -586,7 +527,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Nested card / stat tile.** `surface-raised` fill (or an accent tint: `accent-1-200`, `accent-2-300`, `accent-3-200`), radius 20px, padding 20px, no border, no shadow. Stat tile: numeral in `headline-lg`, caption in `body-md`. Text color is `on-surface` on `surface-raised` and #000000 on accent tints.
 
-**Checkbox.** 20px, radius 15px. Unchecked: transparent with a 1px `outline` edge. Checked: solid `primary` fill, no glyph. In dark mode keep the `dark-outline` edge around the fill.
+**Checkbox.** 20px, radius 15px. Unchecked: transparent with a 1px `outline` edge. Checked: solid `primary` fill, no glyph.
 
 **Radio.** 20px, `rounded.full`. Unselected: 1px `outline` ring. Selected: `primary` ring with an inner dot.
 
@@ -594,7 +535,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Chip.** Neutral chip: `surface-container-high` fill, `on-surface` text in `label-md`, radius `rounded.full`, padding 4px 8px. Status chips use the `*-container` fill with the raw status color (not `on-*-container`) as the text/icon color — `error` text on `error-container`, etc. — plus a 1px edge at `color-mix(in srgb, [status] 35%, transparent)`: at the container tint's usual low contrast, a status chip on a busy wash background reads as "roughly the same beige as the page" without the saturated text and the edge doing the work of separating it. Never use `secondary-container` or `tertiary-container` for a neutral chip; they look like the success and warning containers.
 
-**Link.** `link` color, `body-md`, underlined with a small offset. Hover darkens or lightens one step (light: `link-700`; dark: `link-200`).
+**Link.** `link` color, `body-md`, underlined with a small offset. Hover darkens one step (`link-700`).
 
 **Number pill and category dot.** Number pill: `rounded.full`, `surface` fill, `label-lg`, padding `xs` (4px) vertical and `sm` (8px) horizontal (e.g. "01"). Legend circle: `rounded.full`, accent-N-500 fill with #000000 number. Category dot: 16px circle in `accent-N-500`. The accent order is fixed: 1 = pink (`accent-3`), 2 = yellow (`accent-2`), 3 = blue (`accent-1`), matching the template's phase order.
 
@@ -606,15 +547,15 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Toolbar / navigation bar.** Sticky, glass at `level-2`, radius `rounded.full` when floating or full-width with no radius when docked. Title in `label-lg`, actions as circular icon buttons (44px hit target) on `surface-container-high`.
 
-**Entry header.** Fixed to the top of Login, Register and Settings, transparent (no glass, no shadow, sits directly on the page backdrop), edge-to-edge — **no max-width or centered content column**: the logo sits flush against the true left edge of the viewport and the two icon buttons flush against the true right edge, each inset only by `margin` (32px), `lg` (24px) top/bottom padding. Left: a 40px circular `primary` badge with an `on-primary` icon (the product mark). Right: two circular icon buttons, 36px, transparent, `on-surface-variant` icon, hover fill a translucent `on-surface` overlay (not a flat token, so it reads as gray over any part of the wash) — the theme toggle (`dark_mode`/`light_mode`, reflects and controls the current mode, no menu) and the account icon (`person`). No title text; the wordmark lives in the card below, not the header. Each icon button's `:focus-visible` state is the standard 2px `focus-ring` outline with 1px offset, not the browser default.
+**Entry header.** Fixed to the top of Login, Register and Settings, transparent (no glass, no shadow, sits directly on the page backdrop), edge-to-edge — **no max-width or centered content column**: the logo sits flush against the true left edge of the viewport and the account icon flush against the true right edge, each inset only by `margin` (32px), `lg` (24px) top/bottom padding. Left: a 40px circular `primary` badge with an `on-primary` icon (the product mark). Right: one circular icon button, 36px, transparent, `on-surface-variant` icon, hover fill a translucent `on-surface` overlay (not a flat token, so it reads as gray over any part of the wash) — the account icon (`person`). No title text; the wordmark lives in the card below, not the header. The icon button's `:focus-visible` state is the standard 2px `focus-ring` outline with 1px offset, not the browser default.
 
-**Account menu.** When signed in, the account icon opens a popover instead of navigating directly: `Tooltip / popover` glass (`level-3`, `rounded.xl`), anchored top-right under the icon, closes on an outside click. Two items, each full-width, `body-md`, left-aligned, `radius.md` hover fill (a translucent `on-surface` overlay): "設定" (navigates to Settings) and "登出" in `error` color (calls `/auth/logout`, clears the session, navigates to Login). Signed out (only possible on Login/Register, since Settings requires a session), the account icon is inert — there is no menu to show.
+**Account menu.** When signed in, the account icon opens a popover instead of navigating directly: `Tooltip / popover` glass (`level-3`, `rounded.xl`), anchored top-right under the icon, closes on an outside click. Two items, each full-width, `body-md`, centered, hover fill (a translucent `on-surface` overlay); item radius scales with the popover's own radius rather than using a fixed token — `rounded.xl` minus the popover's own padding, the same concentric-rounding relationship as a nested card: "設定" (navigates to Settings) and "登出" in `error` color (calls `/auth/logout`, clears the session, navigates to Login). Signed out (only possible on Login/Register, since Settings requires a session), the account icon is inert — there is no menu to show.
 
 **Sidebar.** `surface-container-low` panel, grouped lists with `label-md` section labels in `on-surface-variant`. Selected row: `surface-container-high` fill with `rounded.md`.
 
 **Form / list group.** One nested card per group; one row per setting; label left in `body-md`, value or control right in `on-surface-variant` or the control itself. Rows are separated by `sm` spacing, not lines.
 
-**Switch.** Track `rounded.full`, about 44px by 28px; off `surface-container-highest` with a 1px `outline` edge, on `primary`; thumb 24px in `surface`. The dark-mode outline rule for checkbox applies.
+**Switch.** Track `rounded.full`, about 44px by 28px; off `surface-container-highest` with a 1px `outline` edge, on `primary`; thumb 24px in `surface`.
 
 **Segmented control / tabs.** Pill container in `surface-container-high`; the selected segment is a `surface` pill at `level-1`; labels in `label-md`.
 
@@ -650,7 +591,7 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Image generation prompt fragment.** "Soft pastel gradient backdrop in powder blue, butter yellow and blush pink on a light gray background; overlapping translucent frosted-glass spheres with smooth gradients and gentle diffused studio lighting; clean, airy, friendly, minimal, generous negative space; no text in the image." Avoid: saturated neon, heavy outlines, harsh drop shadows, cluttered compositions, skeuomorphic chrome or metal, film grain, embedded lettering.
 
-**Charts.** Categorical or phase-coded data uses the accent order pink `accent-3-500`, yellow `accent-2-500`, blue `accent-1-500` with #000000 labels on the fills. Quantitative series order: `primary-500`, `secondary-500`, `tertiary-500`, `link-500`, then the accents. Gridlines and month dividers are 1px `outline` in light; in dark use `dark-outline`. Axis labels in `label-md` `on-surface-variant`. Bars and pills use `rounded.full`; chart containers sit in a card and use `rounded.lg`. Never encode meaning by color alone; add direct labels.
+**Charts.** Categorical or phase-coded data uses the accent order pink `accent-3-500`, yellow `accent-2-500`, blue `accent-1-500` with #000000 labels on the fills. Quantitative series order: `primary-500`, `secondary-500`, `tertiary-500`, `link-500`, then the accents. Gridlines and month dividers are 1px `outline`. Axis labels in `label-md` `on-surface-variant`. Bars and pills use `rounded.full`; chart containers sit in a card and use `rounded.lg`. Never encode meaning by color alone; add direct labels.
 
 ## Iconography
 
@@ -676,9 +617,9 @@ Two image families. **Portraits:** bright, evenly lit studio portraits with plai
 
 - Don't copy radii, sizes or weights from a template, OS or platform when the tokens define them.
 - Don't mix multiple accent washes outside of the shared page backdrop, the orb cluster or phase-coded charts, and don't put small body text on a wash without a card.
-- Don't pair accent fills with `on-surface` in dark mode; their label color is always #000000.
+- Don't pair accent fills with `on-surface`; their label color is always #000000.
 - Don't draw a border around a nested card or a list row (those still have none); a glass card's own 1px edge is the one allowed exception, not a general license to add borders.
 - Don't stack glass on glass, and don't use blurred glass cards over photography; use opaque `surface`.
 - Don't set text smaller than `headline-sm` on a `secondary` (#0d9488) fill, or rely on `tertiary` as a lone button boundary.
 - Don't use `label-sm` (10px) for CJK text, and don't use italics on CJK.
-- Don't rely on a `primary` fill alone in dark mode, and don't put a checkbox and a radio in the same group.
+- Don't put a checkbox and a radio in the same group.

@@ -72,12 +72,13 @@
 .menuItem {
   display: block;
   width: 100%;
-  text-align: left;
+  text-align: center;
   border: none;
   background: none;
   cursor: pointer;
   padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
+  /* 跟外框的 rounded.xl 等比縮小：扣掉選單自己的內距，維持同心圓角 */
+  border-radius: calc(var(--radius-xl) - var(--space-xs));
   font-family: var(--font-family);
   font-size: var(--text-body-md-size);
   color: var(--color-on-surface);
