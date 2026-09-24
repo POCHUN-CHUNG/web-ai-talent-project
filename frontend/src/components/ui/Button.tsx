@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes } from "react";
 import styles from "./Button.module.css";
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "outlined"; // 按鈕樣式，預設 primary
+  variant?: "primary" | "secondary" | "outlined" | "danger"; // 按鈕樣式，預設 primary；danger 用於登出等危險操作
   busy?: boolean; // 處理中：顯示轉圈圈並停用
   fullWidth?: boolean; // 是否撐滿容器寬度
 };

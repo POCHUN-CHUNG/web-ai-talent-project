@@ -1,14 +1,13 @@
-.card {
+.page {
   width: 100%;
-  max-width: 520px;
-  padding: 48px;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
 }
 
 .heading {
-  margin: 0 0 var(--space-sm);
+  margin: 0 0 var(--space-xs);
   text-align: center;
   font-family: var(--font-family);
   font-size: var(--text-form-heading-size);
@@ -16,30 +15,15 @@
   color: var(--color-on-surface);
 }
 
-/* 平板 */
-@media (max-width: 1068px) {
-  .card {
-    max-width: 460px;
-    padding: var(--space-xl);
-  }
-}
-
-/* 手機 */
-@media (max-width: 734px) {
-  .card {
-    max-width: 100%;
-    padding: var(--space-xl) var(--space-lg);
-  }
-
-  .row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-xs);
-  }
+/* 每個區塊只包一層卡片，不再巢狀疊卡片 */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
 }
 
 .sectionTitle {
-  margin: 0 0 var(--space-sm);
+  margin: 0;
   font-family: var(--font-family);
   font-size: var(--text-label-md-size);
   font-weight: var(--text-label-md-weight);
@@ -73,7 +57,7 @@
 }
 
 .backLink {
-  align-self: flex-start;
+  align-self: center;
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
@@ -88,4 +72,13 @@
 
 .backLink:hover {
   text-decoration: underline;
+}
+
+/* 手機：帳號資訊那一列改直排，避免帳號太長被擠壓 */
+@media (max-width: 734px) {
+  .row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
 }

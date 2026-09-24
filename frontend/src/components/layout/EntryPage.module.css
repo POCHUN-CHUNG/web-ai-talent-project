@@ -17,7 +17,7 @@
 }
 
 .footer {
-  padding: var(--space-lg) var(--space-md) var(--space-xl);
+  padding: var(--space-2xl) var(--space-md) var(--space-xl);
   text-align: center;
   font-family: var(--font-family);
   font-size: var(--text-body-sm-size);

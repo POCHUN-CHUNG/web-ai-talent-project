@@ -55,6 +55,16 @@
   background-color: var(--color-surface-container);
 }
 
+/* 危險操作（例如登出）：紅色外框，不用實心填滿，避免跟主要動作的深藍實心按鈕搶視覺 */
+.danger {
+  background-color: transparent;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+}
+.danger:hover:not(:disabled) {
+  background-color: var(--color-error-container);
+}
+
 .spinner {
   animation: spin 0.8s linear infinite;
 }

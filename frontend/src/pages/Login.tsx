@@ -19,6 +19,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
   const [password, setPassword] = useState(""); // 輸入的密碼
   const [confirmPassword, setConfirmPassword] = useState(""); // 輸入的確認密碼（僅註冊）
   const [showPassword, setShowPassword] = useState(false); // 密碼是否顯示明文
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // 確認密碼是否顯示明文（與密碼欄位各自獨立）
   const [error, setError] = useState(""); // 錯誤訊息
   const [busy, setBusy] = useState(false); // 送出中（避免重複點擊）
 
@@ -38,7 +39,11 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
       setError("請完整填寫帳號與密碼");
       return;
     }
-    // 3. 註冊時檢查兩次密碼是否一致，不合就不送出
+    // 3. 註冊時檢查密碼格式（僅限英文與數字）與兩次密碼是否一致
+    if (isRegister && !/^[A-Za-z0-9]+$/.test(password)) {
+      setError("密碼僅限英文與數字");
+      return;
+    }
     if (isRegister && password !== confirmPassword) {
       setError("兩次輸入的密碼不一致");
       return;
@@ -81,12 +86,13 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
           />
           <Input
             id="passwordInput"
-            label="密碼"
+            label={isRegister ? "密碼（僅限英文與數字）" : "密碼"}
             type={showPassword ? "text" : "password"}
             placeholder="請輸入密碼"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             maxLength={128}
+            pattern={isRegister ? "^[A-Za-z0-9]+$" : undefined}
             autoComplete={isRegister ? "new-password" : "current-password"}
             required
             endAdornment={
@@ -100,14 +106,22 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
           {isRegister && (
             <Input
               id="confirmPasswordInput"
-              label="確認密碼"
-              type={showPassword ? "text" : "password"}
+              label="確認密碼（僅限英文與數字）"
+              type={showConfirmPassword ? "text" : "password"}
               placeholder="請再次輸入密碼"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               maxLength={128}
+              pattern="^[A-Za-z0-9]+$"
               autoComplete="new-password"
               required
+              endAdornment={
+                <IconButton
+                  icon={showConfirmPassword ? "visibility_off" : "visibility"}
+                  label="切換確認密碼顯示"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                />
+              }
             />
           )}
           <Button type="submit" busy={busy} fullWidth className={styles.submitButton}>

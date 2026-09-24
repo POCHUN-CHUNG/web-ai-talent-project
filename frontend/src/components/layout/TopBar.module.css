@@ -47,3 +47,46 @@
   align-items: center;
   gap: var(--space-sm);
 }
+
+.menuWrap {
+  position: relative;
+}
+
+/* 帳戶選單：玻璃彈出層（DESIGN.md「Tooltip / popover」，level-3 玻璃、rounded.xl） */
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  right: 0;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs);
+  border-radius: var(--radius-xl);
+  background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-level-3);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface);
+}
+
+.menuItem:hover {
+  background-color: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.menuItemDanger {
+  color: var(--color-error);
+}
