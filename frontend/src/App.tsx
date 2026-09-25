@@ -23,19 +23,20 @@ export default function App() {
           {/* 2. 公開頁面：登入、註冊（同一元件，以 mode 區分） */}
           <Route path="/login" element={<Login key="login" mode="login" />} />
           <Route path="/register" element={<Login key="register" mode="register" />} />
-          {/* 3. 需登入頁面（未登入會被導到登入頁）：問卷與風險屬性結果頁隨時可進入 */}
+          {/* 3. 需登入頁面（未登入會被導到登入頁）：風險屬性、問卷與設定頁隨時可進入 */}
           <Route element={<RequireAuth />}>
-            <Route path="/questionnaire" element={<Questionnaire />} />
             {/* 4. 有頂端 Tab 列的頁面共用同一個 TabsLayout，切換分頁時 TopBar 不重新掛載，動畫才會順 */}
             <Route element={<TabsLayout />}>
               <Route path="/risk-profile" element={<RiskProfile />} />
+              <Route path="/questionnaire" element={<Questionnaire />} />
+              {/* 設定頁（帳號、改密碼、登出）與風險屬性無關，尚未完成評估也可進入 */}
+              <Route path="/settings" element={<Settings />} />
               {/* 5. 其餘頁面須先有可用的風險屬性，否則導向風險屬性頁（該頁會引導去填問卷） */}
               <Route element={<RequireProfile />}>
                 {/* 投資組合為子路由（非根路由），保留給之後新增的首頁使用；目前根路由先導向投資組合頁 */}
                 <Route path="/portfolios" element={<Portfolios />} />
                 <Route path="/analysis" element={<RiskAnalysis />} />
                 <Route path="/history" element={<History />} />
-                <Route path="/settings" element={<Settings />} />
                 <Route path="/" element={<Navigate to="/portfolios" replace />} />
               </Route>
             </Route>

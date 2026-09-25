@@ -52,10 +52,13 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
     try {
       // 4. 把帳密送給後端
       const u = await api<{ username: string }>(`/auth/${mode}`, { username: account, password });
-      // 5. 成功：記下帳號並前往首頁
+      // 5. 成功：先確認這個帳號是否已有風險屬性，再同時記下帳號與換頁（兩者同一次更新，
+      //    避免本頁先因「已登入」自己導回首頁，讓新帳號被當成「被擋下」而跳出提示視窗）
+      await refreshProfile();
       setUsername(u.username);
-      await refreshProfile(); // 確認這個帳號是否已有風險屬性，才能決定導向首頁或問卷
-      navigate("/", { replace: true });
+      // 註冊：新帳號一定還沒評估，直接到風險屬性頁看「開始評估」引導（不跳提示視窗）；
+      // 登入：回首頁，有風險屬性就進投資組合，沒有則由守衛導回風險屬性頁並跳出提示
+      navigate(isRegister ? "/risk-profile" : "/", { replace: true });
     } catch (err) {
       // 6. 失敗：顯示後端說明，連不上則顯示通用訊息
       setError(err instanceof ApiError ? err.message : "無法連線，請稍後再試");

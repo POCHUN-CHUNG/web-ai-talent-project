@@ -1,0 +1,43 @@
+/* 分析中的外框光暈：沿著整個視窗邊緣發光，顏色是全站背景同一組三色漸層（accent-1 藍 → accent-2 黃 → accent-3 粉，
+   由左上到右下），以模糊的漸層邊框畫出連續、柔和的內側光暈（見下方 ::before）。
+   不擋點擊，疊在所有內容最上層（含頂端與手機底部的 Tab 列），才會是一圈完整的外框 */
+.glow {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  overflow: hidden; /* 隱藏超出視窗的外部模糊邊緣 */
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* 透過偽元素繪製一個比視窗更大的漸層邊框，並加上高斯模糊。
+   這樣可以保持漸層色彩的連續性，同時讓「內邊界」呈現柔和的光暈效果。 */
+.glow::before {
+  content: "";
+  position: absolute;
+  /* 將元素向外擴展，讓外側的模糊邊界推到畫面之外，只在畫面內留下內側的模糊 */
+  inset: -40px;
+  /* 邊框厚度 60px，減去向外擴展的 40px，實際上光暈會往畫面內延伸約 20px */
+  border: 60px solid;
+  border-image: linear-gradient(135deg, var(--color-accent-1-500) 0%, var(--color-accent-2-500) 50%, var(--color-accent-3-500) 100%) 1;
+  filter: blur(30px);
+}
+
+/* 呼吸式閃爍：透明度在淡與亮之間來回，讓使用者覺得舒服、不壓迫 */
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 使用者設定「減少動態效果」時不閃爍，只保留靜態光暈 */
+@media (prefers-reduced-motion: reduce) {
+  .glow {
+    animation: none;
+    opacity: 0.75;
+  }
+}

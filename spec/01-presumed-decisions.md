@@ -83,7 +83,7 @@
 | `POST` | `/questionnaire/answers` | 送出作答，建立風險屬性快照 | Cookie |
 | `GET` | `/risk-profiles/latest` | 取得目前生效的風險屬性 | Cookie |
 | `GET` | `/risk-profiles/{profile_id}` | 取得指定版本 | Cookie |
-| `POST` | `/risk-profiles/{profile_id}/regenerate-description` | AI 解析失敗後重新產生（每人每分鐘 1 次） | Cookie |
+| `POST` | `/risk-profiles/{profile_id}/regenerate-sections` | AI 解析失敗後重新產生（每人每分鐘 1 次） | Cookie |
 | `GET` | `/portfolios` | 投資組合清單 | Cookie |
 | `POST` | `/portfolios` | 新增投資組合 | Cookie |
 | `GET` | `/portfolios/{portfolio_id}` | 單一組合，含彙總部位與買進紀錄 | Cookie |
@@ -298,18 +298,18 @@ n8n 的格式定義於 `services/n8n_result.py`，符合 `CLAUDE.md` §8：只�
 
 ### P-25 `readiness` 列舉值統一（原 N-07）
 
-問卷階段與分析階段一律使用 `ready` / `limited` / `blocked`。原問卷 Prompt 的 `needs_review` → `limited`、`insufficient` → `blocked`，`spec/prompts/01_profile_system_prompt.md` 需同步改寫。
+分析階段使用 `ready` / `limited` / `blocked`。問卷階段已不使用 `readiness`（2026-09-25 起）：有衝突的作答不存檔，資料表中的風險屬性一定可用，見 `spec/04-behavior.md` §4.2.3。
 
 ## 六、環境變數（→ SPEC §2.6）
 
 | 變數 | 型別 | 預設 | 機密 | 說明 |
 | --- | --- | --- | --- | --- |
-| `GEMINI_API_KEY` | string | — | 是 | Gemini API 金鑰 |
-| `GEMINI_MODEL` | string | `gemini-3.5-flash` | 否 | 模型代號 |
-| `GEMINI_TIMEOUT_SECONDS` | int | `180` | 否 | 單次呼叫逾時（3 分鐘） |
-| `GEMINI_MAX_OUTPUT_TOKENS` | int | `65536` | 否 | 輸出上限，等於 `gemini-3.5-flash` 的模型上限 |
-| `GEMINI_TEMPERATURE` | float | `0.2` | 否 | 降低敘述漂移 |
-| `GEMINI_MAX_RETRIES` | int | `2` | 否 | JSON 解析失敗的重試次數 |
+| `OPENAI_API_KEY` | string | — | 是 | OpenAI API 金鑰 |
+| `OPENAI_MODEL` | string | `gpt-6-luna` | 否 | 模型代號 |
+| `OPENAI_REASONING_EFFORT` | string | `low` | 否 | 推理強度（none／low／medium／high） |
+| `OPENAI_MAX_OUTPUT_TOKENS` | int | `8000` | 否 | 單次輸出上限（含推理 token） |
+| `OPENAI_TIMEOUT_SECONDS` | int | `60` | 否 | 單次呼叫逾時 |
+| `OPENAI_MAX_ATTEMPTS` | int | `3` | 否 | 總呼叫次數上限（含第一次） |
 | `ANALYSIS_DEFAULT_LOOKBACK_YEARS` | int | `5` | 否 | 滑桿預設值 |
 | `ANALYSIS_MIN_LOOKBACK_YEARS` | int | `1` | 否 | 滑桿下界 |
 | `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | 否 | 滑桿上界；同時是日行情的保留年數與首次抓取年數（1～10） |
@@ -344,8 +344,8 @@ web-ai-talent-project/
     ├── 05-quality.md
     ├── 06-execution.md
     ├── prompts/
-    │   ├── 01_profile_system_prompt.md      # 問卷解說 system（原 02_system_prompt.txt，改名）
-    │   ├── 01_profile_user_prompt.md        # 問卷解說 user template
+    │   ├── risk_profile_system.md           # 風險屬性解析 system
+    │   ├── risk_profile_user.md             # 風險屬性解析 user template
     │   ├── 02_portfolio_system_prompt.md    # 分析報告 system
     │   └── 03_user_prompt_template.md       # 分析報告 user template
     └── appendix/
@@ -361,12 +361,12 @@ web-ai-talent-project/
 | P-32 | n8n 排程（2026-09-21 修訂，D-58） | 銀行利率每日 **00:00**；股票基本資料每日 **13:30**；每日股價與大盤每日 **14:00 與 00:00**（台北時間）。n8n 容器已設 `GENERIC_TIMEZONE=Asia/Taipei`，排程直接填本地時間。後端不做排程（`CLAUDE.md` §8）。重試由後端負責（3 次，間隔 5、20 秒），n8n 不設重試；非交易日抓不到新資料不視為錯誤 |
 | P-32b | 日收盤價的抓取區間（D-57） | 資料庫已有價格的個股與大盤只抓**近 1 個月**（大盤為 1 個月前的月初至本月）；沒有任何價格者（首次上線、新上市）抓 10 年 + 31 天。以 `(symbol, trade_date)` 覆寫，重跑無副作用，漏抓的日子下次自動補回；停機或連續失敗超過 1 個月則中間缺口補不回來。起訖日由後端計算，n8n 不傳參數 |
 | P-32c | 清理的執行時機 | 清理併入每日抓取的最後一步，**全部成功（無失敗）才執行**——避免資料既停止更新又持續縮短 |
-| P-33 | findings priority（原 Q-07） | `1 = primary_financial_constraints`、`2 = willingness_capacity_gap`、`3 = horizon_liquidity_consistency`、`4 = knowledge_experience_consistency`。四項全部存入 DB，AI 只在文章中解釋前兩項 |
+| P-33 | findings 順序（原 Q-07） | 依 `primary_financial_constraints`、`willingness_capacity_gap`、`horizon_liquidity_consistency`、`knowledge_experience_consistency`、`willingness_behavior_consistency` 的順序儲存。五項全部存入 DB，也全部送給 AI；AI 必須在四段解析中說明每一項。因為不做篩選，已移除 `priority` 欄位（2026-09-25 修訂，原為依 priority 只解釋前兩項） |
 | P-34 | `cash_flow` fact（原 Y-05） | 列為獨立 fact 輸出，`id = cash_flow`，來源 Q3。理由：`financial_capacity` 判為「低」時，AI 需要指出是哪一項拉低的，缺這個 fact 就只能含糊帶過 |
-| P-35 | Q11 選項 J 自由文字 | 欄位 `other_product_text`，`VARCHAR(100)`，僅允許中英數與全形標點，送入 Prompt 前移除換行與控制字元，並以獨立 JSON 欄位傳遞（不串接進任何指令句）。不參與商品經驗分類 |
+| P-35 | Q11 選項 J 自由文字 | 作答存於 `questionnaire_answers.answers.q11_other`，送 AI 時放在 `product_experience` fact 的 `other_text`；最多 100 字、僅允許中英數與全形標點、移除換行與控制字元，以 JSON 欄位傳遞（不串接進任何指令句）。勾「其他商品」視為有投資經驗（2026-09-25 修訂） |
 | P-36 | 圖表元件對應（修訂） | `@nivo/heatmap` → 相關係數熱圖；`@nivo/bar`（水平、分組）→ 權重 vs 風險貢獻、風險落差對照條；`@nivo/line`（含 `enableArea`）→ 淨值走勢與回撤面積。四張圖共用一個 `nivoTheme` 物件，其值全部讀自 `tokens.css` 的 CSS 變數（透過 `getComputedStyle` 取得，深色模式切換時重新計算） |
-| P-37 | 分析時的錯誤碼 | `INSUFFICIENT_PRICE_DATA`（無任何共同期間）、`BENCHMARK_UNAVAILABLE`（市場指數缺資料）、`RISK_FREE_RATE_UNAVAILABLE`（無完整五家利率）、`PROFILE_LIMITED`（readiness=limited，依 D-17 擋住）、`AI_REPORT_FAILED`（模型連續解析失敗） |
-| P-38 | AI 失敗降級 | 模型逾時或連續 `GEMINI_MAX_RETRIES` 次無法解析為合法 JSON 時，量化結果與四張圖照常顯示，AI 解說區塊顯示「暫時無法產生解說」與重試按鈕，回應 `report.status = "failed"`，不阻擋整頁 |
+| P-37 | 分析時的錯誤碼 | `INSUFFICIENT_PRICE_DATA`（無任何共同期間）、`BENCHMARK_UNAVAILABLE`（市場指數缺資料）、`RISK_FREE_RATE_UNAVAILABLE`（無完整五家利率）、`AI_REPORT_FAILED`（模型連續解析失敗）。原 `PROFILE_LIMITED` 已移除：有衝突的作答不存檔，不會有 limited 的風險屬性 |
+| P-38 | AI 失敗降級 | 模型用盡 `OPENAI_MAX_ATTEMPTS` 次呼叫仍失敗時，量化結果與四張圖照常顯示，AI 解說區塊顯示「暫時無法產生解說」與重試按鈕，回應 `report.status = "failed"`，不阻擋整頁 |
 | P-39 | 交易明細的日期驗證 | `trade_date` 不得晚於今日，不得早於 1990-01-01。日期早於該檔 `daily_quotes` 最早一筆時仍可輸入，僅在持有天數說明旁標註「早於可取得的價格資料起點」 |
 | P-40 | 年化持有報酬率的下限 | 持有天數 < 30 日時不計算年化值，顯示「持有期間過短，暫不年化」。理由：短期報酬年化會產生數百甚至上千 % 的誤導性數字 |
 | P-41 | 持股列表呈現 | 預設每檔一列，顯示加權平均成本、部位股數、市值、未實現損益、年化持有報酬率；點擊展開顯示該檔的全部買進紀錄（日期、股數、單價、該筆損益、該筆持有天數） |

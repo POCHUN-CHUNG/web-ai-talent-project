@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useState, ReactNode 
 import { Navigate, Outlet } from "react-router-dom";
 import { api } from "./api";
 
-// 風險屬性狀態：none=從未填問卷、ready=可進入後續流程、limited=作答有衝突須回問卷修正
-export type ProfileState = "none" | "ready" | "limited";
+// 風險屬性狀態：none=從未填問卷、ready=已有風險屬性，可進入後續流程
+export type ProfileState = "none" | "ready";
 // 全站共用的登入資訊：username=帳號（未登入為 null）、loading=確認中、setUsername=更新帳號、
 // profile=風險屬性狀態、refreshProfile=重新向後端確認風險屬性狀態
 type AuthState = {
@@ -24,11 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileState>("none");
 
-  // 【重新確認風險屬性狀態】取最新一份風險屬性：有就記下 readiness，查無（404）視為 none
+  // 【重新確認風險屬性狀態】有最新一份風險屬性就是 ready，查無（404）視為 none；資料表只存通過檢查的作答，有就代表可用
   const refreshProfile = useCallback(async () => {
     try {
-      const p = await api<{ readiness: string }>("/risk-profiles/latest");
-      setProfile(p.readiness === "ready" ? "ready" : "limited");
+      await api("/risk-profiles/latest");
+      setProfile("ready");
     } catch {
       setProfile("none");
     }
@@ -37,13 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 每次載入頁面（含輸入網址、書籤）都向後端確認登入狀態
   useEffect(() => {
     api<{ username: string; hasRiskProfile: boolean }>("/auth/me")
-      .then(async (u) => {
+      .then((u) => {
         setUsername(u.username); // 已登入：記下帳號
-        if (u.hasRiskProfile) await refreshProfile(); // 有風險屬性才需要查是否被擋住
+        setProfile(u.hasRiskProfile ? "ready" : "none");
       })
       .catch(() => setUsername(null)) // 未登入：清空
       .finally(() => setLoading(false)); // 確認完畢
-  }, [refreshProfile]);
+  }, []);
 
   return <Ctx.Provider value={{ username, loading, setUsername, profile, refreshProfile }}>{children}</Ctx.Provider>;
 }
@@ -57,8 +57,7 @@ export function RequireAuth() {
   return username ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
-// 【風險屬性守衛】保護後續功能頁，無參數：尚未填問卷，或作答有衝突（limited）時，一律導回風險屬性頁
-// （尚未填過會在該頁看到「開始評估」引導，並跳出強制提示視窗；作答有衝突則由該頁再導去問卷修正）。
+// 【風險屬性守衛】保護後續功能頁，無參數：尚未填問卷時一律導回風險屬性頁（該頁會顯示「開始評估」引導並跳出提示視窗）。
 // 帶 blocked 記號，讓風險屬性頁知道這是被擋下來的，才需要跳出提示視窗（直接切到這頁查看則不用）。
 export function RequireProfile() {
   const { profile } = useAuth();

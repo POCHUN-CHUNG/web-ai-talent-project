@@ -1,7 +1,7 @@
 # 附錄 E · 規格變更紀錄
 
 > 本檔為 `SPEC.md` 的子文件。**每次修改任何規格文件都必須在此留下一列。**
-> 文件版本：1.7.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
 
 多檔模式下所有規格檔共用同一個版本號。修改任一子文件時，該子文件與 `SPEC.md` 的標頭版本號須同步更新，並在此記錄。
 
@@ -19,6 +19,7 @@
 | 1.5.0 | 2026-09-21 | D-64：`daily_quotes` 移除冗餘的倒序索引 `idx_daily_quotes_symbol_date`（查詢走唯一鍵索引）；每日抓取回傳取消 `abnormal`（11% 異常提醒）與 `restated`，`failed`、`no_data` 清單每項附名稱 | 00、01、03、05，`SPEC.md`，附錄 E |
 | 1.6.0 | 2026-09-21 | D-65 ~ D-76（問卷階段實作後）：送出後「分析中」遮罩與等待 AI 後一次顯示結果；核心指標不可調整；結果頁不顯示交叉分析但後端保留；結果頁按鈕依進入方式變化；題庫以柏鈞提供的問卷為準；上次填寫日期格式；Gemini schema 不含 `additionalProperties`；D-69：問卷送出每人每分鐘 1 次（429 `RATE_LIMITED`），新增驗收 B17；D-70：取消分析端點的每分鐘 3 次限流；D-71：重填冷卻提前到進入問卷頁前提示（新增 `GET /questionnaire/cooldown`、modal），新增驗收 B18；D-72：問卷頁「取消」按鈕，新增驗收 B19；D-73：解析失敗改「重新產生」按鈕（新增 `POST /risk-profiles/{id}/regenerate-description`、唯讀例外 failed→pending）與結果頁文案，新增驗收 B20；D-75：描述停在 `pending` 的逾時保護（Redis 標記、逾時判 `failed`），新增驗收 B21；D-76：`limited` 送出不限流、不呼叫 AI；D-74：重新產生時不顯示「分析中」遮罩、改在解析區塊顯示「產生中…」；新增驗收 B12a、B12b；問卷測試向量改為 pytest 內建 | `SPEC.md`、00、03、04、05、附錄 C、附錄 E |
 | 1.7.0 | 2026-09-21 | 階段 4 實作後：驗收 C11 的參考值由 0.4870 更正為 0.4855（依公式 $(1.05)^{365/45}-1$ 計算）；`Position`／`PortfolioSummary` 補上「無報價時為 null」規則與 `PositionLot`（該筆損益與持有天數）、`PortfolioSummary` 補 `costAmount`；「代號為指數」統一回 400（與 C3、§4.2.1 一致）；首頁新增「新增投資組合」入口（風險屬性結果頁按鈕帶入展開新增表單）；D-77：買進紀錄不再由使用者輸入價格，改由系統帶入買進日調整後收盤價（該日無資料一律拒絕、不遞補；日期選擇器只開放該檔有資料的日期（新增 `GET /stocks/{symbol}/close`、`GET /stocks/{symbol}/trading-dates`，前端引入 `react-day-picker`），`POST`／`PATCH` 移除 `unitCost`）；所有圖表一律使用 Nivo（含 `@nivo/pie`） | `SPEC.md`、03、05、附錄 E |
+| 1.8.0 | 2026-09-25 | D-78 ~ D-84（風險屬性 Prompt 與 AI 改版）：AI 改用 OpenAI `gpt-6-luna`（Responses API、Structured Outputs、prompt caching），環境變數改為 `OPENAI_*`；作答衝突回 422 `ANSWER_CONFLICT` 且不存檔，`risk_profiles` 刪除 `readiness`、`issues`，`description` 改為 `sections`（四段）；Prompt 改為 `risk_profile_system`／`risk_profile_user`，刪除 readiness／issues 分支、四個 finding 全部說明、新增「避免虧損優先」立場；facts／findings 直接存成 Prompt 格式（選項原文、`limiting_fact_ids`、`raised_by_reserve`、`other_text`，移除 `availability`、`statement`）；Q11 送商品清單、只勾「其他」算有經驗；題庫改版（無補充說明、「%」前加空格）；首次登入改停在風險屬性頁並以提示視窗擋住其他頁面（FR-06）。D-85 ~ D-89：facts 依題號順序儲存；移除 finding 的 `priority`；Prompt 6.2.0（以「您」稱呼、每段 180–300 字、舉例與平穩收尾、避免重複）；四段標題改為「四字＋與＋四字」；分析中改為標題＋轉圈圈＋外框漸層閃爍，刪除全螢幕遮罩。D-90 ~ D-92：投資經驗有年數卻從未投資、經常透支卻 20 % 損失毫無影響皆判為衝突（多項一次回報）；新增 Finding 5 承受意願－下跌反應一致性（規則 1.1.0、Prompt 6.3.0）；重新產生時也顯示外框閃爍。D-93 ~ D-95：問卷頁改版（單欄玻璃卡、整列選項、進度條、左取消右送出）；衝突紅框＋提示視窗＋自動捲動；註冊後直接到風險屬性頁不跳提示。D-96 ~ D-99：Q11 選項改為「其他商品」；Prompt 6.4.0 不再用木桶比喻；分析中光暈加深並疊在最上層；導向提示記號讀取後即清除，重新整理不再重複跳出提示。D-100：衝突說明寫出題號、題目卡寫出與第幾題矛盾、整組取消紅框、有紅框時不能送出；「其他商品」說明欄改為只顯示提示文字。D-101：衝突提示視窗標題與文案調整、紅字不以「這題」開頭、改完衝突題自動捲到另一題。D-102：自動捲動改為題目頂端對齊。D-103：Q7、Q8 改為整體投資的問法，投資期限作為整體預設、分析前可依組合調整（Prompt 6.5.0）。D-104：Q5、Q8、Q12 題目文字微調（Prompt 6.5.1）。D-105：設定頁不需完成評估即可進入。D-106：分析中光暈改為模糊漸層邊框。D-107：Prompt 6.6.0 收尾與但書寫法調整 | `SPEC.md`、00、01、02、03、04、05、06、附錄 B、附錄 C、附錄 E、`spec/prompts/` |
 
 ## 1.0.0 的決策來源
 
