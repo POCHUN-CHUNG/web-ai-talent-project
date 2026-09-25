@@ -6,6 +6,8 @@ import PortfolioDetail from "./pages/PortfolioDetail";
 import Settings from "./pages/Settings";
 import Questionnaire from "./pages/Questionnaire";
 import RiskProfile from "./pages/RiskProfile";
+import RiskAnalysis from "./pages/RiskAnalysis";
+import History from "./pages/History";
 import TabsLayout from "./components/layout/TabsLayout";
 import ScrollbarOverlay from "./components/layout/ScrollbarOverlay";
 
@@ -27,10 +29,12 @@ export default function App() {
             {/* 4. 有頂端 Tab 列的頁面共用同一個 TabsLayout，切換分頁時 TopBar 不重新掛載，動畫才會順 */}
             <Route element={<TabsLayout />}>
               <Route path="/risk-profile" element={<RiskProfile />} />
-              {/* 5. 其餘頁面須先有可用的風險屬性，否則導向問卷 */}
+              {/* 5. 其餘頁面須先有可用的風險屬性，否則導向風險屬性頁（該頁會引導去填問卷） */}
               <Route element={<RequireProfile />}>
                 {/* 投資組合為子路由（非根路由），保留給之後新增的首頁使用；目前根路由先導向投資組合頁 */}
                 <Route path="/portfolios" element={<Portfolios />} />
+                <Route path="/analysis" element={<RiskAnalysis />} />
+                <Route path="/history" element={<History />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/" element={<Navigate to="/portfolios" replace />} />
               </Route>

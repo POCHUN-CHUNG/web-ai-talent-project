@@ -176,3 +176,13 @@
   font-family: var(--font-family);
   font-size: var(--text-body-md-size);
 }
+
+.mobileBreak {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .mobileBreak {
+    display: block;
+  }
+}
