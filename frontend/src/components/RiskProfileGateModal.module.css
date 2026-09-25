@@ -1,0 +1,83 @@
+/* 遮罩：比照 Modal.module.css 的作法，z-index 刻意比頂端 Tab 列（50）低，讓頂端列維持清晰 */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background-color: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+}
+
+/* 視窗本體：仿 macOS 系統 Alert（大圓角、左對齊文字、左右並排的滿版圓角按鈕），套用本站的液態玻璃質感 */
+.alert {
+  width: 100%;
+  max-width: 480px;
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    var(--shadow-level-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  color: var(--color-on-surface);
+}
+
+.message {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  line-height: var(--text-body-md-line-height);
+  color: var(--color-on-surface-variant);
+}
+
+/* 取消／開始評估左右並排，各占一半寬度 */
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.cancelButton,
+.startButton {
+  flex: 1;
+  border: none;
+  border-radius: var(--radius-button);
+  padding: 14px var(--space-md);
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.cancelButton {
+  background-color: var(--color-surface-container-highest);
+  color: var(--color-on-surface);
+}
+.cancelButton:hover {
+  background-color: var(--color-neutral-200);
+}
+
+.startButton {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.startButton:hover {
+  background-color: var(--color-primary-hover);
+}

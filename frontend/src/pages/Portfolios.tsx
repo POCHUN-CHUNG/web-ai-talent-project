@@ -147,7 +147,7 @@ export default function Portfolios() {
             <p>載入中…</p>
           ) : items.length === 0 ? (
             <div style={{ padding: "2rem", textAlign: "center", border: "1px dashed var(--color-outline)", borderRadius: "var(--radius-card)", lineHeight: 1.5 }}>
-              開始建立您的第一個投資組合，<br className={styles.mobileBreak} />請點擊右上角「新增」
+              請點擊右上角「新增」，<br className={styles.mobileBreak} />建立您的第一個投資組合
             </div>
           ) : (
             items.map((p) => (

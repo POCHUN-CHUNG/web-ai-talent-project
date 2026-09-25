@@ -1,7 +1,7 @@
 # 06 · 執行層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.5.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
 
 本層定義實作階段拆分、完成定義、版控規範與部署流程。**開工前與交付前必讀。**
 
@@ -43,7 +43,7 @@
 | 新增 `errors.py`：錯誤碼列舉、統一例外處理、`trace_id` 中介層 | `backend/app/errors.py` |
 | 新增 `schemas.py` 骨架 | `backend/app/schemas.py` |
 | 新增環境變數至 `.env.example` 與 `docker-compose.yml` | 三處同步 |
-| 安裝 `numpy`、`google-genai`、`alembic`、`pytest` 等 | `requirements.txt` |
+| 安裝 `numpy`、`openai`、`alembic`、`pytest` 等 | `requirements.txt` |
 | 建立 `tests/` 目錄結構與 `conftest.py` | `tests/` |
 
 **出場條件**：A1–A10 全通過（既有功能未被破壞）、`alembic upgrade head` 可從空資料庫建出完整結構、`pytest` 可執行。
@@ -83,7 +83,7 @@
 | 14 題題庫（題目、選項、互斥與必填規則） | `services/questionnaire.py` |
 | **全部轉換規則與交叉分析**（`spec/04-behavior.md` §4.2） | `services/questionnaire.py` |
 | `GET /questionnaire`、`POST /questionnaire/answers`、`GET /risk-profiles/*` | `routers/questionnaire.py` |
-| Gating 邏輯（`hasRiskProfile` 與 `limited` 的導向） | `frontend/src/auth.tsx` |
+| Gating 邏輯（`hasRiskProfile` 的導向與提示視窗） | `frontend/src/auth.tsx` |
 | `Questionnaire.tsx`、`RiskProfile.tsx` | `frontend/src/pages/` |
 
 **出場條件**：B1–B11、B15、B16 通過（B12–B14 屬階段 8）；§5.6 的 Q1–Q7 窮舉向量全數通過。
@@ -143,11 +143,11 @@
 | 工作 | 檔案 |
 | --- | --- |
 | Prompt 純文字檔與 CI 一致性檢查 | `backend/app/prompts/`、CI |
-| Gemini 客戶端、schema 驗證、引用白名單驗證、重試與退避 | `services/ai_client.py` |
+| OpenAI 客戶端、schema 驗證、引用白名單驗證、重試與退避 | `services/ai_client.py` |
 | payload 組裝與欄位白名單檢查（擋成本、損益、日期） | `services/ai_client.py` |
 | `analysis_reports` 表與 migration | `models.py`、`migrations/` |
 | `GET /analysis/{id}/report`、`POST .../report/retry` | `routers/analysis.py` |
-| 問卷描述的 AI 呼叫與 `description_status` 更新 | `services/` |
+| 風險屬性解析的 AI 呼叫與 `sections_status` 更新 | `services/profile_ai.py` |
 | `partial` 狀態與重試入口 | `frontend/src/pages/AnalysisReport.tsx` |
 
 **出場條件**：B12–B14、E9–E14、E17、E18、E20–E22 通過。
@@ -216,7 +216,7 @@
 
 ```bash
 cp .env.example .env
-# 編輯 .env：設定 N8N_API_KEY 與 GEMINI_API_KEY
+# 編輯 .env：設定 N8N_API_KEY 與 OPENAI_API_KEY
 docker compose up -d --build
 docker compose exec backend alembic upgrade head
 ```

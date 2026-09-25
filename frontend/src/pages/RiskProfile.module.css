@@ -157,12 +157,90 @@
   color: var(--color-on-surface);
 }
 
-.description {
+/* 分析中：標題下方置中的轉圈圈，不附文字 */
+.spinnerWrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-xl) 0;
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid var(--color-outline-variant);
+  border-top-color: var(--color-primary);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* AI 解析：四段各有標題，段與段之間以分隔線隔開 */
+.analysisSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.analysisSection + .analysisSection {
+  border-top: 1px solid var(--color-outline-variant);
+  padding-top: var(--space-md);
+}
+
+.analysisTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  letter-spacing: 0;
+  color: var(--color-on-surface);
+}
+
+/* 小標題前的項目符號：黑色小圓點，與標題文字同色（純裝飾，螢幕報讀不會唸出） */
+.analysisTitle::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-on-surface);
+}
+
+.analysisBody {
+  margin: 0;
   font-family: var(--font-family);
   font-size: var(--text-body-md-size);
   line-height: var(--text-body-md-line-height);
   color: var(--color-on-surface);
   white-space: pre-wrap;
+}
+
+/* 解析失敗：錯誤說明與「重新產生」按鈕同一列，手機改上下排 */
+.failedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+@media (max-width: 734px) {
+  .failedRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .emptyText {
@@ -175,4 +253,14 @@
   color: var(--color-error);
   font-family: var(--font-family);
   font-size: var(--text-body-md-size);
+}
+
+.mobileBreak {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .mobileBreak {
+    display: block;
+  }
 }

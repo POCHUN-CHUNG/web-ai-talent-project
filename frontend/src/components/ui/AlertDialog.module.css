@@ -1,0 +1,77 @@
+/* 提示視窗：仿 macOS Alert（左對齊文字、滿版按鈕），套用液態玻璃質感；
+   使用原生 <dialog> 的 showModal()，會自動鎖定焦點、按 Esc 關閉，並放在最上層 */
+.dialog {
+  width: calc(100% - 2 * var(--space-md));
+  max-width: 440px;
+  padding: var(--space-lg);
+  border-radius: var(--radius-card);
+  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
+    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    var(--shadow-level-4);
+  color: var(--color-on-surface);
+  outline: none;
+}
+
+.dialog::backdrop {
+  background-color: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin: 0;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  line-height: var(--text-headline-sm-line-height);
+  letter-spacing: 0;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  line-height: var(--text-body-md-line-height);
+  color: var(--color-on-surface-variant);
+}
+
+.message p {
+  margin: 0;
+}
+
+.action {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-button);
+  padding: 14px var(--space-md);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.action:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.action:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}

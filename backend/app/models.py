@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -79,18 +79,18 @@ def _utc_now() -> datetime:
 
 
 class QuestionnaireAnswer(Base):
-    # 【問卷作答資料表】每次送出問卷存一列，唯讀快照：只新增與查詢，不修改、不刪除
+    # 【問卷作答資料表】每次成功送出問卷存一列（已通過驗證與衝突檢查），唯讀快照：只新增與查詢，不修改、不刪除
     __tablename__ = "questionnaire_answers"
 
     id: Mapped[int] = mapped_column(primary_key=True)  # 作答編號（自動遞增）
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))  # 作答的使用者（刪帳號時一併清除）
-    answers: Mapped[dict] = mapped_column(JSONB)  # 14 題作答，如 {"q1":"B",...,"q11":["B","C"],"q11_other":null}
+    answers: Mapped[dict] = mapped_column(JSONB)  # 14 題作答（選項代號），如 {"q1":"B",...,"q11":["B","C"],"q11_other":null}
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 送出時間（UTC）
     __table_args__ = (Index("idx_qa_user_created", "user_id", "created"),)
 
 
 class RiskProfile(Base):
-    # 【風險屬性資料表】問卷轉換後的結果快照，唯讀：只新增與查詢；唯一例外是 AI 描述回來後可更新一次描述與狀態
+    # 【風險屬性資料表】問卷轉換後的結果快照，唯讀：只新增與查詢；唯一例外是 AI 解析回來後可更新一次解析與狀態
     __tablename__ = "risk_profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True)  # 風險屬性編號（自動遞增）
@@ -98,20 +98,17 @@ class RiskProfile(Base):
     questionnaire_answer_id: Mapped[int] = mapped_column(
         ForeignKey("questionnaire_answers.id", ondelete="CASCADE")
     )  # 對應的作答
-    readiness: Mapped[str] = mapped_column(String(10))  # 可否進入後續流程：ready／limited／blocked
-    loss_tolerance: Mapped[str] = mapped_column(String(20))  # 核心指標：可接受損失區間
-    investment_horizon: Mapped[str] = mapped_column(String(20))  # 核心指標：投資期限
+    loss_tolerance: Mapped[str] = mapped_column(String(20))  # 核心指標：可接受損失區間（Q13 選項原文）
+    investment_horizon: Mapped[str] = mapped_column(String(20))  # 核心指標：投資期限（Q7 選項原文）
     liquidity_need: Mapped[str] = mapped_column(String(10))  # 核心指標：資金流動性需求
     financial_capacity: Mapped[str] = mapped_column(String(10))  # 核心指標：財務風險承受能力
-    facts: Mapped[list] = mapped_column(JSONB)  # 事實清單（17 項）
-    findings: Mapped[list] = mapped_column(JSONB)  # 交叉分析結果（4 項）
-    issues: Mapped[list] = mapped_column(JSONB)  # 資料問題（作答衝突或缺漏）
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)  # AI 產生的風險屬性描述
-    description_status: Mapped[str] = mapped_column(String(10), default="pending")  # 描述狀態：pending／ready／failed
+    facts: Mapped[list] = mapped_column(JSONB)  # 事實清單（17 項），格式即送給 AI 的格式
+    findings: Mapped[list] = mapped_column(JSONB)  # 交叉分析結果（5 項），格式即送給 AI 的格式
+    sections: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # AI 產生的四段風險屬性解析（成功前為空）
+    sections_status: Mapped[str] = mapped_column(String(10), default="pending")  # 解析狀態：pending／ready／failed
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 建立時間（UTC）
     __table_args__ = (
-        CheckConstraint("readiness IN ('ready','limited','blocked')", name="ck_rp_readiness"),
-        CheckConstraint("description_status IN ('pending','ready','failed')", name="ck_rp_description_status"),
+        CheckConstraint("sections_status IN ('pending','ready','failed')", name="ck_rp_sections_status"),
         Index("idx_rp_user_created", "user_id", "created"),
     )
 

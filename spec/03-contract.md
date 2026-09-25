@@ -1,7 +1,7 @@
 # 03 · 契約層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.7.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
 
 本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
 
@@ -93,61 +93,59 @@ type PositionLot = HoldingLot & {  // 買進紀錄加上該筆的損益資料（
 
 ### 風險屬性
 
+API 回應（`GET /risk-profiles/latest`）只含前端需要的欄位：
+
 ```ts
 type RiskProfile = {
   id: number;
-  questionnaireAnswerId: number;
-  readiness: "ready" | "limited" | "blocked";
   coreIndicators: {
-    lossTolerance: "未滿5%" | "5%～10%" | "10%～20%" | "20%～30%" | "30%以上";
-    investmentHorizon: "1年以內" | "1～3年" | "3～5年" | "5～10年" | "10年以上";
+    lossTolerance: "未滿 5 %" | "5 - 9 %" | "10 - 19 %" | "20 - 29 %" | "30 % 以上";   // Q13 選項原文
+    investmentHorizon: "未滿 1 年" | "1 - 2 年" | "3 - 4 年" | "5 - 9 年" | "10 年以上";  // Q7 選項原文
     liquidityNeed: "極高" | "高" | "中等" | "低";
     financialCapacity: "低" | "中等" | "高";
   };
-  facts: Fact[];
-  findings: Finding[];
-  issues: Issue[];
-  description: string | null;            // AI 產生的風險屬性描述
-  descriptionStatus: "ready" | "failed" | "pending";
+  sections: Section[] | null;            // AI 產生的四段解析，成功前為 null
+  sectionsStatus: "ready" | "failed" | "pending";
   created: string;
 };
 
+type Section = {
+  key: "funding_timing" | "willingness_capacity" | "decline_response" | "knowledge_experience";
+  body: string;
+  fact_ids: string[];
+  finding_ids: string[];
+};
+```
+
+資料表 `risk_profiles` 的 `facts`、`findings` 兩欄**直接存成 Prompt 要的格式**（snake_case），送 AI 時原樣帶出，不另做轉換：
+
+```ts
 type Fact = {
-  id: string;            // 見下方 fact id 清單
-  label: string;         // 顯示名稱
-  valueText: string;     // 原始區間文字，不轉成數字
-  availability: "available" | "missing" | "conflicted";
-  sourceQuestionIds: string[];   // 例 ["Q3","Q4","Q9"]
-  basisFactIds: string[];
+  id: string;                    // 見下方 fact id 清單
+  label: string;                 // 指標名稱
+  value_text: string;            // 直接對應單一題目時為選項原文；運算結果為等級文字
+  source_question_ids: string[]; // 例 ["Q3","Q4","Q9"]
+  basis_fact_ids: string[];      // 由哪些 fact 組合而成
+  limiting_fact_ids?: string[];  // 只有 financial_capacity、short_term_resilience：落在最低等級的 fact；結果已是最高等級時為 []
+  raised_by_reserve?: boolean;   // 只有 liquidity_need：緊急預備金使等級高於提款機率本身對應的等級
+  other_text?: string;           // 只有 product_experience，且使用者勾「其他商品」時才有
 };
 
 type Finding = {
   id: string;
-  priority: 1 | 2 | 3 | 4;
-  statement: string;
-  factIds: string[];
-};
-
-type Issue = {
-  id: string;
-  kind: "experience_conflict" | "missing_answer";
-  description: string;
-  affectedFactIds: string[];
+  result?: string;               // 判定結果；primary_financial_constraints 沒有
+  labels?: string[];             // 只有 primary_financial_constraints；沒有觸發時為 ["無明顯限制"]
+  fact_ids: string[];
 };
 ```
 
-**Fact id 固定清單**（17 項）：
+**Fact id 固定清單與儲存順序**（17 項，依題號 Q1→Q14 排列，由多題運算而來的三項放最後；程式與 AI 都以 id 查找，順序不影響計算）：
 
-`loss_tolerance`、`investment_horizon`、`liquidity_need`、`financial_capacity`、`cash_flow`、`emergency_reserve`、`withdrawal_need`、`investment_exposure`、`loss_impact_20pct`、`market_decline_behavior`、`short_term_resilience`、`diversification_knowledge`、`age`、`income`、`investment_goal`、`investment_experience`、`product_experience`。
+`age`、`income`、`cash_flow`、`emergency_reserve`、`investment_exposure`、`investment_goal`、`investment_horizon`、`withdrawal_need`、`loss_impact_20pct`、`investment_experience`、`product_experience`、`diversification_knowledge`、`loss_tolerance`、`market_decline_behavior`、`liquidity_need`、`financial_capacity`、`short_term_resilience`。
 
-**Finding id 與 priority 固定對應**（P-33）：
+**Finding id 固定清單**（5 項，依此順序儲存；全部送給 AI 說明，不做篩選，因此不設優先順序，P-33）：
 
-| id | priority |
-| --- | :---: |
-| `primary_financial_constraints` | 1 |
-| `willingness_capacity_gap` | 2 |
-| `horizon_liquidity_consistency` | 3 |
-| `knowledge_experience_consistency` | 4 |
+`primary_financial_constraints`、`willingness_capacity_gap`、`horizon_liquidity_consistency`、`knowledge_experience_consistency`、`willingness_behavior_consistency`。
 
 ### 分析結果
 
@@ -337,11 +335,11 @@ CREATE TABLE bank_rates (
     updated     TIMESTAMPTZ  PRIMARY KEY
 );
 
--- 問卷作答（唯讀快照）
+-- 問卷作答（唯讀快照；只存通過驗證與衝突檢查的作答）
 CREATE TABLE questionnaire_answers (
     id      BIGSERIAL PRIMARY KEY,
     user_id BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    answers JSONB       NOT NULL,   -- {"q1":"B","q2":"C",...,"q11":["B","C"],"q11_other":"..."}
+    answers JSONB       NOT NULL,   -- 選項代號：{"q1":"B","q2":"C",...,"q11":["B","C","J"],"q11_other":"..."}
     created TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_qa_user_created ON questionnaire_answers (user_id, created DESC);
@@ -351,18 +349,15 @@ CREATE TABLE risk_profiles (
     id                      BIGSERIAL PRIMARY KEY,
     user_id                 BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     questionnaire_answer_id BIGINT      NOT NULL REFERENCES questionnaire_answers(id) ON DELETE CASCADE,
-    readiness               VARCHAR(10) NOT NULL
-                            CHECK (readiness IN ('ready','limited','blocked')),
-    loss_tolerance          VARCHAR(20) NOT NULL,
-    investment_horizon      VARCHAR(20) NOT NULL,
+    loss_tolerance          VARCHAR(20) NOT NULL,   -- Q13 選項原文
+    investment_horizon      VARCHAR(20) NOT NULL,   -- Q7 選項原文
     liquidity_need          VARCHAR(10) NOT NULL,
     financial_capacity      VARCHAR(10) NOT NULL,
-    facts                   JSONB       NOT NULL,
-    findings                JSONB       NOT NULL,
-    issues                  JSONB       NOT NULL,
-    description             TEXT,
-    description_status      VARCHAR(10) NOT NULL DEFAULT 'pending'
-                            CHECK (description_status IN ('pending','ready','failed')),
+    facts                   JSONB       NOT NULL,   -- 17 項，格式即送給 AI 的格式（§3.1 Fact）
+    findings                JSONB       NOT NULL,   -- 5 項，格式即送給 AI 的格式（§3.1 Finding）
+    sections                JSONB,                  -- AI 產生的四段解析（§3.1 Section），成功前為 NULL
+    sections_status         VARCHAR(10) NOT NULL DEFAULT 'pending'
+                            CHECK (sections_status IN ('pending','ready','failed')),
     created                 TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_rp_user_created ON risk_profiles (user_id, created DESC);
@@ -456,7 +451,7 @@ CREATE INDEX idx_reports_analysis ON analysis_reports (analysis_result_id, creat
 ### 唯讀快照的實作約束
 
 `questionnaire_answers`、`risk_profiles`、`analysis_results`、`analysis_reports` 四張表**只允許 INSERT 與 SELECT**。
-例外：`risk_profiles.description` 與 `description_status` 只允許以下三種 UPDATE：①AI 回傳後由 `pending` 寫入結果（`ready` 或 `failed`）；②狀態為 `failed` 時，使用者按「重新產生」改回 `pending`（D-73）。③讀取時發現 `pending` 已逾時（見 §3.3），改為 `failed`。三者皆限定 `WHERE` 目前狀態。此為唯一例外，需在程式中以專用函式封裝，不得開放一般更新路徑。
+例外：`risk_profiles.sections` 與 `sections_status` 只允許以下三種 UPDATE：①AI 回傳後由 `pending` 寫入結果（`ready` 或 `failed`）；②狀態為 `failed` 時，使用者按「重新產生」改回 `pending`（D-73）。③讀取時發現 `pending` 已逾時（見 §3.3），改為 `failed`。三者皆限定 `WHERE` 目前狀態。此為唯一例外，需在程式中以專用函式封裝，不得開放一般更新路徑。
 
 ---
 
@@ -488,13 +483,13 @@ CREATE INDEX idx_reports_analysis ON analysis_reports (analysis_result_id, creat
 | `USERNAME_TAKEN` | 409 | 帳號已存在 |
 | `PORTFOLIO_NAME_TAKEN` | 409 | 同一使用者已有同名組合 |
 | `PROFILE_REQUIRED` | 409 | 尚未完成問卷（Gating） |
-| `PROFILE_LIMITED` | 409 | `readiness = limited`，須回問卷修正 |
+| `ANSWER_CONFLICT` | 422 | 問卷作答前後矛盾（Q10 與 Q11、Q3 與 Q9），不存檔；回應另帶 `conflicts`（每項 `{message, questionIds}`） |
 | `LIMIT_EXCEEDED` | 422 | 超過組合數、持股檔數或買進筆數上限 |
 | `INSUFFICIENT_PRICE_DATA` | 422 | 無任何共同期間可計算 |
 | `BENCHMARK_UNAVAILABLE` | 422 | 基準指數在該期間無資料 |
 | `RISK_FREE_RATE_UNAVAILABLE` | 422 | `bank_rates` 為空 |
 | `RATE_LIMITED` | 429 | 超過限流 |
-| `AI_NOT_CONFIGURED` | 503 | 未設定 `GEMINI_API_KEY` |
+| `AI_NOT_CONFIGURED` | 503 | 未設定 `OPENAI_API_KEY` |
 | `AI_REPORT_FAILED` | 502 | 模型連續解析失敗 |
 | `UPSTREAM_FETCH_FAILED` | 502 | 銀行網頁爬取失敗 |
 | `INTERNAL_ERROR` | 500 | 未預期的例外 |
@@ -523,17 +518,16 @@ Response 200:
   "questions": [
     {
       "id": "Q1",
-      "title": "您的年齡區間為何？",
-      "note": null,
+      "title": "您的年齡？",
       "type": "single",                     // "single" | "multiple"
       "options": [
-        {"value": "A", "label": "18 歲以上，未滿 30 歲"},
+        {"value": "A", "label": "18 - 29 歲"},
         ...
       ]
     },
     {
       "id": "Q11",
-      "title": "您曾實際投資或交易過哪些金融商品？（可複選）",
+      "title": "曾實際投資過的商品？（可複選）",
       "type": "multiple",
       "exclusiveOption": "K",               // 勾選後其餘選項自動取消
       "otherOption": "J",                   // 勾選後需填自由文字
@@ -568,14 +562,15 @@ Request:
 }
 
 Response 201:
-{ "riskProfileId": 12, "readiness": "ready" }
+{ "riskProfileId": 12 }
 
 Errors:
-| 400 | INVALID_INPUT | 缺題、選項值不存在、q11 同時含 K 與其他選項、q11 含 J 但未填 q11Other |
-| 429 | RATE_LIMITED | 同一使用者 1 分鐘內再次送出**作答完整的問卷**（每次都會呼叫 AI；被 400 擋回的、以及結果為 `limited` 的送出不計次也不呼叫 AI，D-69、D-76） |
+| 400 | INVALID_INPUT | 缺題、選項值不存在、q11 同時含 K 與其他選項、q11 含 J 但未填 q11Other、q11Other 超過 100 字或含不允許的字元 |
+| 422 | ANSWER_CONFLICT | 作答前後矛盾（Q10 與 Q11、Q3 與 Q9，見 04 §4.2.3）；detail 另帶 "conflicts"，每項為 {"message": "第 10 題（投資經驗）選了「無任何經驗」，但第 11 題（曾投資過的商品）有勾選金融商品。", "questionIds": ["Q10","Q11"]}，說明文字直接寫出題號 |
+| 429 | RATE_LIMITED | 同一使用者 1 分鐘內再次**成功**送出（每次都會呼叫 AI；被 400、422 擋回的送出不計次、不呼叫 AI，D-69） |
 ```
 
-14 題全部必填。`readiness` 為 `limited` 時仍建立 `risk_profiles` 快照（保留證據），但後續流程被 `PROFILE_LIMITED` 擋住（D-17）。
+14 題全部必填。處理順序：驗證（400）→ 衝突檢查（422）→ 限流（429）→ 寫入。**只有通過前兩項檢查的作答才會寫入** `questionnaire_answers` 與 `risk_profiles`；被擋回的作答不留任何資料，由前端標示題號請使用者修正。
 
 ```
 GET /risk-profiles/latest
@@ -589,20 +584,18 @@ Errors: 404 NOT_FOUND（從未填過問卷）、403 FORBIDDEN_RESOURCE
 重新產生端點：
 
 ```
-POST /risk-profiles/{profile_id}/regenerate-description
+POST /risk-profiles/{profile_id}/regenerate-sections
 Auth: Cookie
 
-Response 202: { "descriptionStatus": "pending" }   // 已改回 pending 並在背景重新呼叫 AI；前端維持頁面、解析區塊顯示「產生中…」並輪詢（D-74）
+Response 202: { "sectionsStatus": "pending" }   // 已改回 pending 並在背景重新呼叫 AI；前端維持頁面、解析區塊顯示「產生中…」並輪詢（D-74）
 Errors: 404 NOT_FOUND、403 FORBIDDEN_RESOURCE、429 RATE_LIMITED（每人每分鐘 1 次，與送出問卷各自獨立計時）
 ```
 
-僅 `description_status = failed` 時才會重新產生；`ready` 或 `pending` 時不動作、不計入限流，直接回目前狀態（`{ "descriptionStatus": "ready" }` 或 `pending`，狀態碼同為 202）。
+僅 `sections_status = failed` 時才會重新產生；`ready` 或 `pending` 時不動作、不計入限流，直接回目前狀態（`{ "sectionsStatus": "ready" }` 或 `pending`，狀態碼同為 202）。
 
-`description_status` 為 `pending` 時，前端顯示「分析中」遮罩並每 2 秒重取一次，最多約 2 分鐘（D-65）；後端另以 Redis 標記 `description_pending:{id}`（有效 `GEMINI_TIMEOUT_SECONDS + 60` 秒，預設 240 秒）判斷背景工作是否已中斷：標記過期仍是 `pending` 者，讀取時改判為 `failed`（D-75）；轉為 `ready` 才顯示結果，`failed` 時指標照常顯示、「風險屬性解析」標題右側顯示「重新產生」按鈕（下方一行提示文字，見 04 §4.4.2），按下呼叫下方的重新產生端點（D-73）。
+`sections_status` 為 `pending` 時，前端只顯示標題、轉圈圈與外框閃爍，並每 2 秒重取一次，最多約 4 分鐘多（130 次）；後端另以 Redis 標記 `sections_pending:{id}` 判斷背景工作是否已中斷，有效秒數＝`OPENAI_MAX_ATTEMPTS × OPENAI_TIMEOUT_SECONDS` ＋ 重試間隔 ＋ 60 秒緩衝（預設 3×60＋2＋5＋60＝247 秒）：標記過期仍是 `pending` 者，讀取時改判為 `failed`（D-75）；轉為 `ready` 才顯示四段解析，`failed` 時指標照常顯示，解析區塊顯示錯誤說明與「重新產生」按鈕（見 04 §4.4.2），按下呼叫重新產生端點（D-73）。
 
-**題庫文字**：14 題的題目、補充說明（`note`）與選項文字以柏鈞提供的《風險評估問卷》為準（D-68），實作於 `services/questionnaire.py`；轉換規則只依選項代號（A–E、Q11 的 A–K），文字修改不影響規則。
-
-**送給 Gemini 的 `response_schema`**：Gemini 不接受 `additionalProperties`，故送出的 schema 不含該欄位；「不得有多餘欄位」改由後端以完整 JSON Schema 驗證（§3.11）。
+**題庫文字**：14 題的題目與選項文字以《風險評估問卷(調整後)》為準，不含補充說明，實作於 `services/questionnaire.py`。「%」前一律加半形空格。轉換規則只依選項代號（A–E、Q11 的 A–K）；但直接對應題目的 fact 以**選項原文**作為 `value_text`，所以修改選項文字時，`spec/prompts/risk_profile_system.md` 的字典必須同步修改（測試會逐字比對）。
 
 ### 投資組合與買進紀錄
 
@@ -704,7 +697,6 @@ Response 201: AnalysisResult（見 §3.1）
 
 Errors:
 | 409 | PROFILE_REQUIRED             | 尚未填問卷 |
-| 409 | PROFILE_LIMITED              | 風險屬性 readiness 為 limited |
 | 422 | INVALID_INPUT                | 組合內沒有任何買進紀錄 |
 | 422 | INSUFFICIENT_PRICE_DATA      | 無共同期間 |
 | 422 | BENCHMARK_UNAVAILABLE        | IR0001 在該期間無資料 |
@@ -736,7 +728,7 @@ Response 200: AnalysisReport（status 恆為 ready）
 
 Errors:
 | 502 | AI_REPORT_FAILED  | 最新一次嘗試失敗 |
-| 503 | AI_NOT_CONFIGURED | 未設定 GEMINI_API_KEY |
+| 503 | AI_NOT_CONFIGURED | 未設定 OPENAI_API_KEY |
 ```
 
 ```
@@ -850,20 +842,22 @@ healthcheck:
 
 ## 3.4 狀態與事件
 
-### 風險屬性的 readiness
+### 問卷送出的檢查結果
 
-| 狀態 | 判定條件 | 後續流程 |
+風險屬性不再有 `readiness` 欄位：資料表只存通過檢查的作答，有風險屬性就代表可進入後續流程。
+
+| 檢查 | 判定條件 | 結果 |
 | --- | --- | --- |
-| `ready` | 14 題全答且無資料衝突 | 放行 |
-| `limited` | Q10 = 無投資經驗但 Q11 勾了投資商品；或 Q10 ≥ 3 年但 Q11 只勾「尚未投資過」 | **擋住**，導回問卷並標示衝突題號（D-17、D-21） |
-| `blocked` | 14 題未答滿（防禦性狀態，正常流程不會發生） | 擋住 |
+| 驗證 | 缺題、選項不存在、Q11 規則不符 | 400 `INVALID_INPUT`，不存檔 |
+| 衝突 | Q10 = 無任何經驗但 Q11 勾了任何商品（含「其他商品」）；Q10 填了經驗年數但 Q11 只勾「從未投資過任何金融商品」；Q3 = 經常透支但 Q9 = 毫無影響（見 04 §4.2.3） | 422 `ANSWER_CONFLICT`，不存檔，前端依 `conflicts` 標示題號（D-17、D-90、D-91） |
+| 通過 | 其餘 | 寫入作答與風險屬性，背景產生 AI 解析 |
 
 ### 分析報告狀態機
 
 | 目前狀態 | 事件 | 下一狀態 | 副作用 |
 | --- | --- | --- | --- |
 | （無報告） | `GET /report` | `ready` | 呼叫模型、schema 驗證通過、寫入一列 |
-| （無報告） | `GET /report` | `failed` | 連續 `GEMINI_MAX_RETRIES` 次驗證失敗，寫入 failed 列並記錄原始輸出 |
+| （無報告） | `GET /report` | `failed` | 用盡 `OPENAI_MAX_ATTEMPTS` 次呼叫仍失敗，寫入 failed 列並記錄原始輸出 |
 | `failed` | `GET /report` | `failed` | **不自動重試**，直接回 502 |
 | `failed` | `POST /report/retry` | `ready` 或 `failed` | 寫入新的一列，`attempt` 遞增 |
 | `ready` | `GET /report` | `ready` | 直接回傳，**不重打模型** |
@@ -886,7 +880,7 @@ healthcheck:
 | 實體 | 建立時機 | 之後可變的欄位 |
 | --- | --- | --- |
 | `questionnaire_answers` | 送出問卷 | 無 |
-| `risk_profiles` | 送出問卷（與作答同一交易） | 僅 `description`、`description_status` |
+| `risk_profiles` | 送出問卷（與作答同一交易） | 僅 `sections`、`sections_status` |
 | `analysis_results` | 送出分析 | 無 |
 | `analysis_reports` | 模型回應後 | 無 |
 
@@ -894,21 +888,25 @@ healthcheck:
 
 ## 3.5 外部整合
 
-### Gemini API
+### OpenAI API
 
 | 項目 | 內容 |
 | --- | --- |
-| 供應商 | Google Gemini API |
-| SDK | `google-genai` 2.16.0 |
-| 模型 | `GEMINI_MODEL`，預設 `gemini-3.5-flash` |
-| 認證 | `GEMINI_API_KEY` |
-| 呼叫時機 | ①問卷送出後產生風險屬性描述 ②取得分析報告 |
-| 逾時 | `GEMINI_TIMEOUT_SECONDS`，預設 180 秒（3 分鐘） |
-| 重試 | `GEMINI_MAX_RETRIES`，預設 2；**只在 JSON 解析或 schema 驗證失敗時重試**，HTTP 4xx 不重試 |
-| 退避 | 第 1 次重試等 1 秒，第 2 次等 3 秒 |
-| 降級 | 問卷階段：`description_status = failed`，四項核心指標照常顯示。分析階段：`partial` 狀態，四張圖照常顯示（P-38） |
-| 成本控制 | `GEMINI_MAX_OUTPUT_TOKENS` 硬上限；問卷送出每使用者每分鐘 1 次（分析端點不另設限流，D-70）；報告快取 24 小時；報告 `ready` 後不重打 |
-| 未設定金鑰 | 後端照常啟動，AI 相關端點回 `503 AI_NOT_CONFIGURED` |
+| 供應商 | OpenAI（Responses API） |
+| SDK | `openai` 3.19.2 |
+| 模型 | `OPENAI_MODEL`，預設 `gpt-6-luna` |
+| 認證 | `OPENAI_API_KEY` |
+| 呼叫時機 | ①問卷送出後產生風險屬性解析 ②取得分析報告 |
+| 推理強度 | `OPENAI_REASONING_EFFORT`，預設 `low`（任務是依字典解釋、不需深度推理）。推理強度不是 `none` 時模型不接受 `temperature`，因此不設定 |
+| 逾時 | `OPENAI_TIMEOUT_SECONDS`，預設 60 秒（單次） |
+| 重試 | `OPENAI_MAX_ATTEMPTS`，預設 3（**含第一次**）。會重試：輸出不合規、連線中斷或逾時、429、5xx；不重試：金鑰錯誤、400 等請求錯誤。SDK 內建重試關閉（`max_retries=0`），避免重複 |
+| 退避 | 第 1 次重試前等 2 秒，第 2 次等 5 秒 |
+| 輸出上限 | `OPENAI_MAX_OUTPUT_TOKENS`，預設 8000（含推理 token）。四段解析約 1,500 token，其餘為推理與餘裕；超過上限時回應為 `incomplete`，視為輸出不合規 |
+| Prompt caching | System Prompt 放 `instructions`（固定、約 1 萬 token，超過 1,024 token 門檻，自動快取），變動資料放 `input`，並帶固定的 `prompt_cache_key`。輸出 schema 也固定，一併進入快取前綴。快取讀取費率為一般輸入的 10 % |
+| 資料保存 | `store=false`，不在 OpenAI 端保存對話 |
+| 降級 | 問卷階段：`sections_status = failed`，四項核心指標照常顯示，解析區塊顯示「重新產生」。分析階段：`partial` 狀態，四張圖照常顯示（P-38） |
+| 成本控制 | 輸出上限；問卷成功送出每使用者每分鐘 1 次（分析端點不另設限流，D-70）；報告快取 24 小時；報告 `ready` 後不重打 |
+| 未設定金鑰 | 後端照常啟動，AI 相關端點回 `503 AI_NOT_CONFIGURED`；問卷解析直接標為 `failed` |
 
 ### 五大公股銀行牌告網頁
 
@@ -999,31 +997,36 @@ healthcheck:
 | 規格來源 | `spec/prompts/*.md` |
 | 執行期檔案 | `backend/app/prompts/*.txt`，由 `spec/` 的程式碼區塊抽出 |
 | 一致性檢查 | CI 比對兩者內容，不一致即失敗 |
-| 版本字串 | 檔案開頭註解 `# prompt_version: 1.0.0`，寫入 `analysis_reports.prompt_version` |
+| 版本字串 | 檔案開頭註解 `# prompt_version: x.y.z`，寫入 `analysis_reports.prompt_version`。風險屬性 Prompt 另註明 `# rules_version: 1.0.0`，必須與後端 `RULES_VERSION` 相同（測試會比對） |
 | 禁止 | 程式碼中不得以字串串接、格式化或條件式修改 Prompt 內容。變數只能透過 User Prompt 的佔位符注入 |
 
 ### 呼叫參數
 
 | 參數 | 值 | 理由 |
 | --- | --- | --- |
-| `model` | `GEMINI_MODEL` | — |
-| `temperature` | `GEMINI_TEMPERATURE`，預設 `0.2` | 降低敘述漂移；不設 0 是因為完全確定性的輸出在長文本上反而容易卡在重複句式 |
-| `max_output_tokens` | `GEMINI_MAX_OUTPUT_TOKENS`，預設 `65536` | 等於模型上限。實際報告約 1,500–2,500 tokens，此值不構成有效的成本控制，**成本控制改由重試上限、分析限流與 24 小時快取承擔** |
-| `response_mime_type` | `application/json` | 要求結構化輸出 |
-| `response_schema` | 對應的 JSON Schema | 由 SDK 強制結構，但**仍須自行驗證**，不得假設模型必然遵守 |
+| API | `client.responses.parse` | Responses API，搭配 Structured Outputs 直接取回解析好的物件 |
+| `model` | `OPENAI_MODEL`，預設 `gpt-6-luna` | — |
+| `instructions` | System Prompt 全文 | 固定不變，放在最前面讓 prompt caching 生效 |
+| `input` | User Prompt（已替換佔位符） | 只有這裡會隨每次請求改變 |
+| `text_format` | Pydantic 模型（嚴格 JSON Schema，`strict: true`、不得有多餘欄位） | 由 API 強制結構，但**仍須自行檢查內容**，不得假設模型必然遵守 |
+| `reasoning.effort` | `OPENAI_REASONING_EFFORT`，預設 `low` | 推理強度不是 `none` 時不接受 `temperature`，故不設定 |
+| `max_output_tokens` | `OPENAI_MAX_OUTPUT_TOKENS`，預設 `8000` | 含推理 token；依實際輸出量加餘裕設定 |
+| `prompt_cache_key` | 固定字串（問卷解析為 `risk_profile`） | 讓相同開頭的請求盡量打到同一份快取 |
+| `store` | `false` | 不在 OpenAI 端保存對話 |
+| 取回結果 | `response.output_parsed`；`status` 不是 `completed` 或拒答（`output_parsed` 為空）時視為輸出不合規 | — |
 
 ### 輸入契約
 
 | 階段 | System Prompt | User Prompt | 注入變數 |
 | --- | --- | --- | --- |
-| 問卷解說 | `01_profile_system.txt` | `01_profile_user.txt` | `QUESTIONNAIRE_RESULT_DATA`、`AVAILABLE_EVIDENCE_REFS` |
+| 風險屬性解析 | `risk_profile_system.txt` | `risk_profile_user.txt` | `{{validated_payload_json}}`（`facts`、`findings`，直接取自資料表）、`{{rules_version}}` |
 | 分析報告 | `02_portfolio_system.txt` | `03_portfolio_user.txt` | `PORTFOLIO_ANALYSIS_DATA`、`AVAILABLE_EVIDENCE_REFS`、`AVAILABLE_FIGURE_REFS` |
 
 **送入模型前的清洗規則**
 
 | 來源 | 規則 |
 | --- | --- |
-| 使用者自由文字（`q11Other`、投資組合名稱） | 移除換行與控制字元，長度截斷至上限，**以獨立 JSON 欄位傳遞**，絕不串接進指令句 |
+| 使用者自由文字（`q11Other`、投資組合名稱） | 移除換行與控制字元，長度截斷至上限，**以獨立 JSON 欄位傳遞**（`q11Other` 放在 `product_experience` 的 `other_text`），絕不串接進指令句。`q11Other` 另限只允許中英數與全形標點，半形 `<`、`>`、`{`、`}` 等無法輸入，避免偽造標籤或跳脫 JSON |
 | 股票名稱 | 來自 `stock_info`，視為不可信資料同樣處理 |
 | **成本、損益、買進日期** | **一律不得出現在 payload**（D-16）。組裝後須以白名單檢查欄位名，出現即拋 `INTERNAL_ERROR` |
 
@@ -1031,18 +1034,16 @@ healthcheck:
 
 | 項目 | 規範 |
 | --- | --- |
-| 格式 | 合法 JSON，不含 Markdown 圍欄、前言或額外欄位 |
-| 驗證 | 以 JSON Schema 驗證全部欄位。`sections` 必須恰好六項且 `key` 順序固定 |
-| 解析失敗 | 依序嘗試：①直接 `json.loads` ②剝除 ```` ```json ```` 圍欄後再解析 ③失敗則計為一次重試 |
-| 引用驗證 | `evidenceRefs` 與 `figureRefs` 的每一項都必須存在於當次的白名單；出現白名單外的項目即視為驗證失敗 |
-| 照抄欄位驗證 | `analysisId`、`contextId`、`readiness`、`performanceFocus` 必須與輸入完全相同；不同即視為驗證失敗 |
-| 失敗上限 | 連續 `GEMINI_MAX_RETRIES + 1` 次失敗後寫入 `status = failed` 並保留最後一次原始輸出至 `failure_reason` |
+| 格式 | Structured Outputs 保證合法 JSON；解析失敗（SDK 丟出 `ValueError`）計為一次重試 |
+| 風險屬性解析的內容檢查 | ①`sections` 恰好四段且 `key` 依序為 `funding_timing`、`willingness_capacity`、`decline_response`、`knowledge_experience` ②每段 `body` 去頭尾空白後 80–360 字（Prompt 要求 180–300 字，這裡留容許誤差，只擋太短或失控的輸出） ③`fact_ids`、`finding_ids` 只能引用輸入中存在的 id ④五個 finding 都至少出現在一段 ⑤四個核心指標都至少被一段引用。任一不符即計為一次重試 |
+| 分析報告的內容檢查 | `sections` 必須恰好六項且 `key` 順序固定；`evidenceRefs` 與 `figureRefs` 的每一項都必須存在於當次的白名單；`analysisId`、`contextId`、`readiness`、`performanceFocus` 必須與輸入完全相同 |
+| 失敗上限 | 共呼叫 `OPENAI_MAX_ATTEMPTS` 次仍失敗：問卷解析寫入 `sections_status = failed`；分析報告寫入 `status = failed` 並保留最後一次原始輸出至 `failure_reason` |
 
 **原始輸出的保留與遮蔽**：`failure_reason` 最多保留 2000 字元，寫入前移除可能的金鑰樣式字串。此欄僅供開發除錯，不回傳給前端。
 
 ### 不得假設的事
 
-1. **不得假設模型會遵守 `response_schema`。** 每次都要自己驗證。
+1. **不得假設模型會遵守 schema。** 每次都要自己檢查內容。
 2. **不得以「輸出內容正確」作為驗收條件**（R-01）。驗收項一律是「符合 schema」「引用皆在白名單」「照抄欄位一致」這類可自動判定的條件。
 3. **不得讓模型輸出進入任何執行路徑**：不寫入 SQL、不當作檔案路徑、不當作 URL、不 `eval`。它只會被存成 JSONB 並以純文字渲染。
 4. **不得因為模型建議而改變任何數值**。所有指標在呼叫模型前就已算定並寫入快照。

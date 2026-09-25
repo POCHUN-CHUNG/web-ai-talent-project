@@ -146,7 +146,12 @@ n8n 端設定（一次即可，在 n8n 網頁操作）：
 
 ## 問卷與風險屬性
 
-登入後若尚未填寫問卷（或上次作答有前後矛盾），會被導向問卷頁；填完 14 題後可查看「我的風險屬性」：四項核心風險指標、交叉分析與 AI 產生的描述。AI 金鑰設定見〈環境變數〉；未設定金鑰或 AI 失敗時，四項指標仍正常顯示。規則細節見 `spec/04-behavior.md`，API 清單見後端 `/docs` 頁面。
+登入後若尚未填寫問卷，會停在「我的風險屬性」頁，點「開始評估」填寫 14 題；尚未完成評估前無法進入其他功能頁（設定頁除外）。送出後可查看四項核心風險指標，以及 AI 產生的四段風險屬性解析（資金定位與時間彈性、承受意願與財務能力、下跌反應與投資比重、投資知識與實務經驗）。
+
+- 作答有前後矛盾（例如投資經驗與曾投資過的商品互相衝突）時不會存檔，問卷頁會標示需要修正的題號。
+- 每人每分鐘只能送出一次問卷；冷卻中按「重新評估」會顯示剩餘秒數，無法進入問卷。
+- AI 使用 OpenAI（金鑰設定見〈環境變數〉）。未設定金鑰或 AI 失敗時，四項指標仍正常顯示，解析區塊會出現「重新產生」按鈕。
+- 規則細節見 `spec/04-behavior.md`，Prompt 見 `spec/prompts/risk_profile_system.md`，API 清單見後端 `/docs` 頁面。
 
 ## 投資組合
 
@@ -187,13 +192,13 @@ docker compose down -v
 - `REDIS_PASSWORD` / `REDIS_PORT`
 - `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` / `N8N_PORT` / `N8N_API_KEY`（n8n 呼叫後端專用 API 的金鑰，見下方〈n8n 呼叫後端 API 的金鑰〉）
 - `FRONTEND_PORT` / `BACKEND_PORT`
-- `GEMINI_API_KEY`（AI 金鑰，用於產生風險屬性描述；留空時後端照常啟動，描述會顯示「暫時無法產生」）與 `GEMINI_MODEL` / `GEMINI_TIMEOUT_SECONDS` / `GEMINI_MAX_OUTPUT_TOKENS` / `GEMINI_TEMPERATURE` / `GEMINI_MAX_RETRIES`（模型與呼叫參數，皆有預設值）
+- `OPENAI_API_KEY`（OpenAI 金鑰，用於產生風險屬性解析；留空時後端照常啟動，解析會顯示「暫時無法產生」）與 `OPENAI_MODEL` / `OPENAI_REASONING_EFFORT` / `OPENAI_MAX_OUTPUT_TOKENS` / `OPENAI_TIMEOUT_SECONDS` / `OPENAI_MAX_ATTEMPTS`（模型與呼叫參數，皆有預設值，說明見 `.env.example`）
 
 正式分享或部署前，請務必修改 `.env` 中的預設密碼。
 
 ## 開發備註
 
-- 問卷規則、AI 輸出驗證與投資組合損益計算的自動化測試（需先 `pip install pytest jsonschema fastapi sqlalchemy argon2-cffi redis psycopg2-binary`）：`python -m pytest tests -q`。
+- 問卷規則、AI 輸出驗證與投資組合損益計算的自動化測試（需先 `pip install pytest openai fastapi sqlalchemy argon2-cffi redis psycopg2-binary`）：`python -m pytest tests -q`。
 - frontend、backend 皆以 bind mount 方式掛進容器（`./frontend:/app`、`./backend:/app`），修改本機程式碼即時生效（熱重載），不需要重新 build image。
 - 新增前端套件（`npm install <pkg>`）或後端套件（更新 `requirements.txt`）後，需要重新建置對應 image：
   ```bash

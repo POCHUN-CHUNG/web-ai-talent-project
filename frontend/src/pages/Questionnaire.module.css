@@ -1,0 +1,288 @@
+/* 單欄版面：題目由上往下排，寬度收窄到適合閱讀的長度 */
+.page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 112px var(--space-margin) var(--space-2xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+@media (max-width: 734px) {
+  .page {
+    padding: 96px var(--space-md) var(--space-xl);
+  }
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-lg-size);
+  font-weight: var(--text-headline-lg-weight);
+  letter-spacing: 0;
+  color: var(--color-on-background);
+}
+
+.lead {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  line-height: var(--text-body-md-line-height);
+  color: var(--color-on-surface-variant);
+}
+
+.disclaimerText {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+}
+
+/* 作答進度：文字＋細長進度條 */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+}
+
+.progressTrack {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  flex: none;
+  font-family: var(--font-family);
+  font-size: var(--text-label-md-size);
+  font-weight: var(--text-label-md-weight);
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* 每題一張玻璃卡；被標示的題目（衝突或未作答）外框改為紅色 */
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  /* 自動捲動到這題時，題目頂端停在頂端 Tab 列正下方（與頁面標題的起始高度相同），不被 Tab 列蓋住 */
+  scroll-margin-top: 112px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  
+  /* 與投資組合融區塊一樣的白色背景 (translucent glass) */
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(24px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+}
+
+@media (max-width: 734px) {
+  .question {
+    scroll-margin-top: 96px;
+  }
+}
+
+/* 用兩個 class 提高權重，確保蓋過玻璃卡本身的邊框（兩個樣式檔的載入順序不固定） */
+.question.flagged {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 1px var(--color-error), var(--shadow-level-2);
+}
+
+/* fieldset／legend 保留語意（螢幕報讀會把選項與題目綁在一起），外觀重設 */
+.fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.legend + * {
+  clear: both;
+}
+
+.number {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
+  color: var(--color-on-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 0;
+  box-shadow: var(--shadow-level-1);
+}
+
+.questionTitle {
+  font-family: var(--font-family);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  line-height: var(--text-headline-sm-line-height);
+  letter-spacing: 0;
+  color: var(--color-on-surface);
+  padding-top: 2px;
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* 選項：整列都可點選的巢狀卡（改為全圓角 pill），選取後以淡藍底＋主色外框標示 */
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px var(--space-md);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container);
+  border: 1px solid transparent;
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  line-height: 1.5;
+  color: var(--color-on-surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.option:hover {
+  background-color: var(--color-surface-container-high);
+}
+
+.option:has(input:checked) {
+  background-color: var(--color-primary-50);
+  border-color: var(--color-primary);
+  color: var(--color-primary-700);
+}
+
+.option:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* 自繪選取控制項（依 DESIGN.md）：單選＝外圈＋中心圓點；複選＝實心主色，無勾號 */
+.control {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  display: grid;
+  place-content: center;
+  border: 1px solid var(--color-outline);
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.control:focus-visible {
+  outline: none; /* 焦點框改畫在整列選項上 */
+}
+
+.radio {
+  border-radius: var(--radius-full);
+}
+
+.radio:checked {
+  border: 2px solid var(--color-primary);
+}
+
+.radio:checked::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+}
+
+.checkbox {
+  border-radius: var(--radius-checkbox);
+}
+
+.checkbox:checked {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+}
+
+/* 「其他商品」說明欄：勾選後才出現，接在該選項下方，左緣與選項對齊 */
+.otherField {
+  margin-top: var(--space-sm);
+}
+
+/* 題目內的紅字提示（未作答、需確認） */
+.flagNote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  font-weight: var(--text-label-md-weight);
+  color: var(--color-error);
+}
+
+.statusText {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface-variant);
+}
+
+/* 底部按鈕列：取消在左、送出在右 */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}

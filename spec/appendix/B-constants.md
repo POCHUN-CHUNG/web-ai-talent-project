@@ -1,7 +1,7 @@
 # 附錄 B · 常數與識別碼總表
 
 > 本檔為 `SPEC.md` 的子文件。需要查名稱時看這裡。
-> 文件版本：1.5.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
 
 所有識別碼在此**定義一次**，其餘章節只引用。新增任何識別碼都必須先登記於本檔。
 
@@ -51,23 +51,36 @@
 | `investment_experience` | Q10 | 背景 |
 | `product_experience` | Q11 | 背景 |
 
-## B.3 Finding 識別碼與優先序
+## B.3 Finding 識別碼
 
-| 識別碼 | `priority` | 中文名稱 |
-| --- | :---: | --- |
-| `primary_financial_constraints` | 1 | 主要財務限制 |
-| `willingness_capacity_gap` | 2 | 風險意願－能力關係 |
-| `horizon_liquidity_consistency` | 3 | 投資期限－流動性一致性 |
-| `knowledge_experience_consistency` | 4 | 知識－商品經驗一致性 |
+| 識別碼 | 中文名稱 |
+| --- | --- |
+| `primary_financial_constraints` | 主要財務限制 |
+| `willingness_capacity_gap` | 風險意願－能力關係 |
+| `horizon_liquidity_consistency` | 投資期限－流動性一致性 |
+| `knowledge_experience_consistency` | 知識－商品經驗一致性 |
+| `willingness_behavior_consistency` | 承受意願－下跌反應一致性 |
 
-AI 只解釋 `priority` 最小的前兩項，四項皆存入資料庫。
+五項皆存入資料庫，也全部送給 AI；AI 必須在四段解析中說明每一項。因為不做篩選，不設 `priority` 欄位（2026-09-25 移除）。
 
-## B.4 Issue 種類
+## B.3a 四段解析的段落代號與標題
 
-| `kind` | 觸發條件 | 導致的 `readiness` |
-| --- | --- | --- |
-| `experience_conflict` | Q10 與 Q11 的作答互相矛盾 | `limited` |
-| `missing_answer` | 14 題中有未作答者 | `blocked` |
+| `sections[].key` | 前端標題 |
+| --- | --- |
+| `funding_timing` | 資金定位與時間彈性 |
+| `willingness_capacity` | 承受意願與財務能力 |
+| `decline_response` | 下跌反應與投資比重 |
+| `knowledge_experience` | 投資知識與實務經驗 |
+
+## B.4 作答檢查結果
+
+| 情況 | 回應 | 是否存檔 |
+| --- | --- | :---: |
+| Q10 與 Q11、或 Q3 與 Q9 的作答互相矛盾 | 422 `ANSWER_CONFLICT`（附 `questionIds`） | 否 |
+| 缺題或選項不合法 | 400 `INVALID_INPUT` | 否 |
+| 其餘 | 201 | 是 |
+
+（原 `issues[].kind` 與 `readiness` 已移除，2026-09-25。）
 
 ## B.5 圖表識別碼
 
@@ -103,7 +116,7 @@ AI 只解釋 `priority` 最小的前兩項，四項皆存入資料庫。
 | `USERNAME_TAKEN` | 409 | 帳號已存在 |
 | `PORTFOLIO_NAME_TAKEN` | 409 | 已有同名的投資組合 |
 | `PROFILE_REQUIRED` | 409 | 請先完成風險評估問卷 |
-| `PROFILE_LIMITED` | 409 | 問卷有需要確認的地方，請先回問卷修正 |
+| `ANSWER_CONFLICT` | 422 | 作答前後矛盾，請修正標示的題目後重新送出 |
 | `LIMIT_EXCEEDED` | 422 | 已達數量上限 |
 | `INSUFFICIENT_PRICE_DATA` | 422 | 持股的歷史價格不足，無法計算 |
 | `BENCHMARK_UNAVAILABLE` | 422 | 市場基準在這段期間沒有資料 |
@@ -118,14 +131,13 @@ AI 只解釋 `priority` 最小的前兩項，四項皆存入資料庫。
 
 | 欄位 | 允許值 |
 | --- | --- |
-| `readiness` | `ready`、`limited`、`blocked` |
-| `descriptionStatus` | `pending`、`ready`、`failed` |
+| `sectionsStatus` | `pending`、`ready`、`failed` |
+| `sections[].key` | `funding_timing`、`willingness_capacity`、`decline_response`、`knowledge_experience` |
 | `analysis_reports.status` | `ready`、`failed` |
 | `mode` | `saved`、`simulation` |
 | `metrics[].status` | `available`、`unavailable` |
 | `metrics[].unit` | `fraction`、`ratio`、`index` |
 | `figures[].status` | `available`、`unavailable` |
-| `facts[].availability` | `available`、`missing`、`conflicted` |
 | `skewClass` | `near_symmetric`、`positive_skew`、`negative_skew`、`undetermined` |
 | `performanceFocus` | `sharpe_primary`、`sortino_primary`、`both`、`undetermined`、`limited` |
 | 前端分析頁狀態 | `computing`、`interpreting`、`ready`、`partial`、`failed` |
@@ -183,7 +195,7 @@ AI 只解釋 `priority` 最小的前兩項，四項皆存入資料庫。
 | 分析結果快取 | `analysis:{analysis_id}` | 24 小時 |
 | 登入限流 | `rl:auth:{ip}` | 60 秒 |
 | 問卷送出限流 | `rate:questionnaire:{user_id}` | 60 秒 |
-| 重新產生解析限流 | `rate:description:{user_id}` | 60 秒 |
-| 解析產生中標記 | `description_pending:{profile_id}` | `GEMINI_TIMEOUT_SECONDS + 60` 秒 |
+| 重新產生解析限流 | `rate:sections:{user_id}` | 60 秒 |
+| 解析產生中標記 | `sections_pending:{profile_id}` | `OPENAI_MAX_ATTEMPTS × OPENAI_TIMEOUT_SECONDS` ＋ 重試間隔 ＋ 60 秒（預設 247 秒） |
 | 報告重試限流 | `rl:report:{analysis_id}` | 60 秒 |
 | 一般限流 | `rl:general:{user_id}` | 60 秒 |

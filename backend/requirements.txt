@@ -12,5 +12,4 @@ yfinance==1.7.0
 pandas==3.0.6
 requests==2.34.2
 python-dateutil==2.9.0.post0
-google-genai==2.16.0
-jsonschema==4.23.0
+openai==3.19.2

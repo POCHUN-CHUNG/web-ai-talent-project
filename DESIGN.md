@@ -566,11 +566,13 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Segmented control / tabs.** Pill container in `surface-container-high`; the selected segment is a `surface` pill at `level-1`; labels in `label-md`.
 
-**Modal / sheet.** Glass at `level-4`, radius 30px, padding 20px; scrim is `on-surface` at about 40%. Title `headline-sm`, actions in a row: `button-secondary` then `button-primary`, or stacked on mobile.
+**Modal / sheet.** Glass at `level-4`, radius 30px, padding 20px; scrim is `on-surface` at about 40%. Title `headline-sm`, actions in a row: `button-secondary` then `button-primary`, or stacked on mobile. No focus ring (outline) on the modal container itself when clicked.
 
 **Tooltip / popover.** Glass at `level-3`, radius `rounded.xl`, text in `body-sm`.
 
 **Table.** Header in `label-md` on `on-surface-variant`, rows on `surface`, hover `surface-container-low`, numeric columns right-aligned, no gridlines or borders.
+
+**AI Processing / Waiting State.** When the user is waiting for an AI operation to complete (e.g., analyzing results), apply a full-screen blurred inner gradient glow (the `AnalyzingGlow` component) that breathes (pulses opacity). The glow is created using an oversized pseudo-element with a thick `border-image` gradient (`accent-1-500` to `accent-2-500` to `accent-3-500`) and a strong Gaussian blur (`filter: blur`), clipping the outer edge to the viewport to create a continuous, soft, multi-color inner boundary. Do not use standard loading spinners or solid sharp borders for AI analysis states.
 
 ## Media Adaptation
 

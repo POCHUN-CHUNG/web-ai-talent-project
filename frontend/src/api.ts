@@ -1,10 +1,14 @@
 // 後端網址（可由環境變數 VITE_API_BASE_URL 覆蓋）
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
 
+// 問卷作答衝突的一項：message=說明、questionIds=互相矛盾的題號
+export type AnswerConflict = { message: string; questionIds: string[] };
+
 // 【API 錯誤】帶有 HTTP 狀態碼的錯誤，供畫面顯示訊息。
-// 參數：status=狀態碼（如 401）、message=錯誤說明、code=後端錯誤碼（如 NOT_FOUND，舊端點沒有）
+// 參數：status=狀態碼（如 401）、message=錯誤說明、code=後端錯誤碼（如 NOT_FOUND，舊端點沒有）、
+//       conflicts=問卷作答衝突明細（只有作答衝突時才有）
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: string) {
+  constructor(public status: number, message: string, public code?: string, public conflicts?: AnswerConflict[]) {
     super(message);
   }
 }
@@ -26,7 +30,7 @@ export async function api<T = unknown>(path: string, body?: unknown, method?: "G
   // 4. 失敗時丟出錯誤：新格式 {code, message}、舊格式為文字；都沒有就視為輸入格式不符
   if (!res.ok) {
     const d = data.detail;
-    if (d && typeof d === "object" && typeof d.message === "string") throw new ApiError(res.status, d.message, d.code);
+    if (d && typeof d === "object" && typeof d.message === "string") throw new ApiError(res.status, d.message, d.code, d.conflicts);
     throw new ApiError(res.status, typeof d === "string" ? d : "輸入格式不正確（僅限英文與數字）");
   }
   return data as T;
