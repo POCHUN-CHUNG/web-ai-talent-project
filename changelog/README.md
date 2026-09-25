@@ -33,6 +33,9 @@
 | 017  | 2026-09-21 | `b52312d` | 股票資料與每日股價抓取          | [017-b52312d-stock-data-fetch.md](017-b52312d-stock-data-fetch.md)             |
 | 018  | 2026-09-21 | `0cd23eb` | 風險評估問卷與風險屬性          | [018-0cd23eb-questionnaire-risk-profile.md](018-0cd23eb-questionnaire-risk-profile.md) |
 | 019  | 2026-09-21 | `3bc1b5d` | 投資組合首頁、買進紀錄與組合詳情頁 | [019-3bc1b5d-portfolio-home.md](019-3bc1b5d-portfolio-home.md)                 |
+| 020  | 2026-09-24 | `7cf2bb8` | 資料表欄位改名與股價永久保存    | [020-7cf2bb8-schema-and-price-history.md](020-7cf2bb8-schema-and-price-history.md) |
+| 021  | 2026-09-25 | `55a4283` | 液態玻璃介面改版與投資組合總覽  | [021-55a4283-liquid-glass-ui.md](021-55a4283-liquid-glass-ui.md)               |
+| 022  | 2026-09-25 | `7487fff` | n8n 失敗訊息顯示卡在哪一步      | [022-7487fff-n8n-failure-message.md](022-7487fff-n8n-failure-message.md)       |
 
 ## 維護規則
 
