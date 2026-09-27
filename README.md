@@ -28,7 +28,7 @@ ai-talent-project/
 ├── backend/                 # FastAPI 原始碼
 ├── spec/                    # 系統規格（問卷規則、Prompt 等；SPEC.md 為索引）
 ├── tests/                   # 自動化測試（問卷規則、AI 輸出驗證、投資組合損益、風險指標與黃金測試向量）
-├── references/              # 爬蟲原型腳本（實際執行的版本在 backend/app/services/）
+├── references/              # 爬蟲與風險指標計算的原型腳本（實際執行的版本在 backend/app/services/）
 ├── database/
 │   ├── postgres_data/       # PostgreSQL 資料（本地掛載）
 │   └── pgadmin_data/        # pgAdmin 連線設定（本地掛載）
