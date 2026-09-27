@@ -1,7 +1,7 @@
 # 06 · 執行層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
+> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
 
 本層定義實作階段拆分、完成定義、版控規範與部署流程。**開工前與交付前必讀。**
 
@@ -102,36 +102,34 @@
 
 ### 階段 5 · 量化引擎（純函式，可與階段 4 並行）
 
+> 2026-09-26 起，階段 5～8 依柏鈞的三段式安排執行：**①後端風險指標計算（階段 5＋6 的後端部分）→ ②Prompt 撰寫（階段 8）→ ③前端渲染（階段 6 的彈窗＋階段 7）**，每段經柏鈞確認後才進入下一段。
+
 | 工作 | 檔案 |
 | --- | --- |
-| 11 項純量指標 | `services/metrics.py` |
-| RC／PCR | `services/risk_contribution.py` |
-| 相關係數矩陣 | `services/correlation.py` |
-| 黃金測試向量 V1–V8 | `tests/fixtures/`、`spec/appendix/C-fixtures.md` |
+| 14 項風險指標（6 項含 IR0001 對照值）與四組風險診斷 | `services/risk_metrics.py`（唯一計算模組，D-109） |
+| 黃金測試向量 V1–V9 | `tests/fixtures/`、`spec/appendix/C-fixtures.md` |
 
-**這些模組不得相依 SQLAlchemy、FastAPI、Redis 或 `models.py`**（`spec/02-system.md` §2.5）。輸入為 `list` 或 `ndarray`，輸出為數值。
+**這個模組不得相依 SQLAlchemy、FastAPI、Redis 或 `models.py`**（`spec/02-system.md` §2.5）。輸入為 `list` 或 `ndarray`，輸出為數值。
 
-**出場條件**：D5–D15 通過；V1–V8 全數通過；三個模組的覆蓋率 ≥ 95%。
+**出場條件**：D5–D15、D25–D28 通過；V1–V9 全數通過；模組覆蓋率 ≥ 95%。
 
 ### 階段 6 · 分析流程整合
 
 | 工作 | 檔案 |
 | --- | --- |
-| `analysis_results` 表與 migration | `models.py`、`migrations/` |
-| 共同期間計算、權重計算、$R_f$ 取得、期間限縮與 `limitedBy` | `services/analysis.py` |
-| 模擬模式的 finding 重算 | `services/analysis.py` |
-| `POST /portfolios/{id}/analysis`、`GET /analysis/{id}`、歷史清單 | `routers/analysis.py` |
-| 四張圖的資料結構組裝 | `services/analysis.py` |
-| Redis 快取 | `services/analysis.py` |
-| 確認彈窗（滑桿 ＋ 兩個可調 ＋ 兩個唯讀） | `frontend/src/` |
+| `analysis_results` 表 | `models.py` |
+| 共同交易日、最大期間與 2 年下限、權重、利率選項、`profileInputs` 驗證 | `services/analysis.py` |
+| `GET /portfolios/{id}/analysis/options`、`POST /portfolios/{id}/analysis`、`GET /analysis/{id}`、歷史清單 | `routers/analysis.py` |
+| 三張圖的資料結構組裝 | `services/risk_metrics.py` |
+| 風險分析頁的分析條件列（組合 ＋ 期間滑桿 ＋ 報酬比較基準 ＋ Q7／Q8／Q13 三個下拉，不用彈窗） | `frontend/src/`（第三段） |
 
-**出場條件**：D1–D4、D16–D24 通過。
+**出場條件**：D1–D3、D16–D24 通過。
 
 ### 階段 7 · 圖表與報告頁
 
 | 工作 | 檔案 |
 | --- | --- |
-| 四個圖表元件 | `frontend/src/components/charts/` |
+| 三個圖表元件與八張前端指標卡 | `frontend/src/components/charts/` |
 | 五種分析頁狀態 | `frontend/src/pages/AnalysisReport.tsx` |
 | 每張圖的視覺隱藏表格替代 | 同上 |
 | 響應式與熱圖捲動策略 | 同上 |

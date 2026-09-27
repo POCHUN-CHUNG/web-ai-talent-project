@@ -37,6 +37,8 @@
 | 021  | 2026-09-25 | `55a4283` | 液態玻璃介面改版與投資組合總覽  | [021-55a4283-liquid-glass-ui.md](021-55a4283-liquid-glass-ui.md)               |
 | 022  | 2026-09-25 | `7487fff` | n8n 失敗訊息顯示卡在哪一步      | [022-7487fff-n8n-failure-message.md](022-7487fff-n8n-failure-message.md)       |
 | 023  | 2026-09-25 | `cba5875` | 風險屬性解析改用 OpenAI、問卷改版 | [023-cba5875-openai-profile-and-questionnaire.md](023-cba5875-openai-profile-and-questionnaire.md) |
+| 024  | 2026-09-27 | `286cd0f` | 投資組合明細頁改版與全站 UI 規範 | [024-286cd0f-portfolio-detail-redesign.md](024-286cd0f-portfolio-detail-redesign.md) |
+| 025  | 2026-09-27 | `e0fc067` | 風險指標計算的參考程式 | [025-e0fc067-risk-metric-reference-scripts.md](025-e0fc067-risk-metric-reference-scripts.md) |
 
 ## 維護規則
 

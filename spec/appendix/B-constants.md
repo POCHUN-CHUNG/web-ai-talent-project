@@ -1,7 +1,7 @@
 # 附錄 B · 常數與識別碼總表
 
 > 本檔為 `SPEC.md` 的子文件。需要查名稱時看這裡。
-> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
+> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
 
 所有識別碼在此**定義一次**，其餘章節只引用。新增任何識別碼都必須先登記於本檔。
 
@@ -9,23 +9,26 @@
 
 ## B.1 指標識別碼
 
-`analysis_results.metrics` 的鍵，共 11 項。
+依診斷規則文件共 14 項指標：`analysis_results.metrics` 的 12 個純量鍵，加上風險貢獻度（`positions[].rc` / `.pcr`）與相關係數矩陣（`correlation`）。「層」為診斷規則文件的前端指標層／後端診斷層；「大盤對照」✓ 者的 `benchmarkValue` 有值。
 
-| 識別碼 | 中文名稱 | 單位 | 前端顯示 |
-| --- | --- | --- | :---: |
-| `annualized_volatility` | 年化波動度 | `fraction` | ✓ |
-| `annualized_downside_deviation` | 年化下行波動度 | `fraction` | — |
-| `beta` | Beta 係數 | `ratio` | ✓ |
-| `r_squared` | 決定係數 | `ratio` | — |
-| `max_drawdown` | 最大回撤 | `fraction` | ✓ |
-| `expected_shortfall_95` | 95% 單日預期短缺 | `fraction` | ✓ |
-| `skewness` | 樣本偏態係數 | `ratio` | — |
-| `excess_kurtosis` | 樣本超額峰度 | `ratio` | — |
-| `hhi` | 赫芬達爾－赫希曼指數 | `fraction` | — |
-| `sharpe_ratio` | 夏普比率 | `ratio` | ✓ |
-| `sortino_ratio` | 索丁諾比率 | `ratio` | ✓ |
+| 識別碼 | 中文名稱 | 單位 | 層 | 大盤對照 |
+| --- | --- | --- | :---: | :---: |
+| `max_drawdown` | 最大回撤 | `fraction` | 前端 | ✓ |
+| （`positions[].pcr`） | 風險貢獻度 | `fraction` | 前端 | — |
+| （`correlation`） | 相關係數熱圖 | `ratio` | 前端 | — |
+| `annualized_volatility` | 年化波動度 | `fraction` | 前端 | ✓ |
+| `beta` | Beta 係數 | `ratio` | 前端 | — |
+| `expected_shortfall_95` | 95% 預期短缺 | `fraction` | 前端 | ✓ |
+| `sharpe_ratio` | 夏普比率 | `ratio` | 前端 | ✓ |
+| `sortino_ratio` | 索丁諾比率 | `ratio` | 前端 | ✓ |
+| `effective_number_of_holdings` | 有效持股檔數 | `count` | 後端 | — |
+| `annualized_downside_deviation` | 下行波動度 | `fraction` | 後端 | ✓ |
+| `hhi` | 赫芬達爾－赫希曼指數 | `fraction` | 後端 | — |
+| `r_squared` | 判定係數 | `ratio` | 後端 | — |
+| `skewness` | 樣本偏態係數 | `ratio` | 後端 | — |
+| `excess_kurtosis` | 樣本超額峰度 | `ratio` | 後端 | — |
 
-不在此表內的三項：風險貢獻度在 `positions[].rc` / `.pcr`、相關矩陣在 `correlation`、有效持股檔數由前端以 $1/HHI$ 衍生。
+後端指標不直接顯示給使用者，由系統（四組診斷）與 AI 使用。
 
 ## B.2 Fact 識別碼
 
@@ -84,25 +87,28 @@
 
 ## B.5 圖表識別碼
 
-| `figureRef` | 中文名稱 | 主要綁定 section |
+| `figureRef` | 中文名稱 | 對應指標 |
 | --- | --- | --- |
-| `figure:correlation_heatmap` | 相關係數熱圖 | `diversification` |
-| `figure:weight_vs_pcr` | 權重與風險貢獻對照 | `diversification` |
-| `figure:drawdown_curve` | 淨值走勢與回撤 | `tail_risk` |
-| `figure:risk_gap_bar` | 風險落差對照 | `personal_alignment` |
+| `figure:drawdown_curve` | 回撤走勢 | 最大回撤 |
+| `figure:weight_vs_pcr` | 風險貢獻度（權重與風險貢獻對照） | 風險貢獻度 |
+| `figure:correlation_heatmap` | 相關係數熱圖 | 相關係數 |
 
-## B.6 報告段落識別碼
+`figure:risk_gap_bar`（風險落差對照）已移除（v1.9.0，D-116）。
 
-`ReportContent.sections[].key`，**固定六項且順序固定**。
+## B.6 四組風險分析識別碼
 
-| 順序 | `key` | 中文名稱 |
-| :---: | --- | --- |
-| 1 | `volatility_downside` | 波動與下行 |
-| 2 | `market_sensitivity` | 市場敏感度 |
-| 3 | `tail_risk` | 尾端特徵 |
-| 4 | `diversification` | 分散與貢獻 |
-| 5 | `performance` | 風險調整後績效 |
-| 6 | `personal_alignment` | 個人條件對齊 |
+`AnalysisResult.diagnosis.groups[].key`，**固定四項且順序固定**。規則見 `spec/04-behavior.md` §4.1.13。
+
+| 順序 | `key` | 中文名稱 | `typicalRuleId` 範圍 |
+| :---: | --- | --- | --- |
+| 1 | `risk_return` | 風險與報酬 | `E1`–`E5` |
+| 2 | `loss_risk` | 虧損風險 | `T1`–`T7` |
+| 3 | `concentration` | 集中與分散風險 | `C1`–`C6` |
+| 4 | `market_sensitivity` | 市場敏感與風險來源 | `M1`–`M8` |
+
+未符合任何典型結構時 `typicalRuleId` 與 `typicalLabel` 皆為 `null`（不使用「混合型」，D-119）。不利訊號 `id` 共 12 種，見 §4.1.13。
+
+原 `ReportContent.sections[].key` 六段結構（`volatility_downside` … `personal_alignment`）將於第二階段改為「四組報告＋綜合診斷」，屆時更新本節。
 
 ## B.7 錯誤碼
 
@@ -134,12 +140,11 @@
 | `sectionsStatus` | `pending`、`ready`、`failed` |
 | `sections[].key` | `funding_timing`、`willingness_capacity`、`decline_response`、`knowledge_experience` |
 | `analysis_reports.status` | `ready`、`failed` |
-| `mode` | `saved`、`simulation` |
+| `rateOption` | `zero`、`bank_average` |
 | `metrics[].status` | `available`、`unavailable` |
-| `metrics[].unit` | `fraction`、`ratio`、`index` |
+| `metrics[].unit` | `fraction`、`ratio`、`count` |
 | `figures[].status` | `available`、`unavailable` |
 | `skewClass` | `near_symmetric`、`positive_skew`、`negative_skew`、`undetermined` |
-| `performanceFocus` | `sharpe_primary`、`sortino_primary`、`both`、`undetermined`、`limited` |
 | 前端分析頁狀態 | `computing`、`interpreting`、`ready`、`partial`、`failed` |
 | `stock_info.market` | `上市`、`上櫃`、`指數` |
 
@@ -151,8 +156,23 @@
 | 零變異判定門檻 | `1e-12` | §4.1.0 步驟 4b |
 | 浮點比對容差（相對） | `1e-6` | P-20 |
 | 恆等式比對容差（絕對） | `1e-9` | §4.1.10 |
-| 偏態分類門檻 | `0.5` | §4.1.13 |
-| 偏態分類的最小樣本數 | `30` | §4.1.13 |
+| 偏態分類門檻（近 0） | `0.5` | §4.1.12 |
+| 偏態分類的最小樣本數 | `30` | §4.1.12 |
+| 分析期間下限 | `2` 年 | D-110 |
+| 利率選項預設 | `zero` | D-112 |
+| 四組分析規則版本 `DIAGNOSIS_RULES_VERSION` | `2.0.0` | §4.1.13 |
+| 「大致相當」範圍：風險類（年化波動、下行波動、預期短缺、\|MDD\|） | 大盤值的 ±10%（含） | D-120 |
+| 「大致相當」範圍：夏普、索丁諾 | 相差 ≤ `0.1` | D-120 |
+| 峰度三級：厚尾／較薄尾 | $G_2>1$／$G_2<-1$，其餘為接近常態基準 | D-121 |
+| 權重集中門檻 | $HHI > 1.43/N$（等同 $N_{\text{eff}}/N < 0.7$） | D-124 |
+| 高相關配對門檻（$\rho_{ij}$ 大於等於） | `0.6` | D-117 |
+| 高正相關群聚 | 高相關配對占比 ≥ `0.25`，或 $\bar\rho \ge 0.6$ | D-122 |
+| 低相關結構 | $\bar\rho < 0.3$ 且沒有高相關配對 | D-122 |
+| 風險貢獻前 k 名 | $k=\min(3,N-1)$ | D-117 |
+| RCGap 門檻（集中／低於配置） | ≥ `0.10`／≤ `-0.10`，其餘為大致相稱 | D-119 |
+| 群組集中門檻（群聚成員 PCR 合計大於等於） | `0.5` | D-123 |
+| R² 強／中分界 | `0.7`、`0.4` | Morningstar |
+| Beta ≈ 1 區間 | `0.9`–`1.1`（含端點） | D-117 |
 | ES95 分位數 | `0.05`，線性內插 | P-15 |
 | 年化持有報酬的最小天數 | `30` | P-40 |
 | 熱圖切換為捲動的檔數 | `20` | P-43 |

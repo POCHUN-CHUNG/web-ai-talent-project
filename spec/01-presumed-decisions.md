@@ -273,32 +273,32 @@ n8n 的格式定義於 `services/n8n_result.py`，符合 `CLAUDE.md` §8：只�
 | --- | --- | --- |
 | P-09 | 交易日年化係數 | `252` |
 | P-10 | 日報酬 | 簡單報酬 $R_t=(P_t-P_{t-1})/P_{t-1}$，價格取 `adj_close` |
-| P-11 | 年化報酬 $R_p$ | 幾何年化：$(1+\text{累積報酬})^{252/n}-1$（不用日均 × 252） |
+| P-11 | 年化報酬 $R_p$ | ~~幾何年化~~（2026-09-26 由 D-114 取代）：Sharpe／Sortino 改採算術口徑，年化報酬率不再列入指標 |
 | P-12 | 波動度 | 樣本標準差 `ddof=1`，再 $\times\sqrt{252}$ |
 | P-13 | $R_f$ 日化 | 複利：$R_{f,daily}=(1+R_f)^{1/252}-1$（不用 $R_f/252$） |
-| P-14 | $R_f$ 取值 | `bank_rates` 唯一一列的五個欄位算術平均：$(taiwan+tcb+land+huanan+first)/5$。該表永遠只有一列，不需分組也不需排序。表為空時回 `RISK_FREE_RATE_UNAVAILABLE` |
+| P-14 | $R_f$ 取值 | 依利率選項（D-112）：`zero` 為 0；`bank_average` 為 `bank_rates` 唯一一列的五個欄位算術平均 $(taiwan+tcb+land+huanan+first)/5$，表為空時回 `RISK_FREE_RATE_UNAVAILABLE` |
 | P-15 | ES95 分位數（原 G-07） | 線性內插（NumPy 預設 `method="linear"`，等同 R type 7）；$ES_{95}=-\text{mean}(R \le q_{0.05})$ |
 | P-16 | Beta / R² | 以 OLS 含截距對市場日報酬迴歸；$R^2=\text{Corr}(R_p,R_m)^2$ |
 | P-17 | 市場基準 | **`IR0001`**（臺灣證券交易所發行量加權股價**報酬**指數，TAIEX TRI，含息）。與個股採用的 `adj_close`（已還原除權息）基準一致，Beta 與 R² 的分子分母定義相同。抓取由後端 `services/market_data.py` 執行（D-56） |
 | P-18 | 相關係數 | Pearson，成對皆有值才計算；缺值輸出 `null`，不得補 0 |
 | P-19 | 權重 | 目前市值權重 $w_i=P_iQ_i/\sum P_jQ_j$，$Q_i$ 為該檔全部買進紀錄的股數加總，價格取最新交易日 `adj_close`。**買進日期不影響權重**：14 項風險指標一律為「固定目前權重的歷史模擬」，這是刻意設計，AI Prompt 已明文載明此口徑 |
 | P-20 | 浮點比較容差（原 §5.6） | 相對誤差 $<10^{-6}$；黃金測試向量以此標準比對 |
-| P-21 | 單一持股（原 G-06） | HHI=1、$N_{eff}$=1、Beta 與 R² 照算、相關矩陣為 1×1、熱圖 `status="unavailable"`；`diversification` 段照常輸出並說明原因 |
+| P-21 | 單一持股（原 G-06） | HHI=1、$N_{eff}$=1、Beta 與 R² 照算、相關矩陣為 1×1、熱圖 `status="unavailable"`；第三組權重為集中、相關與風險貢獻為無法判斷、無典型標籤；第四組的風險貢獻視為未集中 |
 | P-22 | 組合上限（原 G-16） | 每使用者最多 20 個投資組合；每組合最多 50 檔**不同股票**；每檔最多 100 筆買進紀錄 |
 | P-23 | 資料保留（原 G-09，2026-09-21 修訂，D-62） | `daily_quotes` 的保留期為 **`ANALYSIS_MAX_LOOKBACK_YEARS` 年 + `PRICE_RETENTION_BUFFER_DAYS` 天**（預設 10 年 + 31 天），由每日抓取（`POST /market-data/fetch`）**有抓到資料且全部成功後**自動清理，刪除 `trade_date` 早於「今天 − 保留期」的列（以日曆計算，閏年由日期函式處理，不以固定天數近似）。兩個變數啟動時驗證，不合法即無法啟動。個股與指數同規則。`bank_rates` **只保留當前一列，不留歷史**，不需清理 |
-| P-24 | 快取（原 G-17） | Redis 快取 `analysis_results` 的量化結果與 AI 報告，鍵為 `analysis:{analysis_id}`，TTL 24 小時；問卷與買進紀錄不快取 |
+| P-24 | 快取（原 G-17，2026-09-26 修訂） | 量化結果直接讀取 `analysis_results` 快照（單列 JSONB，無需快取）；AI 報告的快取於第二階段決定。問卷與買進紀錄不快取 |
 
-## 五、指標識別碼（原 E-2，→ SPEC §3.1）
+## 五、指標識別碼（原 E-2，→ SPEC §3.1，2026-09-26 修訂）
 
-`metrics` 的 11 個純量值，識別碼固定為：
+`metrics` 的 12 個純量值，識別碼固定為：
 
-`annualized_volatility`、`annualized_downside_deviation`、`beta`、`r_squared`、`max_drawdown`、`expected_shortfall_95`、`skewness`、`excess_kurtosis`、`hhi`、`sharpe_ratio`、`sortino_ratio`。
+`annualized_volatility`、`annualized_downside_deviation`、`beta`、`r_squared`、`max_drawdown`、`expected_shortfall_95`、`skewness`、`excess_kurtosis`、`hhi`、`effective_number_of_holdings`、`sharpe_ratio`、`sortino_ratio`。
 
-風險貢獻度在 `holdings[].rc` / `holdings[].pcr`，相關矩陣在 `correlation`，有效持股檔數由前端以 $1/HHI$ 衍生，三者皆不計入這 11 項。
+加上風險貢獻度（`positions[].rc` / `.pcr`）與相關矩陣（`correlation`）共 14 項，與診斷規則文件一致。
 
 ### P-25 `readiness` 列舉值統一（原 N-07）
 
-分析階段使用 `ready` / `limited` / `blocked`。問卷階段已不使用 `readiness`（2026-09-25 起）：有衝突的作答不存檔，資料表中的風險屬性一定可用，見 `spec/04-behavior.md` §4.2.3。
+分析階段也不再使用 `readiness`（2026-09-26 移除）。問卷階段已不使用 `readiness`（2026-09-25 起）：有衝突的作答不存檔，資料表中的風險屬性一定可用，見 `spec/04-behavior.md` §4.2.3。
 
 ## 六、環境變數（→ SPEC §2.6）
 
@@ -364,15 +364,18 @@ web-ai-talent-project/
 | P-33 | findings 順序（原 Q-07） | 依 `primary_financial_constraints`、`willingness_capacity_gap`、`horizon_liquidity_consistency`、`knowledge_experience_consistency`、`willingness_behavior_consistency` 的順序儲存。五項全部存入 DB，也全部送給 AI；AI 必須在四段解析中說明每一項。因為不做篩選，已移除 `priority` 欄位（2026-09-25 修訂，原為依 priority 只解釋前兩項） |
 | P-34 | `cash_flow` fact（原 Y-05） | 列為獨立 fact 輸出，`id = cash_flow`，來源 Q3。理由：`financial_capacity` 判為「低」時，AI 需要指出是哪一項拉低的，缺這個 fact 就只能含糊帶過 |
 | P-35 | Q11 選項 J 自由文字 | 作答存於 `questionnaire_answers.answers.q11_other`，送 AI 時放在 `product_experience` fact 的 `other_text`；最多 100 字、僅允許中英數與全形標點、移除換行與控制字元，以 JSON 欄位傳遞（不串接進任何指令句）。勾「其他商品」視為有投資經驗（2026-09-25 修訂） |
-| P-36 | 圖表元件對應（修訂） | `@nivo/heatmap` → 相關係數熱圖；`@nivo/bar`（水平、分組）→ 權重 vs 風險貢獻、風險落差對照條；`@nivo/line`（含 `enableArea`）→ 淨值走勢與回撤面積。四張圖共用一個 `nivoTheme` 物件，其值全部讀自 `tokens.css` 的 CSS 變數（透過 `getComputedStyle` 取得，深色模式切換時重新計算） |
-| P-37 | 分析時的錯誤碼 | `INSUFFICIENT_PRICE_DATA`（無任何共同期間）、`BENCHMARK_UNAVAILABLE`（市場指數缺資料）、`RISK_FREE_RATE_UNAVAILABLE`（無完整五家利率）、`AI_REPORT_FAILED`（模型連續解析失敗）。原 `PROFILE_LIMITED` 已移除：有衝突的作答不存檔，不會有 limited 的風險屬性 |
-| P-38 | AI 失敗降級 | 模型用盡 `OPENAI_MAX_ATTEMPTS` 次呼叫仍失敗時，量化結果與四張圖照常顯示，AI 解說區塊顯示「暫時無法產生解說」與重試按鈕，回應 `report.status = "failed"`，不阻擋整頁 |
+| P-36 | 圖表元件對應（2026-09-26 修訂） | `@nivo/heatmap` → 相關係數熱圖；`@nivo/bar`（水平、分組）→ 權重 vs 風險貢獻；`@nivo/line`（含 `enableArea`）→ 回撤走勢。三張圖共用一個 `nivoTheme` 物件，其值全部讀自 `tokens.css` 的 CSS 變數（透過 `getComputedStyle` 取得，深色模式切換時重新計算） |
+| P-37 | 分析時的錯誤碼 | `INSUFFICIENT_PRICE_DATA`（有持股無價格，或共同期間不足 2 年）、`BENCHMARK_UNAVAILABLE`（市場指數缺資料）、`RISK_FREE_RATE_UNAVAILABLE`（選 `bank_average` 但無利率資料）、`AI_REPORT_FAILED`（模型連續解析失敗）。原 `PROFILE_LIMITED` 已移除：有衝突的作答不存檔，不會有 limited 的風險屬性 |
+| P-38 | AI 失敗降級 | 模型用盡 `OPENAI_MAX_ATTEMPTS` 次呼叫仍失敗時，量化結果與三張圖照常顯示，AI 解說區塊顯示「暫時無法產生解說」與重試按鈕，回應 `report.status = "failed"`，不阻擋整頁 |
 | P-39 | 交易明細的日期驗證 | `trade_date` 不得晚於今日，不得早於 1990-01-01。日期早於該檔 `daily_quotes` 最早一筆時仍可輸入，僅在持有天數說明旁標註「早於可取得的價格資料起點」 |
 | P-40 | 年化持有報酬率的下限 | 持有天數 < 30 日時不計算年化值，顯示「持有期間過短，暫不年化」。理由：短期報酬年化會產生數百甚至上千 % 的誤導性數字 |
 | P-41 | 持股列表呈現 | 預設每檔一列，顯示加權平均成本、部位股數、市值、未實現損益、年化持有報酬率；點擊展開顯示該檔的全部買進紀錄（日期、股數、單價、該筆損益、該筆持有天數） |
 | P-42 | 熱圖的深色模式色階 | 淺色端使用 `info-container` 與 `error-container`，深色端使用 `dark-info-container` 與 `dark-error-container`，中點一律為當前主題的 `surface`。色階以 `@nivo/heatmap` 的 `colors: {type: "diverging", divergeAt: 0.5}` 設定，定義域固定為 [−1, 1]，不隨資料自動縮放 |
 | P-43 | 熱圖的尺寸策略 | 不同股票數 ≤ 20 檔時圖表填滿容器寬度；> 20 檔時固定格子邊長 32px 並開啟水平與垂直捲動。每格一律標出數值（小數點後 2 位），格子邊長 < 28px 時改為僅 hover 顯示數值，並在圖說標註 |
-| P-44 | 圖表無障礙 | 四張圖皆須提供 `aria-label` 與可被螢幕閱讀器讀取的資料表替代（`<table>` 置於視覺隱藏容器）。對應 `DESIGN.md` §Charts 的「不得僅以顏色編碼意義」 |
+| P-44 | 圖表無障礙 | 三張圖皆須提供 `aria-label` 與可被螢幕閱讀器讀取的資料表替代（`<table>` 置於視覺隱藏容器）。對應 `DESIGN.md` §Charts 的「不得僅以顏色編碼意義」 |
+| P-47 | Sortino 優先參考提示（2026-09-26） | 偏態分類為 `negative_skew` 或 `positive_skew`（$\lvert G_1\rvert \ge 0.5$ 且 $n \ge 30$）時 `sortinoPreferred = true`；Sortino 不可用時一律 `false`。取代原 `performanceFocus` 五值列舉。診斷規則文件寫「明顯偏離 0（特別是負偏態）」，本預設將正、負偏態都視為觸發 |
+| P-48 | 四組診斷的補充規則（2026-09-26，**已由 D-123 取代**） | 原為區分相鄰分類而補充的門檻；經柏鈞 2026-09-27 確認後改列於 D-122、D-123 |
+| P-49 | 不利訊號的優先順序（2026-09-27） | 最大回撤深於市場 → 預期短缺高於 → 下行波動高於 → 年化波動高於 → 風險貢獻集中 → 高正相關群聚 → 權重集中 → 夏普低於 → 索丁諾低於 → Beta 偏高（僅 R² 較強時） → 負偏 → 厚尾。理由：先實際虧損幅度，再風險集中，再報酬效率，最後分布特徵（厚尾在台股幾乎普遍，放最後）|
 
 ### P-31 Prompt 的執行期位置
 

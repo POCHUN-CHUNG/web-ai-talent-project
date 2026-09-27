@@ -3,18 +3,22 @@ import uuid
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-# 【前端錯誤格式】給前端呼叫的 API 統一的失敗回應：{"detail": {"code", "message", "trace_id"}}，問卷作答衝突另帶 conflicts（spec/03-contract.md §3.3）
+# 【前端錯誤格式】給前端呼叫的 API 統一的失敗回應：{"detail": {"code", "message", "trace_id"}}，問卷作答衝突另帶 conflicts、
+# 分析資料不足另帶 symbols（spec/03-contract.md §3.3）
 
 
 class ApiError(Exception):
     # 【API 錯誤】需要回報給前端的失敗。
     # 參數：status_code=HTTP 狀態碼、code=錯誤碼（如 INVALID_INPUT）、message=中文說明、
-    #       conflicts=問卷作答衝突的明細（只有作答衝突時帶，每項為 {"message", "questionIds"}）
-    def __init__(self, status_code: int, code: str, message: str, conflicts: list[dict] | None = None):
+    #       conflicts=問卷作答衝突的明細（只有作答衝突時帶，每項為 {"message", "questionIds"}）、
+    #       symbols=造成無法分析的持股（只有分析資料不足時帶，每項為 {"symbol", "name", "years"}）
+    def __init__(self, status_code: int, code: str, message: str, conflicts: list[dict] | None = None,
+                 symbols: list[dict] | None = None):
         self.status_code = status_code
         self.code = code
         self.message = message
         self.conflicts = conflicts
+        self.symbols = symbols
 
 
 async def api_error_handler(request: Request, exc: ApiError):
@@ -22,4 +26,6 @@ async def api_error_handler(request: Request, exc: ApiError):
     detail = {"code": exc.code, "message": exc.message, "trace_id": str(uuid.uuid4())}
     if exc.conflicts:
         detail["conflicts"] = exc.conflicts
+    if exc.symbols:
+        detail["symbols"] = exc.symbols
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})

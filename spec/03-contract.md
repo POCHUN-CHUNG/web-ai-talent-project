@@ -1,7 +1,7 @@
 # 03 · 契約層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
+> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
 
 本層定義資料模型、資料庫結構、API 契約、狀態機、外部整合與 AI 模型契約。**動到任何資料結構或 API 之前必須先改本檔，再改程式。**
 
@@ -156,65 +156,75 @@ type Finding = {
 type AnalysisResult = {
   id: number;
   portfolioId: number;
-  riskProfileId: number;
-  readiness: "ready" | "limited" | "blocked";
-  mode: "saved" | "simulation";
-  changedFields: string[];        // simulation 時列出被微調的欄位
+  riskProfileId: number;          // 預設值來源的風險屬性快照
   period: {
-    requestedYears: number;       // 1–10
-    effectiveYears: number;
+    requestedYears: number | null; // null = 採可分析的最大期間（預設）；否則為 2 ～ ⌊maxYears⌋ 的整數
+    maxYears: number;             // 共同交易日可涵蓋的最長年數，小數 2 位
     startDate: string;
     endDate: string;
     tradingDays: number;
-    limitedBySymbols: string[];   // 造成期間限縮的代號；無限縮時為空陣列
+    limitedBySymbols: string[];   // 決定最大期間起點的代號（資料起點最晚者，可能是基準）
     annualizationBasis: 252;
     weightingMethod: "current_market_value";
     benchmarkSymbol: string;      // IR0001
   };
   settings: {
-    riskFreeRate: number;         // 年利率小數，例 0.0166
-    rateAsOf: string;             // bank_rates.updated
-    mar: number;                  // 本版等於 riskFreeRate
+    rateOption: "zero" | "bank_average";
+    riskFreeRate: number;         // 年利率小數；zero 時為 0
+    mar: number;                  // 恆等於 riskFreeRate（D-112）
+    rateAsOf: string | null;      // bank_average 時為 bank_rates.updated；zero 時為 null
+  };
+  profileInputs: {                // 分析條件列的 Q7／Q8／Q13（選項原文），本版只存不算
+    investmentHorizon: string;
+    withdrawalNeed: string;
+    lossTolerance: string;
+    changedFields: string[];      // 與問卷值不同的鍵
   };
   metrics: Record<MetricId, Metric>;
-  positions: AnalysisPosition[];
+  positions: AnalysisPosition[];  // 依 pcr 由大到小；pcr 為 null 時依 weight
   correlation: {
     symbols: string[];            // 順序即矩陣索引順序
     matrix: (number | null)[][];  // 對稱方陣，缺值為 null，不得填 0
   };
   interpretation: {
     skewClass: "near_symmetric" | "positive_skew" | "negative_skew" | "undetermined";
-    performanceFocus: "sharpe_primary" | "sortino_primary" | "both" | "undetermined" | "limited";
+    sortinoPreferred: boolean;    // true 時前端在 Sortino 旁標示「本次建議搭配優先參考」
     ruleSource: string;
   };
-  findings: Finding[];
-  figures: Figure[];
+  diagnosis: {
+    rulesVersion: string;         // DIAGNOSIS_RULES_VERSION
+    groups: DiagnosisGroup[];     // 固定四項、順序固定（附錄 B §B.6）
+    concentration: ConcentrationFacts;
+    overall: { adverseSignals: AdverseSignal[] }; // 依固定優先順序（04 §4.1.13），供第二階段 AI 產生綜合診斷
+  };
+  figures: Figure[];              // 固定三項
   dataQuality: {
     notes: string[];
-    excludedSymbols: string[];
+    tailCount: number;            // 95% 預期短缺實際採用的尾端筆數
   };
   created: string;
 };
 
 type MetricId =
-  | "annualized_volatility"
-  | "annualized_downside_deviation"
-  | "beta"
-  | "r_squared"
-  | "max_drawdown"
-  | "expected_shortfall_95"
-  | "skewness"
-  | "excess_kurtosis"
-  | "hhi"
-  | "sharpe_ratio"
-  | "sortino_ratio";
+  | "annualized_volatility"           // 前端
+  | "annualized_downside_deviation"   // 後端
+  | "beta"                            // 前端
+  | "r_squared"                       // 後端
+  | "max_drawdown"                    // 前端
+  | "expected_shortfall_95"           // 前端
+  | "skewness"                        // 後端
+  | "excess_kurtosis"                 // 後端
+  | "hhi"                             // 後端
+  | "effective_number_of_holdings"    // 後端
+  | "sharpe_ratio"                    // 前端
+  | "sortino_ratio";                  // 前端
 
 type Metric = {
   value: number | null;
-  unit: "fraction" | "ratio" | "index";
+  benchmarkValue: number | null;  // 市場基準 IR0001（台股加權報酬指數，非 IX0001）以同一公式算出的對照值；只有附錄 B §B.1 標「大盤對照」的 6 項有值，其餘恆為 null
+  unit: "fraction" | "ratio" | "count";
   status: "available" | "unavailable";
   reason: string | null;          // status 為 unavailable 時必填
-  sampleId: string;               // 共同樣本識別，同一次分析內所有指標相同
 };
 
 type AnalysisPosition = {
@@ -222,28 +232,64 @@ type AnalysisPosition = {
   name: string;
   weight: number;
   rc: number | null;              // 風險貢獻度，年化
-  pcr: number | null;             // 風險貢獻比例
+  pcr: number | null;             // 風險貢獻比例（診斷規則文件的 RC%）
+};
+
+type DiagnosisGroup = {            // 只給 AI 閱讀，可用專業用語（D-127）
+  key: "risk_return" | "loss_risk" | "concentration" | "market_sensitivity";
+  title: string;                  // 風險與報酬／虧損風險／集中與分散風險／市場敏感與風險來源
+  rawValues: Record<string, number | null>;   // 該組使用的原始數值（含大盤對照值，鍵名 market_*）
+  signals: Record<string, string | boolean>;  // 必要訊號，值域見 spec/04-behavior.md §4.1.13；無法計算時為「無法判斷」
+  typicalRuleId: string | null;   // E1–E5、T1–T7、C1–C6、M1–M8；未符合任何典型結構時為 null
+  typicalLabel: string | null;    // 典型標籤原文；未符合時為 null（不使用「混合型」）
+  ruleReport: string;             // 後端依模板產生的組別分析報告（必定有值）
+};
+
+type AdverseSignal = {
+  id: string;                     // mdd_deep、es_high … kurtosis_fat
+  groupKey: string;               // 所屬組別
+  text: string;                   // 給 AI 的描述，例「最大回撤深於市場」
+};
+
+type ConcentrationFacts = {
+  holdingCount: number;           // N
+  hhi: number;
+  equalWeightHhi: number;         // 1/N
+  effectiveHoldings: number;      // N_eff
+  effectiveRatio: number;         // N_eff / N
+  topK: number;                   // min(3, N - 1)；N = 1 時為 0
+  topKSymbols: string[];
+  topKWeight: number | null;
+  topKPcr: number | null;
+  rcGap: number | null;           // Top-k PCR − Top-k 權重
+  negativeRcPresent: boolean;     // 存在負風險貢獻（抵銷效果）的持股
+  averageCorrelation: number | null;
+  highPairShare: number | null;   // ρ ≥ 0.6 的配對占比
+  negativeCorrelationPresent: boolean; // 存在負相關配對
+  topPairs: { symbols: [string, string]; correlation: number }[]; // 相關係數最高的前 5 組
+  topWeightPairs: { symbols: [string, string]; correlation: number }[]; // 權重前 3 大持股之間的相關係數
+  clusterSymbols: string[];
+  clusterWeight: number;
+  clusterPcr: number | null;
 };
 
 type Figure = {
-  figureRef:
-    | "figure:correlation_heatmap"
-    | "figure:weight_vs_pcr"
-    | "figure:drawdown_curve"
-    | "figure:risk_gap_bar";
+  figureRef: "figure:drawdown_curve" | "figure:weight_vs_pcr" | "figure:correlation_heatmap";
   title: string;
-  legendText: string;             // AI 說明看圖方式時原文引用，不自行描述顏色
+  legendText: string;             // 診斷規則文件提供的圖表說明原文
   status: "available" | "unavailable";
   reason: string | null;
-  data: unknown;                  // 各圖的資料結構見 spec/04-behavior.md §4.4
+  data: unknown;                  // 回撤圖：{ series: [{date, navIndex, drawdown}], trough: {date, drawdown} }；其餘兩張圖直接引用 positions 與 correlation，data 為 null
 };
 ```
 
-**單位約定**：`fraction` 為小數比例（`0.1832` = 18.32%），用於波動度、下行波動度、MDD、ES95、HHI；`ratio` 為無單位比值，用於 Beta、R²、偏態、超額峰度、Sharpe、Sortino。
+**單位約定**：`fraction` 為小數比例（`0.1832` = 18.32%），用於波動度、下行波動度、MDD、ES95、HHI；`ratio` 為無單位比值，用於 Beta、R²、偏態、超額峰度、Sharpe、Sortino；`count` 為檔數，用於有效持股檔數。
 
-**`max_drawdown` 一律為負數或 0**（例 `-0.28`）。前端顯示時取絕對值並加「−」號，但契約中保留負號，避免大小比較時符號混淆。
+**`max_drawdown` 一律為負數或 0**（例 `-0.28`），`benchmarkValue` 亦同。前端顯示時取絕對值並加「−」號，但契約中保留負號，避免大小比較時符號混淆。
 
 ### 分析報告
+
+> **第二階段定稿**：新版診斷規則文件把報告改為「四組風險分析報告＋最終綜合風險診斷」。下列 `ReportContent` 為舊版（六段）結構，將於第二階段撰寫 Prompt 時重寫，實作前以屆時版本為準。
 
 ```ts
 type AnalysisReport = {
@@ -395,23 +441,23 @@ CREATE TABLE analysis_results (
     user_id           BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     portfolio_id      BIGINT        NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
     risk_profile_id   BIGINT        NOT NULL REFERENCES risk_profiles(id) ON DELETE RESTRICT,
-    readiness         VARCHAR(10)   NOT NULL,
-    mode              VARCHAR(12)   NOT NULL CHECK (mode IN ('saved','simulation')),
-    changed_fields    JSONB         NOT NULL DEFAULT '[]'::jsonb,
-    requested_years   SMALLINT      NOT NULL CHECK (requested_years BETWEEN 1 AND 10),
+    requested_years   SMALLINT      CHECK (requested_years IS NULL OR requested_years >= 2),
+    max_years         NUMERIC(5,2)  NOT NULL,
     start_date        DATE          NOT NULL,
     end_date          DATE          NOT NULL,
     trading_days      INTEGER       NOT NULL CHECK (trading_days > 0),
     limited_by        JSONB         NOT NULL DEFAULT '[]'::jsonb,
     benchmark_symbol  VARCHAR(10)   NOT NULL,
+    rate_option       VARCHAR(20)   NOT NULL CHECK (rate_option IN ('zero','bank_average')),
     risk_free_rate    NUMERIC(8,6)  NOT NULL,
-    rate_as_of        TIMESTAMPTZ   NOT NULL,
+    rate_as_of        TIMESTAMPTZ,
     mar               NUMERIC(8,6)  NOT NULL,
+    profile_inputs    JSONB         NOT NULL,
     metrics           JSONB         NOT NULL,
     positions         JSONB         NOT NULL,
     correlation       JSONB         NOT NULL,
     interpretation    JSONB         NOT NULL,
-    findings          JSONB         NOT NULL,
+    diagnosis         JSONB         NOT NULL,
     figures           JSONB         NOT NULL,
     data_quality      JSONB         NOT NULL,
     created           TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -699,30 +745,66 @@ Response 200:
 ### 分析
 
 ```
+GET /portfolios/{id}/analysis/options
+Auth: Cookie
+
+風險分析頁「分析條件列」的預設值與可選範圍（不使用彈窗，D-128）。
+
+Response 200:
+{
+  "period": {
+    "maxYears": 7.42,                       // 共同交易日可涵蓋的最長年數
+    "minYears": 2,
+    "startDate": "2019-04-12",              // 最大期間的起訖
+    "endDate": "2026-09-25",
+    "limitedBySymbols": ["6669"]
+  },
+  "rateOptions": [
+    { "key": "zero", "label": "0%", "rate": 0, "asOf": null },
+    { "key": "bank_average", "label": "五大公股銀行平均定存利率", "rate": 0.0169, "asOf": "2026-09-26T00:00:05Z" }
+  ],                                        // bank_rates 為空時 bank_average 的 rate 與 asOf 為 null（前端停用該選項）
+  "profileInputs": {
+    "investmentHorizon": { "value": "5 - 9 年", "choices": ["未滿 1 年", "..."] },
+    "withdrawalNeed":    { "value": "偏低，不太需要動用", "choices": ["..."] },
+    "lossTolerance":     { "value": "20 - 29 %", "choices": ["..."] }
+  },
+  "defaults": { "lookbackYears": null, "rateOption": "zero" }
+}
+
+Errors:
+| 409 | PROFILE_REQUIRED        | 尚未填問卷 |
+| 422 | INVALID_INPUT           | 組合內沒有任何買進紀錄 |
+| 422 | INSUFFICIENT_PRICE_DATA | 有持股完全沒有價格，或最大期間不足 2 年；detail 另帶 "symbols"，每項為 {"symbol","name","years"}，供前端提醒使用者是哪幾檔（D-126） |
+| 422 | BENCHMARK_UNAVAILABLE   | IR0001 沒有資料 |
+```
+
+```
 POST /portfolios/{id}/analysis
 Auth: Cookie
 
-Request:
+Request（全部欄位皆可省略，省略即採預設）:
 {
-  "lookbackYears": 5,                       // 1–10，預設取 ANALYSIS_DEFAULT_LOOKBACK_YEARS
-  "mode": "saved",                          // "saved" | "simulation"
-  "overrides": {                            // mode 為 simulation 時才可帶
-    "lossTolerance": "20%～30%",
-    "investmentHorizon": "5～10年"
+  "lookbackYears": null,                    // null 或整數 2 ～ ⌊maxYears⌋
+  "rateOption": "zero",                     // "zero" | "bank_average"
+  "profileInputs": {                        // 可只帶部分鍵；值必須是選項原文
+    "investmentHorizon": "5 - 9 年",
+    "withdrawalNeed": "偏低，不太需要動用",
+    "lossTolerance": "20 - 29 %"
   }
 }
 
 Response 201: AnalysisResult（見 §3.1）
 
 Errors:
+| 400 | INVALID_INPUT                | 未知的鍵、lookbackYears 超出範圍、選項原文不符 |
 | 409 | PROFILE_REQUIRED             | 尚未填問卷 |
 | 422 | INVALID_INPUT                | 組合內沒有任何買進紀錄 |
-| 422 | INSUFFICIENT_PRICE_DATA      | 無共同期間 |
-| 422 | BENCHMARK_UNAVAILABLE        | IR0001 在該期間無資料 |
-| 422 | RISK_FREE_RATE_UNAVAILABLE   | bank_rates 為空 |
+| 422 | INSUFFICIENT_PRICE_DATA      | 有持股完全沒有價格，或共同期間不足 2 年（detail 另帶 "symbols"，同上） |
+| 422 | BENCHMARK_UNAVAILABLE        | IR0001 沒有資料 |
+| 422 | RISK_FREE_RATE_UNAVAILABLE   | 選 bank_average 但 bank_rates 為空 |
 ```
 
-**`overrides` 只允許 `lossTolerance` 與 `investmentHorizon` 兩個鍵**（D-14）。出現其他鍵一律 `400 INVALID_INPUT`，特別是 `financialCapacity` 與 `liquidityNeed`——這兩項鎖死，不接受任何形式的覆寫。
+原 `mode`／`overrides`（D-14 的模擬模式）已移除（D-115）。Q7／Q8／Q13 一律以 `profileInputs` 傳遞，本版只存入快照。
 
 ```
 GET /analysis/{analysis_id}
@@ -732,9 +814,8 @@ GET /portfolios/{id}/analysis/history?page=1&page_size=20
 Response 200: { items: AnalysisSummary[], page, page_size, total }
 ```
 
-`AnalysisSummary` 含 `id`、`created`、`mode`、`requestedYears`、`effectiveYears`、`tradingDays` 與三項摘要指標（`annualized_volatility`、`max_drawdown`、`sharpe_ratio`）。
+`AnalysisSummary` 含 `id`、`created`、`requestedYears`、`startDate`、`endDate`、`tradingDays`、`rateOption` 與三項摘要指標（`annualized_volatility`、`max_drawdown`、`sharpe_ratio` 的 `value`）。
 
-```
 GET /analysis/{analysis_id}/report
 Auth: Cookie
 
@@ -890,8 +971,8 @@ healthcheck:
 | --- | --- | --- |
 | `computing` | 送出 `POST /portfolios/{id}/analysis` | 載入指示器 +「正在計算量化指標」，**不顯示圖表** |
 | `interpreting` | 量化回應已收到，送出 `GET /analysis/{id}/report` | 載入指示器 +「正在產生分析解說」，**不顯示圖表** |
-| `ready` | 兩者皆成功 | 一次揭露四張圖、圖說與解說 |
-| `partial` | 量化成功、報告回 502 或 503 | 顯示四張圖與全部數字，解說區塊顯示失敗說明與重試按鈕 |
+| `ready` | 兩者皆成功 | 一次揭露三張圖、圖說與解說 |
+| `partial` | 量化成功、報告回 502 或 503 | 顯示三張圖與全部數字，解說區塊顯示失敗說明與重試按鈕 |
 | `failed` | 量化本身失敗 | 顯示錯誤碼對應說明，不顯示圖表 |
 
 ### 唯讀快照的不可變事件
@@ -923,7 +1004,7 @@ healthcheck:
 | 輸出上限 | `OPENAI_MAX_OUTPUT_TOKENS`，預設 8000（含推理 token）。四段解析約 1,500 token，其餘為推理與餘裕；超過上限時回應為 `incomplete`，視為輸出不合規 |
 | Prompt caching | System Prompt 放 `instructions`（固定、約 1 萬 token，超過 1,024 token 門檻，自動快取），變動資料放 `input`，並帶固定的 `prompt_cache_key`。輸出 schema 也固定，一併進入快取前綴。快取讀取費率為一般輸入的 10 % |
 | 資料保存 | `store=false`，不在 OpenAI 端保存對話 |
-| 降級 | 問卷階段：`sections_status = failed`，四項核心指標照常顯示，解析區塊顯示「重新產生」。分析階段：`partial` 狀態，四張圖照常顯示（P-38） |
+| 降級 | 問卷階段：`sections_status = failed`，四項核心指標照常顯示，解析區塊顯示「重新產生」。分析階段：`partial` 狀態，三張圖照常顯示（P-38） |
 | 成本控制 | 輸出上限；問卷成功送出每使用者每分鐘 1 次（分析端點不另設限流，D-70）；報告快取 24 小時；報告 `ready` 後不重打 |
 | 未設定金鑰 | 後端照常啟動，AI 相關端點回 `503 AI_NOT_CONFIGURED`；問卷解析直接標為 `failed` |
 
@@ -1055,7 +1136,7 @@ healthcheck:
 | --- | --- |
 | 格式 | Structured Outputs 保證合法 JSON；解析失敗（SDK 丟出 `ValueError`）計為一次重試 |
 | 風險屬性解析的內容檢查 | ①`sections` 恰好四段且 `key` 依序為 `funding_timing`、`willingness_capacity`、`decline_response`、`knowledge_experience` ②每段 `body` 去頭尾空白後 80–360 字（Prompt 要求 180–300 字，這裡留容許誤差，只擋太短或失控的輸出） ③`fact_ids`、`finding_ids` 只能引用輸入中存在的 id ④五個 finding 都至少出現在一段 ⑤四個核心指標都至少被一段引用。任一不符即計為一次重試 |
-| 分析報告的內容檢查 | `sections` 必須恰好六項且 `key` 順序固定；`evidenceRefs` 與 `figureRefs` 的每一項都必須存在於當次的白名單；`analysisId`、`contextId`、`readiness`、`performanceFocus` 必須與輸入完全相同 |
+| 分析報告的內容檢查 | （第二階段依新版報告結構改寫）`sections` 必須恰好六項且 `key` 順序固定；`evidenceRefs` 與 `figureRefs` 的每一項都必須存在於當次的白名單；`analysisId`、`contextId`、`readiness`、`performanceFocus` 必須與輸入完全相同 |
 | 失敗上限 | 共呼叫 `OPENAI_MAX_ATTEMPTS` 次仍失敗：問卷解析寫入 `sections_status = failed`；分析報告寫入 `status = failed` 並保留最後一次原始輸出至 `failure_reason` |
 
 **原始輸出的保留與遮蔽**：`failure_reason` 最多保留 2000 字元，寫入前移除可能的金鑰樣式字串。此欄僅供開發除錯，不回傳給前端。
