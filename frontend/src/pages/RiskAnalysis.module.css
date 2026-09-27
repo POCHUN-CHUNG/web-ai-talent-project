@@ -30,3 +30,60 @@
   line-height: 1.5;
   color: var(--color-on-surface-variant);
 }
+
+/* 投資組合下拉選單：與輸入框同一套膠囊外觀（1px outline 邊、30px 圓角） */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.pickerLabel {
+  font-size: var(--text-label-md-size);
+  font-weight: var(--text-label-lg-weight);
+  color: var(--color-on-surface-variant);
+}
+
+.selectWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 12px 48px 12px var(--space-lg);
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-input);
+  background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
+  font-family: var(--font-family);
+  font-size: var(--text-input-text-size);
+  color: var(--color-on-surface);
+  cursor: pointer;
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--color-focus-ring);
+  box-shadow: inset 0 0 0 1px var(--color-focus-ring);
+}
+
+.select:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.selectIcon {
+  position: absolute;
+  right: var(--space-md);
+  pointer-events: none;
+  color: var(--color-on-surface-variant);
+}
+
+.error {
+  font-size: var(--text-body-sm-size);
+  color: var(--color-error);
+}

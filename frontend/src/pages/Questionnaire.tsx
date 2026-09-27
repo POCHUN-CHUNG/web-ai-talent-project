@@ -279,6 +279,7 @@ export default function Questionnaire() {
         open={dialogOpen}
         title="作答內容有矛盾之處，請確認"
         messages={conflicts.map((c) => c.message)}
+        confirmLabel="關閉"
         onConfirm={closeConflictDialog}
       />
     </main>

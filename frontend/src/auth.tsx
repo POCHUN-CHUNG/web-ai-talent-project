@@ -57,7 +57,7 @@ export function RequireAuth() {
   return username ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
-// 【風險屬性守衛】保護後續功能頁，無參數：尚未填問卷時一律導回風險屬性頁（該頁會顯示「開始評估」引導並跳出提示視窗）。
+// 【風險屬性守衛】保護後續功能頁，無參數：尚未填問卷時一律導回風險屬性頁（該頁會顯示「開始填寫」引導並跳出提示視窗）。
 // 帶 blocked 記號，讓風險屬性頁知道這是被擋下來的，才需要跳出提示視窗（直接切到這頁查看則不用）。
 export function RequireProfile() {
   const { profile } = useAuth();

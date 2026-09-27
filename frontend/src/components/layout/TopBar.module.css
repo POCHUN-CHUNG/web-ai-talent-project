@@ -103,13 +103,12 @@
   background: color-mix(in srgb, var(--color-surface) 30%, transparent);
   backdrop-filter: blur(10px) saturate(180%);
   -webkit-backdrop-filter: blur(10px) saturate(180%);
-  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  border: 1px solid var(--liquid-glass-edge);
   border-radius: var(--radius-full);
   padding: 6px;
   gap: 4px;
   box-shadow:
-    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
-    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    var(--liquid-glass-rim),
     0 4px 12px color-mix(in srgb, black 14%, transparent);
 }
 
@@ -159,10 +158,9 @@
   background: color-mix(in srgb, var(--color-surface) 30%, transparent);
   backdrop-filter: blur(10px) saturate(180%);
   -webkit-backdrop-filter: blur(10px) saturate(180%);
-  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  border: 1px solid var(--liquid-glass-edge);
   box-shadow:
-    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
-    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    var(--liquid-glass-rim),
     0 4px 12px color-mix(in srgb, black 14%, transparent);
   pointer-events: none;
   will-change: translate, scale, width;
@@ -205,8 +203,7 @@
     gap: 2px;
     /* 沿用桌機的玻璃內光，只是外陰影加重一點，讓浮在畫面最下層的懸浮列更有立體感 */
     box-shadow:
-      inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
-      inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+      var(--liquid-glass-rim),
       var(--shadow-level-3);
   }
   
@@ -235,7 +232,7 @@
   position: relative;
 }
 
-/* 帳戶選單：液態玻璃特效 */
+/* 帳戶選單：與頁面內容卡片相同的玻璃卡樣式 */
 .menu {
   position: absolute;
   top: calc(100% + var(--space-xs));
@@ -245,14 +242,13 @@
   flex-direction: column;
   padding: var(--space-xs);
   border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-surface) 30%, transparent);
-  backdrop-filter: blur(10px) saturate(180%);
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
-  border: 1px solid color-mix(in srgb, white 55%, transparent);
-  box-shadow:
-    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
-    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
-    0 4px 12px color-mix(in srgb, black 14%, transparent);
+  /* 與頁面內容卡片相同的玻璃卡樣式（DESIGN.md「Glass surface」）：75% 白底、24px 模糊＋150% 飽和、1px 淡色描邊，
+     比先前 88% 的液態玻璃再淡一點，但底下是深藍按鈕時文字仍清楚 */
+  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+  box-shadow: var(--shadow-level-3);
 }
 
 .menuItem {

@@ -1,0 +1,849 @@
+/* 【投資組合詳情頁樣式】單頁儀表板：標題列 → 總覽指標卡片 → 歷史走勢 → 資產與產業配置 → 庫存明細。
+   版面寬度、上方留白與投資組合清單頁一致（頂端 Tab 列高度：桌機 88px、手機 72px）。 */
+
+.page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 112px var(--space-margin) 0; /* 底部不另留白，與版權聲明的間距比照風險屬性頁 */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+@media (max-width: 734px) {
+  .page {
+    padding: 96px var(--space-md) 0;
+    gap: var(--space-md);
+  }
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+}
+
+.chipLeft {
+  justify-content: flex-start;
+}
+
+/* ── 標題列 ── */
+/* 標題列：與風險屬性頁相同，手機版也維持「左名稱、右按鈕」同一列，按鈕不換到下一行 */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm); /* 名稱與編輯鈕之間的間距 */
+  min-width: 0;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0; /* 長名稱可換行，不把右側按鈕擠出畫面 */
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-lg-size);
+  font-weight: var(--text-headline-lg-weight);
+  color: var(--color-on-background);
+  overflow-wrap: anywhere;
+}
+
+.headerActions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+
+.metaText {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+}
+
+/* 資料更新時間：桌機放在「進行風險分析」左側，手機移到名稱下方 */
+.metaTextMobile {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .metaTextMobile {
+    display: flex;
+  }
+  .metaTextDesktop {
+    display: none;
+  }
+}
+
+/* 提示框（共用元件 Notice）：往上拉近標題列，與投資組合總覽頁一致 */
+.noticeGap {
+  margin-top: calc(-1 * var(--space-md));
+}
+
+/* 缺報價警示：同一種液態玻璃提示框，文字改警示色（選擇器重複一次提高優先順序，確保蓋過 Notice 的中性色） */
+.warnNotice.warnNotice {
+  color: var(--color-warning);
+}
+
+.warnNotice.warnNotice :global(.material-symbols-rounded) {
+  color: var(--color-warning);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  align-self: flex-start;
+  font-size: var(--text-label-md-size);
+  font-weight: var(--text-label-md-weight);
+  color: var(--color-on-surface-variant);
+  text-decoration: none;
+  padding: 4px 12px 4px 8px;
+  margin-left: -8px;
+  border-radius: var(--radius-full);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.back:hover {
+  color: var(--color-on-surface);
+  background-color: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.dangerIcon:hover {
+  color: var(--color-error);
+  background-color: var(--color-error-container);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* 總覽：一個大外框（玻璃卡）包住整區；左側直接放「目前總市值」（不另包卡片、靠左），右側 2×2 小卡 */
+.overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.85fr);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-xs);
+}
+
+.heroLabel {
+  font-size: var(--text-headline-sm-size);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.heroValue {
+  font-size: var(--text-headline-lg-size);
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-surface);
+}
+
+/* 大圖撐滿左欄剩餘高度，底部與右側小卡對齊 */
+.heroChart {
+  flex: 1;
+  width: 100%;
+  min-height: 160px;
+  padding-top: var(--space-md);
+  display: flex;
+}
+
+.miniGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+@media (max-width: 734px) {
+  .overview {
+    grid-template-columns: 1fr;
+    padding: var(--space-md);
+  }
+}
+
+
+/* 頁面大區塊卡片：內距統一 24px，讓每個區塊的標題與邊框間距一致（與總覽卡相同） */
+.whiteCard {
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  padding: var(--space-lg) !important;
+}
+
+/* 總覽右側小卡：只有一圈細外框（無背景、無陰影、無模糊），圓角與巢狀卡一致 */
+.smallCard {
+  background: transparent;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-nested);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metricLabel {
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px; /* 標題前的圖示（如時間的 schedule）與文字間距 */
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  color: var(--color-on-surface-variant);
+}
+
+.metricValue {
+  font-family: var(--font-family);
+  font-size: var(--text-headline-md-size);
+  font-weight: var(--text-headline-md-weight);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-surface);
+  overflow-wrap: anywhere;
+}
+
+/* 金額單行顯示、不換行（放不下時由 FitLine 自動縮小字級） */
+.fitLine {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* 手機：小卡的數字小一級（headline-sm）、內距縮為 12px，一般金額就能單行放下 */
+@media (max-width: 734px) {
+  .smallCard {
+    padding: 12px;
+  }
+  .smallCard .metricValue {
+    font-size: var(--text-headline-sm-size);
+  }
+  .smallCard .metricValue.change {
+    font-size: var(--text-body-md-size);
+  }
+}
+
+/* 文字較長的值（更新時間、「持有期間過短」說明）用小一級字 */
+/* 無法計算時的「N/A」：佔滿標題下方剩餘高度並垂直置中 */
+.metricNA {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-on-surface-variant);
+}
+
+.metricValueSmall {
+  font-size: var(--text-headline-sm-size);
+  line-height: 1.6;
+}
+
+.unit {
+  margin-left: 4px;
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
+}
+
+/* 金額下方的漲跌幅（▲／▼＋百分比）：比金額小一級（headline-sm），粗細與顏色同金額，% 用小字單位；
+   選擇器與 .metricValue 合併，確保字級蓋過金額的字級 */
+.metricValue.change {
+  font-size: var(--text-headline-sm-size);
+  line-height: 1.2;
+  margin-top: -2px; /* 與上方金額靠近一點 */
+  white-space: nowrap;
+}
+
+/* ▲／▼ 比百分比數字再小一級，與數字間留半形空白 */
+.changeArrow {
+  margin-right: 0.3em;
+  font-size: 0.7em;
+  vertical-align: 0.1em;
+}
+
+/* 迷你趨勢圖固定在卡片底部，六張卡的圖才會對齊 */
+.metricChart {
+  width: 100%;
+  margin-top: auto;
+  padding-top: var(--space-sm);
+}
+
+/* 資產與產業配置：上排兩張環形圖、下排兩張方塊圖；寬度不足時改單欄 */
+.allocGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-gutter);
+}
+
+@media (max-width: 900px) {
+  .allocGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* 區塊標題列：左側標題（與說明）可換行，右側按鈕一律留在右邊、不換到下一行 */
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg); /* 按鈕往下溢出約 12px，留 24px 讓按鈕與下方內容仍有間距 */
+}
+
+.cardHead > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+
+/* 按鈕比標題高：用負的上下外距讓標題列只有標題的高度（按鈕仍與標題垂直置中、往上下溢出），
+   標題與卡片上緣的距離才會和其他卡片（如「市場別」）一樣是卡片內距 24px */
+.cardHead > button {
+  flex: none;
+  margin-block: -100px;
+}
+
+/* 手機：庫存明細字級放大（列高與間距與桌機相同）；最小字級 14px（小字不用 12px）。
+   選擇器多加一層（.table tbody／.table thead）：這段寫在一般樣式之前，同權重會被後面的一般樣式蓋掉 */
+@media (max-width: 734px) {
+  .table tbody td {
+    font-size: calc(var(--text-body-md-size) + 2px);
+    line-height: 1.35;
+  }
+  /* 明細面板（手機）：比照外層主列的緊湊感 —— 左右 16px（＝主列文字到灰底邊緣的距離）、上 16px、下 4px
+     （日期與兩行損益置中，日期下方已多出約 13px），「標題文字到上緣」與「日期文字到下緣」視覺上仍相同（約 18px）；
+     標題→欄位標題、欄位標題→日期的間距比照桌機比例縮小（文字到文字約 13px、18px；桌機約 18px、25px） */
+  .table .lots {
+    padding: var(--space-md) var(--space-md) var(--space-xs);
+  }
+  .table .lotsHeaderRow {
+    padding-block: var(--space-xs) 0;
+  }
+  /* 展開的歷史批次買進明細：字級與外層主列相同（內容 16px、下方小字 14px） */
+  .table .lotRow {
+    font-size: calc(var(--text-body-md-size) + 2px);
+    line-height: 1.35;
+  }
+  .table thead th {
+    padding-block: 0 var(--space-xs);
+  }
+  .table .industry {
+    margin-top: 0;
+  }
+  .table .industry,
+  .table .subCell,
+  .table .thUnit {
+    font-size: var(--text-body-md-size);
+  }
+}
+
+.tableTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin: 0;
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  line-height: var(--text-headline-sm-line-height);
+  color: var(--color-on-surface);
+}
+
+.count {
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
+}
+
+/* ── 庫存明細表格：DESIGN.md「Table」與「Expandable table」— 無格線、數字靠右、內文 body-md，滑過變色 ── */
+/* 庫存明細卡：下內距與表格左右外推後剩下的距離相同（8px），最後一列（或展開的明細面板）到卡片下緣的距離＝到左右邊緣的距離。
+   選擇器寫兩個 class 才蓋得過 .whiteCard 的 !important 內距 */
+.tableCard.whiteCard {
+  padding-bottom: var(--space-sm) !important;
+}
+
+/* 新增持股成功後捲到這張卡：預留頂端列的高度，卡片標題不會被蓋住 */
+.anchor {
+  scroll-margin-top: 104px;
+}
+
+/* 表格往左右各外推 16px（＝第一欄的左內距）：第一欄文字與卡片標題「庫存明細」切齊，
+   列的灰底則多出 16px 包住文字；右側展開箭頭的圖示也與「新增持股」按鈕右緣切齊 */
+.tableScroll {
+  overflow-x: auto;
+  margin: 0 calc(-1 * var(--space-lg));
+  padding: 0 calc(var(--space-lg) - var(--space-md));
+}
+
+.table,
+.lotTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 欄寬固定分配：標的 20%、展開鈕 64px，其餘欄位平均分配，避免標的欄過寬 */
+.table {
+  min-width: 960px;
+  table-layout: fixed;
+}
+
+.table th:first-child {
+  width: 20%;
+}
+
+.table th:last-child {
+  width: 64px;
+}
+
+.lotTable {
+  table-layout: fixed;
+}
+
+/* 同一欄的表頭與資料都置中對齊（標的欄靠左） */
+.table th,
+.lotTable th {
+  padding: var(--space-sm);
+  text-align: center;
+  vertical-align: top;
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-md-weight);
+  color: var(--color-on-surface-variant);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-sm); /* 列高緊湊：上下 8px（桌機與手機相同） */
+  text-align: center;
+  font-size: var(--text-body-md-size);
+  vertical-align: middle;
+  white-space: nowrap; /* 含「持有期間過短」一律單行 */
+}
+
+.table .left,
+.lotTable .left {
+  text-align: left;
+}
+
+/* 列：圓角膠囊式的滑過效果（第一格與最後一格補圓角）；展開中的列維持淡色底，與下方明細面板連成一塊 */
+.row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+/* 滑過與展開中的列：與環形圖清單滑過時相同的灰（surface-container） */
+/* 每檔持股之間的間隔：高 8px 的空白列 */
+.gapRow td {
+  height: 4px; /* 列與列之間的空隙 */
+  padding: 0 !important;
+  background: none !important;
+}
+
+/* 底色畫在儲存格上（不是整列），圓角才會跟著儲存格走，展開的列與下方明細面板才能完整接合、沒有缺角 */
+.row:hover td,
+.rowOpen td {
+  background-color: var(--color-surface-container);
+}
+
+/* 左右留白對稱：標的文字距左緣 16px，展開箭頭（40px 按鈕內 22px 圖示，圖示本身已內縮 9px）距右緣視覺上也約 16px */
+.table th:first-child,
+.table td:first-child {
+  padding-left: var(--space-md);
+}
+
+/* 展開箭頭靠右、右內距 8px：箭頭圖示的右緣與上方「新增持股」按鈕右緣切齊（距卡片邊緣 24px） */
+.table th:last-child,
+.table td:last-child {
+  padding-right: var(--space-sm);
+  text-align: right;
+}
+
+.row td:first-child {
+  border-radius: var(--radius-nested) 0 0 var(--radius-nested);
+}
+
+.row td:last-child {
+  border-radius: 0 var(--radius-nested) var(--radius-nested) 0;
+}
+
+.rowOpen td:first-child {
+  border-bottom-left-radius: 0;
+}
+
+.rowOpen td:last-child {
+  border-bottom-right-radius: 0;
+}
+
+/* 標的欄：第一行「代號（粗體）＋名稱」，第二行產業（小字、中性色） */
+.stock {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.code {
+  font-weight: 700;
+}
+
+/* 第二行：市場別與產業別，與上一行「代號 名稱」一樣用 8px 間距分開（不用斜線） */
+.industry {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 2px;
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+}
+
+.subCell {
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+}
+
+/* 市值權重欄：市值數字下方的權重橫條 */
+.weightBar {
+  margin: 6px auto 0;
+  width: 88px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container-highest);
+  overflow: hidden;
+}
+
+.weightBar span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-400);
+}
+
+/* 展開鈕：只有箭頭（圖示按鈕規格 40×40），展開時箭頭轉 180 度 */
+/* 展開鈕：用區塊（flex）而非行內元素，才不會對齊文字基線而偏上，能與同列內容垂直置中；
+   上下各 -8px 讓 40px 按鈕往上下溢出、不撐高整列；margin-left:auto 讓它靠右 */
+.expand {
+  margin: -8px 0 -8px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-full);
+  color: var(--color-on-surface-variant);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.expand :global(.material-symbols-rounded) {
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.rowOpen .expand :global(.material-symbols-rounded) {
+  transform: rotate(180deg);
+}
+
+.expand:hover {
+  background-color: color-mix(in srgb, var(--color-on-surface) 14%, transparent);
+  color: var(--color-on-surface);
+}
+
+/* 展開的買進紀錄：淡色底接在該列下方，裡面放一張白色內卡（DESIGN.md「Expandable table」） */
+.lotsRow td {
+  padding: 0 var(--space-sm) var(--space-sm) !important;
+  text-align: left !important;
+  background-color: var(--color-surface-container);
+  border-radius: 0 0 var(--radius-nested) var(--radius-nested);
+}
+
+/* 明細面板：與庫存明細卡片相同的 75% 白 */
+.lots {
+  /* 上 19px、下 8px：最後一列的日期與損益的兩行文字置中對齊，日期下方本來就多出約 10px 空白，
+     下內距較小，「標題文字到上緣」與「日期文字到下緣」的距離視覺上才會一樣（約 24px） */
+  padding: calc(var(--space-md) + 3px) var(--space-lg) var(--space-sm);
+  border-radius: var(--radius-nested);
+  background-color: rgba(255, 255, 255, 0.75); /* 與庫存明細卡片（whiteCard）相同的背景 */
+  animation: slideDown 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
+  transform-origin: top;
+  margin-top: 0; /* 與上方主列內容只隔主列本身的下內距 8px，和主列上方的內距一樣 */
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scaleY(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+/* 明細標題列：左右各內縮 9px，與下方日期、右側刪除圖示（40px 按鈕內 22px 圖示，本身內縮 9px）對齊 */
+.lotsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-xs);
+  padding: 0 9px;
+}
+
+/* 明細標題與右側筆數：同字級（label-lg）、都粗體 */
+.lotsTitle,
+.lotsCount {
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  font-weight: 700;
+}
+
+.lotsTitle {
+  color: var(--color-on-surface);
+}
+
+/* 筆數用中性灰，與左側標題區分主次 */
+.lotsCount {
+  color: var(--color-neutral-600);
+}
+
+/* 多筆紀錄放在同一個區塊，列與列之間不留間隔、不畫分隔線 */
+.lotGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* 欄位：買進日期、每股單價、買進股數、持有成本、未實現損益（下方百分比）、目前市值、持有天數、操作 */
+.lotsHeaderRow {
+  display: grid;
+  grid-template-columns: 130px repeat(6, minmax(0, 1fr)) 84px;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  font-family: var(--font-family);
+  font-size: var(--text-label-lg-size);
+  color: var(--color-on-surface-variant);
+  text-align: center;
+}
+/* 買進日期欄：標題、明細標題與日期同一條左緣，內縮 9px，與右側刪除圖示到邊界的距離相同 */
+.lotsHeaderRow .colDate { text-align: left; padding-left: 9px; }
+
+.lotRow {
+  display: grid;
+  grid-template-columns: 130px repeat(6, minmax(0, 1fr)) 84px;
+  gap: var(--space-md);
+  align-items: center;
+  background-color: transparent;
+  padding: var(--space-xs) 0; /* 排列緊湊：上下各 4px，列高由文字決定（操作按鈕往上下溢出） */
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  line-height: 1.35; /* 行距縮小：損益與下方百分比兩行靠近一點 */
+  text-align: center;
+}
+.lotRow .colDate { text-align: left; padding-left: 9px; }
+
+/* 欄位標題下方的單位，例如「(元)」：小一級、置中、換行顯示 */
+.thUnit {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
+}
+
+/* 區塊標題＋標題右側的說明（比照問卷頁標題旁的「共 14 題」）：同一列、間距 12px，空間不足時換行 */
+.titleWithNote {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+/* 標題旁說明：桌機直接顯示文字；手機（≤734px）改為只顯示 info 圖示按鈕，點開看說明（InfoPopover） */
+.noteMobile {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .noteDesktop {
+    display: none;
+  }
+  .noteMobile {
+    display: inline-flex;
+    margin: -8px 0; /* 40px 按鈕不撐高標題列 */
+  }
+  .titleWithNote {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+}
+
+/* 明細的未實現損益：一般字重，只用漲跌色區分 */
+.pnlText {
+  font-weight: 400;
+}
+
+/* 漲跌幅的 % 單位：顏色跟著漲跌（不用中性灰） */
+.unit.unitTone {
+  color: inherit;
+}
+
+.lotActions {
+  margin-block: -8px; /* 40px 編輯／刪除按鈕不撐高整列 */
+  display: inline-flex;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
+.lotActions button {
+  padding: 8px var(--space-md);
+}
+
+.lotActions button[aria-label] {
+  padding: 0;
+}
+
+/* 明細的刪除鈕：平常無底色、紅色圖示；滑過時變成實心紅底白色圖示（比照刪除按鈕的強調樣式） */
+.lotActions .dangerSolid {
+  background-color: transparent;
+  color: var(--color-error);
+}
+
+.lotActions .dangerSolid:hover {
+  background-color: var(--color-error);
+  color: var(--color-on-error);
+}
+
+.editDate {
+  width: 100%;
+}
+
+.qtyInput {
+  width: 120px;
+  padding: 10px var(--space-md);
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-input);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--text-body-md-size);
+  text-align: right;
+  color: var(--color-on-surface);
+}
+
+/* 提示文字與共用輸入框（Input.module.css）一致：中性色、60% 不透明 */
+.qtyInput::placeholder {
+  color: var(--color-on-surface-variant);
+  opacity: 0.6;
+}
+
+.qtyInput:focus {
+  outline: none;
+  border-color: var(--color-focus-ring);
+  box-shadow: inset 0 0 0 1px var(--color-focus-ring);
+}
+
+.editHint {
+  white-space: normal !important;
+  color: var(--color-on-surface-variant);
+}
+
+/* ── 空組合引導卡 ── */
+/* 沒有持股：虛線外框、無背景（與風險屬性頁未填問卷時的區塊相同），置中一句說明與按鈕 */
+.emptyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 2rem;
+  text-align: center;
+  border: 1px dashed var(--color-outline);
+  border-radius: var(--radius-card);
+}
+
+.emptyText {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 手機版提示文字在逗號後換行 */
+.mobileBreak {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .mobileBreak {
+    display: block;
+  }
+}
+
+/* ── 載入與錯誤狀態 ── */
+.stateCard {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.inlineState {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.skeletonTitle {
+  width: 240px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in srgb, var(--color-surface) 60%, transparent);
+}
+
+.skeleton {
+  height: 220px;
+}
+
+.chartSkeleton {
+  height: 300px;
+  border-radius: var(--radius-nested);
+  background-color: var(--color-surface-container-low);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton,
+  .skeletonTitle,
+  .chartSkeleton {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}

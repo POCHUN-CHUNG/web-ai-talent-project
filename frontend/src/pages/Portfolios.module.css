@@ -41,7 +41,8 @@
   color: var(--color-on-background);
 }
 
-.disclaimerText {
+/* 資料更新時間：與風險屬性頁「上次填寫時間」相同樣式，桌機放右上角、手機放標題下方 */
+.metaText {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -53,6 +54,7 @@
 .metaTextMobile {
   display: none;
 }
+
 .metaTextDesktop {
   display: flex;
 }
@@ -64,6 +66,11 @@
   .metaTextDesktop {
     display: none;
   }
+}
+
+/* 提示框（共用元件 Notice）：往上拉近標題列，與標題維持一致的間距 */
+.noticeGap {
+  margin-top: calc(-1 * var(--space-md));
 }
 
 .content {
@@ -94,26 +101,36 @@
   border-color: color-mix(in srgb, var(--color-outline) 20%, transparent);
 }
 
+/* 卡片外框：讓右上角的「⋯」選單能疊在卡片上 */
+.cardWrap {
+  position: relative;
+}
+
+/* 「⋮」選單：垂直中心對齊標題文字的中心（卡片上內距 + 標題行高的一半 − 按鈕高度的一半） */
+.cardWrap > .cardMenu {
+  position: absolute;
+  top: calc(var(--space-lg) + var(--text-headline-sm-size) * 0.6 - 20px);
+  right: calc(var(--space-lg) - 8px);
+  z-index: 2;
+}
+
 .cardHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-right: 40px; /* 預留右上角選單按鈕的位置，長名稱不會被蓋住 */
   border-bottom: 1px solid var(--color-outline-variant);
-  padding-bottom: var(--space-sm);
+  /* 標題到分隔線 16px：卡片上緣是大圓角，視覺上比實際低，上 24px／下 16px 看起來才會置中 */
+  padding-bottom: var(--space-md);
 }
 
 .cardTitle {
   margin: 0;
+  line-height: 1.2; /* 不沿用內文 1.6 的行高，避免文字上方多出空白而看起來偏下 */
   font-family: var(--font-family);
   font-size: var(--text-headline-sm-size);
   font-weight: var(--text-headline-sm-weight);
   color: var(--color-on-surface);
-}
-
-.updateTime {
-  font-family: var(--font-family);
-  font-size: var(--text-body-sm-size);
-  color: var(--color-on-surface-variant);
 }
 
 .grid {
@@ -142,9 +159,17 @@
 
 .metricValue {
   font-family: var(--font-family);
-  font-size: var(--text-headline-md-size);
-  font-weight: var(--text-headline-md-weight);
+  font-size: 28px;
+  font-weight: 700;
   color: var(--color-on-surface);
+}
+
+/* 數字後的單位（元、%）：較小、一般字重、中性色，與組合詳情頁的單位樣式一致 */
+.metricUnit {
+  margin-left: 4px;
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
 }
 
 /* 持有標的一覽：DESIGN.md「Meta pill」樣式，圓角膠囊、surface 底色 */

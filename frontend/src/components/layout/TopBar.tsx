@@ -26,9 +26,11 @@ export default function TopBar() {
     { name: "歷史紀錄", path: "/history", icon: "history" }
   ];
 
-  // 【是否為作用中分頁】路徑相同即是；問卷頁屬於「風險屬性」分頁。參數：path=分頁路徑
+  // 【是否為作用中分頁】路徑相同即是；問卷頁屬於「風險屬性」分頁，投資組合明細頁屬於「投資組合」分頁。參數：path=分頁路徑
   const isActiveTab = (path: string) =>
-    location.pathname === path || (path === "/risk-profile" && location.pathname === "/questionnaire");
+    location.pathname === path ||
+    (path === "/risk-profile" && location.pathname === "/questionnaire") ||
+    (path === "/portfolios" && location.pathname.startsWith("/portfolios/"));
 
   // 【量測滑動指示條】找出目前作用中的分頁按鈕，算出它相對分頁列容器的位置與寬度。無參數。
   function measureIndicator() {
@@ -121,7 +123,7 @@ export default function TopBar() {
               style={{
                 // translate 負責滑動位置、scale 負責按壓放大，各自獨立的屬性才能給不同的過渡時間
                 translate: `${indicator.left}px`,
-                scale: pressed ? 1.16 : 1,
+                scale: pressed ? "1.16" : "1", // 用字串：數字會被 React 加上 px 變成無效值
                 width: `${indicator.width}px`
               }}
               aria-hidden="true"
