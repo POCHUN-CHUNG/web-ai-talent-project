@@ -32,6 +32,7 @@
 
 .lead {
   margin: 0;
+  text-align: justify; /* 多行文字左右對齊（DESIGN.md Typography） */
   font-family: var(--font-family);
   font-size: var(--text-body-md-size);
   line-height: var(--text-body-md-line-height);

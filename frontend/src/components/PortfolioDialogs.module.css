@@ -1,0 +1,14 @@
+/* 【投資組合共用視窗樣式】改名視窗的表單、確認視窗的說明文字（錯誤訊息改用共用的 Chip）。 */
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.dialogText {
+  margin: 0;
+  text-align: justify; /* 多行文字左右對齊（DESIGN.md Typography） */
+  line-height: 1.7;
+}
+

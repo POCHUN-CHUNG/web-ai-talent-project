@@ -7,6 +7,7 @@ import CooldownModal from "../components/CooldownModal";
 import RiskProfileGateModal from "../components/RiskProfileGateModal";
 import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
+import Notice from "../components/ui/Notice";
 import styles from "./RiskProfile.module.css";
 
 // AI 解析的一段：key=段落代號、body=內文
@@ -117,12 +118,23 @@ export default function RiskProfile() {
     return (
       <main className={styles.page}>
         <div className={styles.header}>
-          <h1 className={styles.title}>我的風險屬性</h1>
+          <div className={styles.headerLeft}>
+            <h1 className={styles.title}>我的風險屬性</h1>
+          </div>
         </div>
+        
+        {/* 有效期限提示：已有風險屬性（填過問卷）時才顯示；從未填過時只顯示下方虛線提示區 */}
+        {profile && !missing && (
+          <Notice className={styles.noticeGap}>投資風險屬性評估結果有效期限通常為 1 年。若您的投資目標、財務狀況或家庭支出有重大變更，應主動重新評估。</Notice>
+        )}
+
         {analyzing && (
           <>
             <div className={styles.spinnerWrap} role="status" aria-label="分析中">
-              <div className={styles.spinner} />
+              <svg className={styles.spinner} viewBox="0 0 50 50">
+                <circle className={styles.spinnerTrack} cx="25" cy="25" r="20" fill="none" strokeWidth="5" />
+                <circle className={styles.spinnerHead} cx="25" cy="25" r="20" fill="none" strokeWidth="5" strokeLinecap="round" />
+              </svg>
             </div>
             <AnalyzingGlow />
           </>
@@ -161,15 +173,20 @@ export default function RiskProfile() {
               </div>
             )}
             <Button onClick={startRefill}>
-              {missing ? "開始評估" : "重新評估"}
+              {missing ? "開始填寫" : "重新評估"}
             </Button>
           </div>
         </div>
 
+        {/* 有效期限提示：已有風險屬性（填過問卷）時才顯示；從未填過時只顯示下方虛線提示區 */}
+        {profile && !missing && (
+          <Notice className={styles.noticeGap}>投資風險屬性評估結果有效期限通常為 1 年。若您的投資目標、財務狀況或家庭支出有重大變更，應主動重新評估。</Notice>
+        )}
+
         <div className={styles.content}>
           {missing || !cards || !profile ? (
             <div style={{ padding: "2rem", textAlign: "center", border: "1px dashed var(--color-outline)", borderRadius: "var(--radius-card)", lineHeight: 1.5 }}>
-              請點擊右上角「開始評估」，<br className={styles.mobileBreak} />建立您的個人風險屬性報告
+              請點擊右上角「開始填寫」，<br className={styles.mobileBreak} />建立您的個人風險屬性報告
             </div>
           ) : (
             <>
@@ -214,7 +231,7 @@ export default function RiskProfile() {
         {/* 按「重新產生」後等待結果：指標維持顯示，外框同樣以背景漸層色閃爍，結果回來即停止 */}
         {regenerating && <AnalyzingGlow />}
         {cooldown > 0 && <CooldownModal seconds={cooldown} onClose={() => setCooldown(0)} />}
-        {/* 被 RequireProfile 擋下來才顯示；可按「取消」關閉留在本頁，或按「開始評估」前往問卷 */}
+        {/* 被 RequireProfile 擋下來才顯示；可按「取消」關閉留在本頁，或按「開始填寫」前往問卷 */}
         {missing && showGate && (
           <RiskProfileGateModal
             onStart={() => {

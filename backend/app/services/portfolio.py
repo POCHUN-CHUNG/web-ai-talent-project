@@ -8,6 +8,8 @@ from decimal import ROUND_HALF_UP, Decimal
 MONEY = Decimal("0.0001")  # 金額與價格顯示到小數 4 位
 MIN_ANNUALIZE_DAYS = 30  # 持有天數未滿 30 日不年化（短期報酬年化會產生誤導性的大數字）
 PRICE_DISCLAIMER = "未納入手續費與交易稅"  # 凡顯示損益處固定附註
+UNCLASSIFIED = "未分類"  # 股票基本資料查不到產業別或市場別時的顯示文字
+ETF_INDUSTRY = "ETF"  # 股票基本資料中 ETF 的產業別固定為此值（來自證交所 ISIN 的 ETF 分類表）
 
 
 def money(x: Decimal) -> str:
@@ -36,6 +38,14 @@ def annualized_return(unrealized_return: Decimal, holding_days: int) -> float | 
         return round(growth ** (365 / holding_days) - 1, 6)
     except (OverflowError, ZeroDivisionError):
         return None  # 數字大到無法表示時視為不可年化
+
+
+def security_type(industry: str | None) -> str:
+    # 【有價證券別】依證交所 ISIN 分類：ETF 分類表的標的為「ETF」，普通股分類表的標的為「股票」。
+    # 股票基本資料只從這兩類表格匯入，且 ETF 的產業別固定為「ETF」，因此可由產業別判斷。參數：industry=產業別
+    if not industry:
+        return UNCLASSIFIED
+    return "ETF" if industry == ETF_INDUSTRY else "股票"
 
 
 def weighted_days(items: list[tuple[Decimal, int]]) -> int:
@@ -69,11 +79,14 @@ def build_lot(lot, price: Decimal | None, today: date) -> dict:
     }
 
 
-def build_positions(lots: list, names: dict, prices: dict, today: date, prev_prices: dict | None = None) -> list[dict]:
+def build_positions(lots: list, names: dict, prices: dict, today: date, prev_prices: dict | None = None,
+                    meta: dict | None = None) -> list[dict]:
     # 【彙總持股部位】依代號把買進紀錄彙總成每檔一列，並算出權重；依市值由大到小排序。
     # 參數：lots=買進紀錄清單、names=代號→名稱、prices=代號→(最新價, 價格日期)、today=今日、
-    #      prev_prices=代號→前一日收盤價（沒有就當作無法算最新日損益）
+    #      prev_prices=代號→前一日收盤價（沒有就當作無法算最新日損益）、
+    #      meta=代號→(產業別, 市場別)（取自股票基本資料；查不到就標「未分類」）
     prev_prices = prev_prices or {}
+    meta = meta or {}
     # 1. 依代號分組，每組內依買進日期、編號排序
     groups: dict[str, list] = defaultdict(list)
     for lot in sorted(lots, key=lambda x: (x.trade_date, x.id)):
@@ -83,6 +96,7 @@ def build_positions(lots: list, names: dict, prices: dict, today: date, prev_pri
     for symbol, items in groups.items():
         price, price_date = prices.get(symbol, (None, None))
         prev_price = prev_prices.get(symbol)
+        industry, market = meta.get(symbol, (None, None))
         # 2. 股數、投入成本、加權平均成本 = 投入成本 ÷ 股數
         qty = sum((x.quantity for x in items), Decimal(0))
         cost = sum((x.quantity * x.unit_cost for x in items), Decimal(0))
@@ -98,6 +112,9 @@ def build_positions(lots: list, names: dict, prices: dict, today: date, prev_pri
         positions.append({
             "symbol": symbol,
             "name": names.get(symbol, symbol),
+            "industry": industry or UNCLASSIFIED,
+            "market": market or UNCLASSIFIED,
+            "securityType": security_type(industry),
             "quantity": money(qty),
             "averageCost": money(cost / qty),
             "costAmount": money(cost),
@@ -158,10 +175,11 @@ def strip_private(positions: list[dict]) -> list[dict]:
     return [{k: v for k, v in p.items() if not k.startswith("_")} for p in positions]
 
 
-def build_detail(lots: list, names: dict, prices: dict, today: date) -> dict:
-    # 【組合明細內容】回傳持股部位、總覽與最新價格日期。
-    # 參數：lots=買進紀錄、names=代號→名稱、prices=代號→(最新價, 價格日期)、today=今日
-    positions = build_positions(lots, names, prices, today)
+def build_detail(lots: list, names: dict, prices: dict, today: date, meta: dict | None = None, prev_prices: dict | None = None) -> dict:
+    # 【組合明細內容】回傳持股部位（含產業別、市場別、有價證券別）、總覽（含最新日損益）與最新價格日期。
+    # 參數：lots=買進紀錄、names=代號→名稱、prices=代號→(最新價, 價格日期)、today=今日、
+    #      meta=代號→(產業別, 市場別)、prev_prices=代號→前一日收盤價
+    positions = build_positions(lots, names, prices, today, prev_prices, meta)
     totals = build_totals(positions, today)
     dates = [p["latestPriceDate"] for p in positions if p["latestPriceDate"]]
     return {
@@ -170,3 +188,45 @@ def build_detail(lots: list, names: dict, prices: dict, today: date) -> dict:
         "priceDisclaimer": PRICE_DISCLAIMER,
         "latestPriceDate": max(dates) if dates else None,
     }
+
+
+def build_history(lots: list, quotes: list) -> list[dict]:
+    # 【每日走勢】從第一筆買進日起，逐個交易日算出「當天的組合市值」、「當天為止累計投入成本」與「當天的年化報酬率」，
+    # 給走勢圖與總覽卡片的迷你趨勢圖用。年化報酬率算法與總覽相同（以投入成本加權的平均持有天數，未滿 30 日為 None）。
+    # 買進日之前的持股不計入；某檔當天沒有報價（停牌等）就沿用它最近一次的收盤價。
+    # 參數：lots=買進紀錄、quotes=(代號, 交易日, 還原收盤價) 清單，需依交易日由舊到新排序
+    if not lots:
+        return []
+    # 1. 把買進紀錄依日期排好，逐日「生效」
+    pending = sorted(lots, key=lambda x: (x.trade_date, x.id))
+    qty: dict[str, Decimal] = defaultdict(Decimal)  # 代號 → 目前持有股數
+    last_price: dict[str, Decimal] = {}  # 代號 → 最近一次收盤價
+    cost = Decimal(0)
+    cost_x_day = Decimal(0)  # Σ(每筆投入成本 × 買進日序號)，用來快速算「成本加權平均持有天數」
+    i = 0
+    points = []
+    # 2. 依交易日分組處理：先更新當天收盤價，再把當天（含）以前的買進紀錄加入持股
+    day_quotes: dict[date, list] = defaultdict(list)
+    for sym, d, px in quotes:
+        day_quotes[d].append((sym, px))
+    for d in sorted(day_quotes):
+        if d < pending[0].trade_date:
+            continue
+        for sym, px in day_quotes[d]:
+            last_price[sym] = px
+        while i < len(pending) and pending[i].trade_date <= d:
+            lot = pending[i]
+            qty[lot.symbol] += lot.quantity
+            cost += lot.quantity * lot.unit_cost
+            cost_x_day += lot.quantity * lot.unit_cost * lot.trade_date.toordinal()
+            last_price.setdefault(lot.symbol, lot.unit_cost)  # 保險：尚無報價時先用買進價
+            i += 1
+        # 3. 當天市值 = Σ 持有股數 × 最近收盤價
+        value = sum((q * last_price[s] for s, q in qty.items()), Decimal(0))
+        # 4. 當天年化報酬率：平均持有天數 = Σ(成本 × (當天 − 買進日)) ÷ Σ成本
+        annual = None
+        if cost > 0:
+            days = int(((cost * d.toordinal() - cost_x_day) / cost).quantize(Decimal(1), ROUND_HALF_UP))
+            annual = annualized_return((value - cost) / cost, days)
+        points.append({"date": d.isoformat(), "marketValue": money(value), "costAmount": money(cost), "annualizedReturn": annual})
+    return points

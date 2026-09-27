@@ -7,25 +7,33 @@
   background-color: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+/* 操作層：透明、z-index 高於頂端列（50），蓋住整個畫面攔下背景的點擊（頂端列仍清晰可見但不能點）；視窗在此置中 */
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-md);
+  overscroll-behavior: contain;
 }
 
 /* 視窗本體：跟頂端 Tab 列同一套「液態玻璃」質感（透明模糊＋邊緣打亮），比遮罩再更不透明一點方便閱讀文字 */
+/* 視窗寬度（DESIGN.md）：桌機固定 450px，螢幕較窄時跟著縮小 */
 .modal {
   width: 100%;
-  max-width: 420px;
+  max-width: 450px;
   border-radius: var(--radius-card);
   padding: 20px;
   background-color: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(24px) saturate(150%);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid color-mix(in srgb, white 55%, transparent);
+  border: 1px solid var(--liquid-glass-edge);
   box-shadow:
-    inset 0 1px 1px color-mix(in srgb, white 75%, transparent),
-    inset 0 -1px 3px color-mix(in srgb, black 12%, transparent),
+    var(--liquid-glass-rim),
     var(--shadow-level-4);
   display: flex;
   flex-direction: column;
@@ -50,15 +58,12 @@
   color: var(--color-on-surface);
 }
 
-/* 底部按鈕列：次要在左、主要在右；手機改直排（主要在上，方便觸控） */
+/* 底部按鈕列（DESIGN.md）：桌機與手機都是同一列水平排列，按鈕平均分配、填滿整列寬度（只有一顆時就佔滿）；次要在左、主要在右 */
 .actions {
   display: flex;
-  justify-content: flex-end;
   gap: var(--space-sm);
 }
 
-@media (max-width: 480px) {
-  .actions {
-    flex-direction: column-reverse;
-  }
+.actions > * {
+  flex: 1;
 }

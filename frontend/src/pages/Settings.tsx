@@ -9,6 +9,7 @@ import IconButton from "../components/ui/IconButton";
 import Input from "../components/ui/Input";
 
 import styles from "./Settings.module.css";
+import { enterToNextField } from "../formKeys";
 
 // 【設定頁】帳號資訊、修改密碼、登出。無參數。
 export default function Settings() {
@@ -75,10 +76,11 @@ export default function Settings() {
 
         <Card className={styles.section}>
           <p className={styles.sectionTitle}>修改密碼</p>
-          <form className={styles.form} onSubmit={submit} noValidate>
+          <form className={styles.form} onSubmit={submit} onKeyDown={enterToNextField} noValidate>
             <Input
               id="oldPasswordInput"
               label="舊密碼"
+              placeholder="請輸入舊密碼"
               type={showOldPw ? "text" : "password"}
               value={oldPw}
               onChange={(e) => setOldPw(e.target.value)}
@@ -92,6 +94,7 @@ export default function Settings() {
             <Input
               id="newPasswordInput"
               label="新密碼（僅限英文與數字）"
+              placeholder="請輸入新密碼"
               type={showNewPw ? "text" : "password"}
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
@@ -103,10 +106,11 @@ export default function Settings() {
                 <IconButton icon={showNewPw ? "visibility_off" : "visibility"} label="切換新密碼顯示" onClick={() => setShowNewPw((v) => !v)} />
               }
             />
+            {/* 訊息位置（DESIGN.md）：輸入框與按鈕之間 */}
+            {msg && <Chip variant={msg.ok ? "success" : "error"}>{msg.text}</Chip>}
             <Button type="submit" busy={busy}>
               {busy ? "處理中" : "修改密碼"}
             </Button>
-            {msg && <Chip variant={msg.ok ? "success" : "error"}>{msg.text}</Chip>}
           </form>
         </Card>
 

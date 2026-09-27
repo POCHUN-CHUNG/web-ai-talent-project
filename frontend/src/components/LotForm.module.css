@@ -1,0 +1,211 @@
+/* 【買進紀錄表單樣式】放在彈出視窗內，欄位由上而下：股票（搜尋框＋相連清單）→ 買進日期與買進數量 → 每股單價與持有成本（唯讀）→ 錯誤提示 → 按鈕。 */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--text-label-md-size);
+  font-weight: var(--text-label-lg-weight);
+  color: var(--color-on-surface-variant);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  align-items: end;
+}
+
+/* ── 標的搜尋框（DESIGN.md「Search box with attached results」）──
+   外層 comboSlot 固定高度佔位；搜尋框本身絕對定位在裡面。展開時整個搜尋框（輸入框＋清單）是「同一個」區塊，
+   只有一圈外框：1px 邊框＋向內 1px 的 outline（畫在最上層，不會被清單或底色蓋住），所以接縫處不會斷線、也沒有中間的藍線 */
+.comboSlot {
+  position: relative;
+  height: 48px; /* 與一般輸入框同高（46px＋上下邊框） */
+}
+
+.combo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-input);
+  overflow: hidden; /* 清單的底色跟著外框圓角裁切 */
+  transition: border-color 0.2s ease;
+}
+
+/* 聚焦或展開：與一般輸入框相同粗細（1px 邊框＋內側 1px），內側那一圈用 outline 畫在最上層 */
+.combo:focus-within,
+.comboOpen {
+  border-color: var(--color-focus-ring);
+  outline: 1px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+/* 展開：改成 rounded.xl、浮在下方欄位之上；上半部（輸入框）灰底、下半部（清單）白底 */
+.comboOpen {
+  z-index: 60;
+  border-radius: var(--radius-xl);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-level-3);
+}
+
+.comboOpen .comboInput {
+  background-color: var(--color-surface-container);
+}
+
+.comboInput {
+  background-color: var(--color-surface-container);
+}
+
+/* 修改紀錄時標的不可更改：與停用欄位相同的外觀（38% 不透明、不可點） */
+.comboDisabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.comboDisabled input {
+  cursor: not-allowed;
+}
+
+.comboInput {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 46px;
+  padding: 0 var(--space-xs) 0 var(--space-lg);
+}
+
+.comboInput input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 12px 0;
+  font-family: var(--font-family);
+  font-size: var(--text-input-text-size);
+  line-height: var(--text-input-text-line-height);
+  color: var(--color-on-surface);
+}
+
+/* 輸入框本身不畫焦點框（外框已表示聚焦狀態），避免中間多出一圈藍線 */
+.comboInput input:focus,
+.comboInput input:focus-visible {
+  outline: none;
+}
+
+.comboInput input::placeholder {
+  color: var(--color-on-surface-variant);
+  opacity: 0.6;
+}
+
+.comboValue {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding: 12px 0;
+  font-size: var(--text-input-text-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comboIcon {
+  display: inline-flex;
+  width: 40px;
+  justify-content: center;
+  color: var(--color-on-surface-variant);
+}
+
+.code {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-surface);
+}
+
+/* 結果清單：搜尋框內的下半部，與輸入框同一個外框，自己不畫邊框 */
+.options {
+  list-style: none;
+  margin: 0;
+  --option-row: calc(var(--text-body-sm-size) * 1.5 + 20px); /* 一列選項的高度（字高＋上下各 10px 內距） */
+  padding: var(--space-xs);
+  max-height: calc(6 * var(--option-row) + 2 * var(--space-xs)); /* 最多顯示 6 筆，超過捲動 */
+  overflow-y: auto;
+}
+
+/* 查無資料：不可選、中性色（不用紅字） */
+.noResult {
+  padding: 10px var(--space-md);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+  cursor: default;
+}
+
+/* 選項：圓角膠囊列，目前選項整列變灰 */
+.options button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px var(--space-md);
+  line-height: 1.5;
+  border-radius: var(--radius-lg);
+  /* 用上下鍵捲動清單時，目前選項與清單上下緣保留與清單內距相同的 4px，不會貼齊邊緣 */
+  scroll-margin-block: var(--space-xs);
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 目前選項（上下鍵或滑鼠移入都會變成目前選項，所以不另寫 :hover，避免同時有兩列變灰）：整列變灰 */
+.options button:focus-visible,
+.options .optionActive {
+  background-color: var(--color-surface-container);
+}
+
+.optionName {
+  flex: 1;
+}
+
+.optionMeta {
+  color: var(--color-on-surface-variant);
+}
+
+/* ── 唯讀欄位：每股單價、持有成本（系統自動帶入，不能輸入） ── */
+.readonly {
+  display: flex;
+  align-items: baseline;
+  min-height: 46px;
+  padding: 12px var(--space-lg);
+  border-radius: var(--radius-input);
+  background-color: var(--color-surface-container-highest); /* 在半透明白底的視窗上也看得出是欄位 */
+  font-size: var(--text-input-text-size);
+  line-height: var(--text-input-text-line-height);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-surface);
+}
+
+.unit {
+  margin-left: 4px;
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+}
