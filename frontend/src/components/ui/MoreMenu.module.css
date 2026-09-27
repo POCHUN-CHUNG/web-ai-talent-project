@@ -1,0 +1,52 @@
+/* 【更多選單】樣式與頂端列的帳戶選單（TopBar.module.css 的 .menu）相同：與頁面卡片相同的玻璃卡、rounded.xl、選項置中。 */
+
+.wrap {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  right: 0;
+  z-index: 20;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs);
+  border-radius: var(--radius-xl);
+  /* 與頁面內容卡片相同的玻璃卡樣式（DESIGN.md「Glass surface」）：75% 白底、24px 模糊＋150% 飽和、1px 淡色描邊，
+     比先前 88% 的液態玻璃再淡一點，但底下是深藍按鈕時文字仍清楚 */
+  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+  box-shadow: var(--shadow-level-3);
+}
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: var(--space-sm) var(--space-md);
+  /* 跟外框的 rounded.xl 等比縮小：扣掉選單自己的內距，維持同心圓角 */
+  border-radius: calc(var(--radius-xl) - var(--space-xs));
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface);
+}
+
+.item:hover {
+  background-color: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.danger {
+  color: var(--color-error);
+}
+
+.danger:hover {
+  background-color: var(--color-error);
+  color: var(--color-on-error);
+}

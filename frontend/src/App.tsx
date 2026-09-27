@@ -35,14 +35,12 @@ export default function App() {
               <Route element={<RequireProfile />}>
                 {/* 投資組合為子路由（非根路由），保留給之後新增的首頁使用；目前根路由先導向投資組合頁 */}
                 <Route path="/portfolios" element={<Portfolios />} />
+                {/* 投資組合明細頁也放在 Tab 列底下，頂端維持「投資組合」分頁為作用中 */}
+                <Route path="/portfolios/:portfolioId" element={<PortfolioDetail />} />
                 <Route path="/analysis" element={<RiskAnalysis />} />
                 <Route path="/history" element={<History />} />
                 <Route path="/" element={<Navigate to="/portfolios" replace />} />
               </Route>
-            </Route>
-            {/* 投資組合明細頁不在頂端 Tab 列範圍內，維持獨立版面 */}
-            <Route element={<RequireProfile />}>
-              <Route path="/portfolios/:portfolioId" element={<PortfolioDetail />} />
             </Route>
           </Route>
           {/* 6. 其他網址一律導回投資組合頁 */}

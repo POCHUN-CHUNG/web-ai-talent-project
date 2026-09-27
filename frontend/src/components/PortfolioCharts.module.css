@@ -1,0 +1,482 @@
+/* 【投資組合圖表樣式】配置比例、產業分佈、各標的損益、歷史走勢四張圖共用。 */
+
+.figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* 圖表標題列：標題靠左、說明（含 help 圖示）貼齊右側，兩者垂直置中 */
+.caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  line-height: var(--text-headline-sm-line-height);
+  color: var(--color-on-surface);
+}
+
+.captionNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--color-on-surface-variant);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--text-body-sm-size);
+  color: var(--color-warning);
+}
+
+/* 提示框：DESIGN.md「Tooltip / popover」玻璃、level-3、rounded.xl */
+.tooltip {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-xl);
+  background-color: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-level-3);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+  font-size: var(--text-body-sm-size);
+  line-height: 1.6;
+  color: var(--color-on-surface);
+  white-space: nowrap;
+}
+
+/* ── 環形圖＋圖例 ── */
+.donutWrap {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+/* 環形圖各塊可滑過／點選：游標變成手指 */
+.donut path {
+  cursor: pointer;
+}
+
+.donut {
+  height: 200px;
+}
+
+/* 環形圖中間「共 N 檔」：數字粗體深色、文字中性色（字級由程式依內圈寬度計算） */
+.centerValue {
+  font-weight: 700;
+  fill: var(--color-on-surface);
+}
+
+.centerUnit {
+  font-weight: 500;
+  fill: var(--color-on-surface-variant);
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-height: calc(5 * var(--legend-row) + 4 * 2px); /* 剛好 5 列（約等於環形圖高度）；項目多時清單自己捲動 */
+  overflow-y: auto;
+  /* 捲動時一次對齊一整列：清單永遠只顯示完整的列，不會出現上下被切一半的列（視覺上只有內容更換，區塊不動） */
+  scroll-snap-type: y mandatory;
+}
+
+/* 每一列的高度（字級 × 行高 1.6 ＋ 上下內距 12px），手機版用來算「剛好 5 列」的清單高度 */
+.legend {
+  --legend-row: calc(var(--text-body-md-size) * 1.6 + 12px);
+}
+
+.legend li {
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-body-md-size);
+  line-height: 1.6;
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+}
+
+.legend li:hover,
+.legendActive {
+  background-color: var(--color-surface-container);
+}
+
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+.legendLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-on-surface);
+}
+
+.legendValue {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+@media (max-width: 480px) {
+  .donutWrap {
+    grid-template-columns: 1fr;
+  }
+  /* 手機：環形圖清單也剛好顯示 5 列，超過捲動 */
+  .legend {
+    max-height: calc(5 * var(--legend-row) + 4 * 2px);
+  }
+  .donut {
+    width: 200px;
+    margin: 0 auto;
+  }
+}
+
+/* ── 長條圖數字標籤 ── */
+.barValue {
+  font-size: var(--text-body-sm-size);
+  font-weight: 600;
+  fill: var(--color-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 歷史走勢 ── */
+/* 整塊：區間切換、市值變化、損益變化由上而下排列 */
+.trend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* 區間切換：DESIGN.md「Segmented control」；撐滿整個寬度，各選項等寬 */
+.segmented {
+  position: relative; /* 指示條的定位基準 */
+  display: flex;
+  padding: 4px;
+  gap: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container-high);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.segmented button {
+  position: relative;
+  z-index: 1; /* 蓋在滑動指示條上方 */
+  flex: 1 0 auto;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-family);
+  font-size: var(--text-label-md-size);
+  font-weight: var(--text-label-md-weight);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--color-on-surface-variant);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.segmented button:hover {
+  color: var(--color-on-surface);
+}
+
+.segmented .segActive {
+  color: var(--color-on-surface);
+}
+
+/* 滑動指示條：選到的區間底下的白色膠囊，動畫與頂端頁面導覽列相同（滑動＋按下瞬間放大） */
+.segIndicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  z-index: 0;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-level-1);
+  pointer-events: none;
+  will-change: translate, scale, width;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .segIndicator {
+    transition: translate 0.38s cubic-bezier(0.32, 0.72, 0.35, 1), width 0.38s cubic-bezier(0.32, 0.72, 0.35, 1),
+      scale 0.32s cubic-bezier(0.32, 0.72, 0.35, 1);
+  }
+  .segIndicatorPressed {
+    transition: translate 0.38s cubic-bezier(0.32, 0.72, 0.35, 1), width 0.38s cubic-bezier(0.32, 0.72, 0.35, 1),
+      scale 0.16s ease-out;
+  }
+}
+
+/* 圖表標題列：左邊粗體標題（與其他圖表標題相同）、右邊讀數，垂直置中；空間不夠時讀數換到下一行 */
+.trendCaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  font-size: var(--text-headline-sm-size);
+  font-weight: var(--text-headline-sm-weight);
+  line-height: var(--text-headline-sm-line-height);
+  color: var(--color-on-surface);
+}
+
+/* 讀數：十字線所在日（沒有滑過時為區間最後一天）的數值；圖例（線條樣式）直接放在各數值前面 */
+.readout {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px var(--space-lg);
+  margin-left: auto;
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 標題與區間日期：日期緊接在標題右側，小字中性色 */
+.trendTitle {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px var(--space-md);
+}
+
+.trendPeriod {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.readItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* 數值（含報酬率的數字）：粗體、深色、字級大一級；單位「元」「%」維持小字 */
+.readItem b {
+  font-size: var(--text-body-md-size);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+/* 損益的數值、單位與報酬率跟著漲跌色（顏色由外層的 style 決定） */
+.readItem[style] b {
+  color: inherit;
+}
+
+/* 報酬率：全形括號本身已帶空白，所以緊貼「元」（抵銷外層 6px 間距）；括號內側與數字、數字與「%」之間各留半形空白，
+   呈現「（ +6.71 % ）」；括號與「%」小字，數字粗體 */
+.readPct {
+  margin-left: -6px;
+  display: inline-flex;
+  align-items: baseline;
+  white-space: pre;
+}
+
+/* 圖例線條：市值為實線、累計投入成本為虛線 */
+.keyLine {
+  width: 16px;
+  height: 3px;
+  border-radius: var(--radius-full);
+}
+
+.keyDash {
+  width: 16px;
+  border-top: 2px dashed;
+}
+
+/* 圖表框：底層折線圖＋上層十字線疊在一起 */
+.trendBox {
+  position: relative;
+  user-select: none;
+}
+
+.crossLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* 兩張走勢圖：市值圖較高、損益圖較矮 */
+.valueBox {
+  height: 280px;
+}
+
+.pnlBox {
+  height: 200px;
+}
+
+@media (max-width: 734px) {
+  .valueBox {
+    height: 230px;
+  }
+  .pnlBox {
+    height: 170px;
+  }
+  .segmented button {
+    padding-inline: 6px;
+  }
+}
+
+/* ── 總覽卡片的迷你趨勢圖 ── */
+.spark {
+  width: 100%;
+  height: 40px;
+}
+
+/* 大卡（目前總市值）用：撐滿卡片剩餘高度 */
+.sparkTall {
+  width: 100%;
+  height: 100%;
+  min-height: 140px;
+}
+
+/* ── 方塊樹狀圖 ── */
+.tree {
+  height: 260px;
+}
+
+/* 樹狀圖卡：圖表撐滿卡片剩餘高度（同列另一張卡有漸層說明、較高時，這張不留白） */
+.fill {
+  height: 100%;
+}
+
+/* 方塊圖卡：左圖右清單，整塊撐滿卡片剩餘高度。
+   左欄：方塊圖（第一列）與個股別的漸層說明（第二列，與方塊圖同寬）；
+   右欄：清單跨兩列，最大高度＝左側整個圖表（含漸層說明），超過就在清單內捲動，不把卡片撐高。 */
+/* 高度固定為「清單剛好 6 列」：產業別與個股別兩張卡同高，清單超過 6 列才捲動 */
+.treeWrap {
+  --legend-row: calc(var(--text-body-md-size) * 1.6 + 12px);
+  flex: none;
+  height: calc(6 * var(--legend-row) + 5 * 2px);
+  display: grid;
+  /* 圖表欄寬與環形圖相同（200px）、間距同為 24px，四張配置圖右側清單的左緣才會對齊 */
+  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  column-gap: var(--space-lg);
+  row-gap: var(--space-sm);
+}
+
+/* 左欄外框只用來分組，版面上讓方塊圖與漸層說明直接成為格線中的兩格 */
+.treeCol {
+  display: contents;
+}
+
+/* 沒有漸層說明（產業別）：只有一列，方塊圖貼齊區塊底部，不留下方間距 */
+.treeWrapNoScale {
+  grid-template-rows: minmax(0, 1fr);
+  row-gap: 0;
+}
+
+.fill .tree {
+  grid-column: 1;
+  grid-row: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.treeCol > :not(.tree) {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+/* 右側清單：跨方塊圖與漸層說明兩列，最大高度＝左側整個圖表（含漸層說明）的高度，上下緣與左側對齊；
+   項目少時垂直置中，多時在清單內捲動；文字過長以刪節號收尾 */
+.treeLegend {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  position: relative; /* 讓清單列的 offsetTop 以清單本身為基準，自動捲動時才算得準 */
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-self: center;
+}
+
+.treeLegend li {
+  min-width: 0;
+}
+
+.legendValue {
+  flex: none;
+}
+
+/* 手機：上圖下清單，卡片高度隨清單項目數自動調整，清單最多顯示 5 列、超過才捲動 */
+@media (max-width: 480px) {
+  .treeWrap {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: 220px auto auto;
+  }
+  .fill .tree {
+    grid-row: 1;
+  }
+  .treeCol > :not(.tree) {
+    grid-row: 2;
+  }
+  .treeLegend {
+    grid-column: 1;
+    grid-row: 3;
+    max-height: calc(5 * var(--legend-row) + 4 * 2px); /* 剛好 5 列 */
+    align-self: start;
+  }
+}
+
+.legendCount {
+  margin-left: var(--space-sm);
+  color: var(--color-on-surface-variant);
+}
+
+.heatLegend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.heatBar {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-full);
+}

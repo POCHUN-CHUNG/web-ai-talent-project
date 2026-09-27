@@ -9,6 +9,7 @@ import IconButton from "../components/ui/IconButton";
 import Input from "../components/ui/Input";
 import EntryPage from "../components/layout/EntryPage";
 import styles from "./Login.module.css";
+import { enterToNextField } from "../formKeys";
 
 // 【登入／註冊頁】同一個畫面，依 mode 切換。
 // 參數：mode="login" 顯示登入、"register" 顯示註冊
@@ -56,7 +57,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
       //    避免本頁先因「已登入」自己導回首頁，讓新帳號被當成「被擋下」而跳出提示視窗）
       await refreshProfile();
       setUsername(u.username);
-      // 註冊：新帳號一定還沒評估，直接到風險屬性頁看「開始評估」引導（不跳提示視窗）；
+      // 註冊：新帳號一定還沒評估，直接到風險屬性頁看「開始填寫」引導（不跳提示視窗）；
       // 登入：回首頁，有風險屬性就進投資組合，沒有則由守衛導回風險屬性頁並跳出提示
       navigate(isRegister ? "/risk-profile" : "/", { replace: true });
     } catch (err) {
@@ -78,7 +79,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
           </div>
         </div>
         <h2 className={styles.formHeading}>{isRegister ? "註冊" : "登入"}</h2>
-        <form className={styles.form} onSubmit={submit} noValidate>
+        <form className={styles.form} onSubmit={submit} onKeyDown={enterToNextField} noValidate>
           <Input
             id="accountInput"
             label="帳號"
@@ -129,10 +130,11 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
               }
             />
           )}
+          {/* 錯誤訊息位置（DESIGN.md）：輸入框與按鈕之間 */}
+          {error && <Chip variant="error">{error}</Chip>}
           <Button type="submit" busy={busy} fullWidth className={styles.submitButton}>
             {busy ? "處理中" : isRegister ? "註冊" : "登入"}
           </Button>
-          {error && <Chip variant="error">{error}</Chip>}
         </form>
         <p className={styles.switchRow}>
           {isRegister ? "已有帳號？" : "還沒有帳號？"}

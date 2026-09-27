@@ -71,6 +71,14 @@ def parse_positive(value, label: str, int_digits: int) -> Decimal:
     return d
 
 
+def parse_quantity(value) -> Decimal:
+    # 【驗證數量】買進數量須為大於 0 的整數（股數不接受小數），整數位數不超過資料表上限。參數：value=使用者輸入的數量
+    d = parse_positive(value, "數量", QUANTITY_INT_DIGITS)
+    if d != d.to_integral_value():
+        raise invalid("數量須為大於 0 的整數")
+    return d
+
+
 def parse_symbol(value) -> str:
     # 【驗證代號格式】符合白名單格式，英文字母一律轉大寫。參數：value=使用者輸入的代號
     if not isinstance(value, str) or not SYMBOL_RE.match(value.strip()):
@@ -142,6 +150,35 @@ def load_market(db: Session, lots: list) -> tuple[dict, dict]:
         .order_by(DailyQuote.symbol, DailyQuote.trade_date.desc())
     ).all()
     return names, {sym: (px, d) for sym, px, d in rows}
+
+
+def load_stock_meta(db: Session, symbols: set) -> dict:
+    # 【查產業別與市場別】為這批代號查股票基本資料，給配置分佈圖用。參數：db=資料庫連線、symbols=代號集合；回傳 代號→(產業別, 市場別)
+    if not symbols:
+        return {}
+    rows = db.execute(select(StockInfo.symbol, StockInfo.industry, StockInfo.market).where(StockInfo.symbol.in_(symbols))).all()
+    return {sym: (ind, mkt) for sym, ind, mkt in rows}
+
+
+def load_quotes_updated(db: Session, symbols: set) -> datetime | None:
+    # 【資料更新時間】這批代號的報價資料最後一次寫入資料庫的時間（daily_quotes.updated 的最大值）；沒有報價回 None。
+    # 參數：db=資料庫連線、symbols=代號集合
+    if not symbols:
+        return None
+    return db.scalar(select(func.max(DailyQuote.updated)).where(DailyQuote.symbol.in_(symbols)))
+
+
+def load_history_quotes(db: Session, lots: list) -> list:
+    # 【查走勢用的歷史收盤價】取這批買進紀錄的代號，從最早買進日起到最新的全部還原收盤價，依日期由舊到新。
+    # 參數：db=資料庫連線、lots=買進紀錄清單；回傳 (代號, 交易日, 收盤價) 清單
+    if not lots:
+        return []
+    start = min(x.trade_date for x in lots)
+    return list(db.execute(
+        select(DailyQuote.symbol, DailyQuote.trade_date, DailyQuote.adj_close)
+        .where(DailyQuote.symbol.in_({x.symbol for x in lots}), DailyQuote.trade_date >= start)
+        .order_by(DailyQuote.trade_date)
+    ).all())
 
 
 def load_previous_prices(db: Session, symbols: set) -> dict:

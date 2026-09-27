@@ -59,7 +59,7 @@ type HoldingLot = {        // 一筆買進紀錄
   portfolioId: number;
   symbol: string;
   tradeDate: string;     // 買進日期
-  quantity: string;      // 股數，支援零股
+  quantity: string;      // 股數（大於 0 的整數，支援零股；新增與修改時不接受小數，錯誤訊息「數量須為大於 0 的整數」）
   unitCost: string;      // 每股價格
   created: string;
   updated: string;
@@ -68,6 +68,9 @@ type HoldingLot = {        // 一筆買進紀錄
 type Position = {        // 由 holding_lots 即時彙總，不落表
   symbol: string;
   name: string;
+  industry: string;      // 取自 StockInfo.industry；查不到時為「未分類」，供產業分佈圖使用
+  market: string;        // 市場別（上市／上櫃），取自 StockInfo.market；查不到時為「未分類」
+  securityType: string;  // 有價證券別（股票／ETF），依證交所 ISIN 分類表判斷；查不到時為「未分類」
   quantity: string;      // Σ 股數
   averageCost: string;   // Σ(股數×單價) ÷ Σ股數
   costAmount: string;    // Σ(股數×單價)
@@ -601,13 +604,13 @@ Errors: 404 NOT_FOUND、403 FORBIDDEN_RESOURCE、429 RATE_LIMITED（每人每分
 
 | 方法 | 路徑 | 請求 | 成功 |
 | --- | --- | --- | --- |
-| `GET` | `/portfolios` | — | `200 {items: PortfolioSummary[]}` |
+| `GET` | `/portfolios` | — | `200 {items: PortfolioSummary[], dataUpdatedAt: string \| null}` |
 | `POST` | `/portfolios` | `{name}` | `201 Portfolio` |
 | `GET` | `/portfolios/{id}` | — | `200 PortfolioDetail` |
 | `PATCH` | `/portfolios/{id}` | `{name}` | `200 Portfolio` |
 | `DELETE` | `/portfolios/{id}` | — | `204` |
 
-`PortfolioSummary` 含 `id`、`name`、`created`、`updated`、`symbolCount`、`costAmount`、`marketValue`、`unrealizedPnl`、`unrealizedReturn`、`latestPriceDate`、`lastAnalysisAt`。組合內有任一檔無報價時，`marketValue`、`unrealizedPnl`、`unrealizedReturn` 為 `null`（不拿不完整資料相加）；空組合的 `unrealizedReturn` 為 `null`；尚無分析時 `lastAnalysisAt` 為 `null`。`totals` 的處理方式相同。
+清單與明細回應的 `dataUpdatedAt` 皆為股價資料表最後一次寫入的時間（整張 `daily_quotes` 的 `updated` 最大值，UTC ISO 8601），與使用者持有哪些股票無關；資料表為空時為 `null`。`PortfolioSummary` 含 `id`、`name`、`created`、`updated`、`symbolCount`、`costAmount`、`marketValue`、`unrealizedPnl`、`unrealizedReturn`、`latestPriceDate`、`lastAnalysisAt`。組合內有任一檔無報價時，`marketValue`、`unrealizedPnl`、`unrealizedReturn` 為 `null`（不拿不完整資料相加）；空組合的 `unrealizedReturn` 為 `null`；尚無分析時 `lastAnalysisAt` 為 `null`。`totals` 的處理方式相同。
 
 ```
 GET /portfolios/{id}
@@ -627,9 +630,25 @@ Response 200:
   },
   "priceDisclaimer": "未納入手續費與交易稅",
   "latestPriceDate": "2026-09-19",
+  "dataUpdatedAt": "2026-09-19T10:05:00Z",   // 股價資料表最後寫入的時間（整張 daily_quotes 的 updated 最大值），與持股無關
   "created": "...", "updated": "..."
 }
 ```
+
+```
+GET /portfolios/{id}/history
+Auth: Cookie
+
+Response 200:
+{
+  "points": [                              // 由舊到新，自第一筆買進日起每個交易日一點；空組合為 []
+    { "date": "2026-03-14", "marketValue": "412000.0000", "costAmount": "412000.0000", "annualizedReturn": null }, ...
+  ],
+  "priceDisclaimer": "未納入手續費與交易稅"
+}
+```
+
+`marketValue` 為當日 Σ(已買進股數 × 當日還原收盤價)，某檔當日無報價時沿用其最近一次收盤價；`costAmount` 為當日（含）以前全部買進紀錄的累計投入成本。買進日期之後才計入該筆。`annualizedReturn` 為當日年化報酬率（算法同 `totals`，成本加權持有天數未滿 30 日為 `null`）。明細的 `totals.latestDayPnl`／`latestDayPnlPercent` 亦會回傳。區間（1 個月／3 個月／1 年等）由前端自行截取，不帶參數。
 
 ```
 POST /portfolios/{id}/holding-lots

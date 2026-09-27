@@ -1,0 +1,49 @@
+/* 【說明彈出框】iOS 風格 popover：液態玻璃（DESIGN.md Elevation & Depth → Liquid glass），出現在 info 圖示正下方（不帶箭頭） */
+.wrap {
+  display: inline-flex;
+  flex: none;
+}
+
+.popover {
+  --popover-fill: color-mix(in srgb, var(--color-surface) 90%, transparent); /* 比提示框更實，小字才讀得清楚 */
+  --popover-ring: color-mix(in srgb, var(--color-on-background) 12%, transparent); /* 外圍細邊：疊在白色卡片上也分得出邊界 */
+  position: fixed;
+  z-index: 70; /* 蓋在頂端列（50）與彈出視窗層（60）之上 */
+  width: min(280px, calc(100vw - 32px));
+  padding: 12px 16px;
+  background: var(--popover-fill);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--liquid-glass-edge);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--liquid-glass-rim), 0 0 0 1px var(--popover-ring), var(--shadow-level-4);
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size); /* 手機上也夠大、好讀 */
+  line-height: 1.6;
+  color: var(--color-on-surface);
+  text-align: justify;
+  animation: pop 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 圖示與框之間的透明橋：滑鼠從圖示移到框上時不會中途離開而收起 */
+.popover::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -20px;
+  height: 20px;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}

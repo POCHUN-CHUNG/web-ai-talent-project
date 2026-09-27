@@ -118,8 +118,60 @@ def test_positive_numbers():
             pd_.parse_positive(v, "單價", 8)
 
 
+def test_quantity_must_be_positive_integer():
+    assert pd_.parse_quantity("1000") == D("1000")
+    assert pd_.parse_quantity("1000.0000") == D("1000.0000")  # 小數部分為 0 視為整數
+    for v in ["0", "-5", "10.5", "0.5", "abc", None]:
+        with pytest.raises(ApiError):
+            pd_.parse_quantity(v)
+
+
 def test_name():
     assert pd_.parse_name("  核心持股 ") == "核心持股"
     for v in ["", "   ", "字" * 31, None, 5]:
         with pytest.raises(ApiError):
             pd_.parse_name(v)
+
+
+def test_meta_attached_and_default():
+    lots = [lot(1, "2330", date(2026, 8, 3), 10, 100), lot(2, "0050", date(2026, 8, 3), 10, 50), lot(3, "6488", date(2026, 8, 3), 1, 50)]
+    prices = {"2330": (D("110"), TODAY), "0050": (D("60"), TODAY), "6488": (D("60"), TODAY)}
+    meta = {"2330": ("半導體業", "上市"), "0050": ("ETF", "上市")}
+    out = pf.build_detail(lots, {}, prices, TODAY, meta)
+    by = {p["symbol"]: (p["industry"], p["market"], p["securityType"]) for p in out["positions"]}
+    assert by == {"2330": ("半導體業", "上市", "股票"), "0050": ("ETF", "上市", "ETF"), "6488": ("未分類", "未分類", "未分類")}
+
+
+def test_detail_latest_day_pnl():
+    lots = [lot(1, "2330", date(2026, 8, 3), 10, 100)]
+    out = pf.build_detail(lots, {}, {"2330": (D("110"), TODAY)}, TODAY, prev_prices={"2330": D("100")})
+    assert out["totals"]["latestDayPnl"] == "100.0000" and out["totals"]["latestDayPnlPercent"] == 0.1
+
+
+def test_history_value_and_cost_by_day():
+    # 8/3 買 2330、8/5 再買 0050；8/4 0050 沒報價不影響，8/6 2330 停牌沿用前價
+    lots = [lot(1, "2330", date(2026, 8, 3), 10, 100), lot(2, "0050", date(2026, 8, 5), 10, 50)]
+    quotes = [
+        ("2330", date(2026, 8, 2), D("90")),  # 買進日前，不計入
+        ("2330", date(2026, 8, 3), D("100")),
+        ("2330", date(2026, 8, 4), D("105")),
+        ("2330", date(2026, 8, 5), D("110")),
+        ("0050", date(2026, 8, 5), D("50")),
+        ("0050", date(2026, 8, 6), D("55")),
+    ]
+    pts = pf.build_history(lots, quotes)
+    assert [p["date"] for p in pts] == ["2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06"]
+    assert [p["marketValue"] for p in pts] == ["1000.0000", "1050.0000", "1600.0000", "1650.0000"]
+    assert [p["costAmount"] for p in pts] == ["1000.0000", "1000.0000", "1500.0000", "1500.0000"]
+    assert all(p["annualizedReturn"] is None for p in pts)  # 持有未滿 30 日不年化
+
+
+def test_history_annualized_after_30_days():
+    lots = [lot(1, "2330", date(2026, 1, 1), 10, 100)]
+    pts = pf.build_history(lots, [("2330", date(2026, 1, 1), D("100")), ("2330", date(2026, 3, 2), D("110"))])
+    assert pts[0]["annualizedReturn"] is None
+    assert pts[-1]["annualizedReturn"] == pf.annualized_return(D("0.1"), 60)
+
+
+def test_history_empty():
+    assert pf.build_history([], []) == []

@@ -87,6 +87,14 @@
   --glass-blur: 16px; /* 所有頁面都疊在同一套斜角暈染上，統一用較強的模糊維持卡片文字可讀性 */
   --glass-edge-opacity: 10%; /* 玻璃卡的 1px 描邊透明度 */
 
+  /* ── 液態玻璃（參考 iOS 27 Tab Bar）：白色半透明細邊，加上左上較亮、右下較淡的內側反光與一圈柔和內光，
+        讓邊緣像玻璃一樣四周都有光澤（取代舊的「上緣白光＋下緣暗影」） ── */
+  --liquid-glass-edge: color-mix(in srgb, white 65%, transparent);
+  --liquid-glass-rim:
+    inset 1px 1px 0 color-mix(in srgb, white 85%, transparent),
+    inset -1px -1px 0 color-mix(in srgb, white 50%, transparent),
+    inset 0 0 12px color-mix(in srgb, white 30%, transparent);
+
   /* ── 全站頁面背景暈染（DESIGN.md「Page backdrop」）：左上到右下的斜角疊色，用 500 色階 ── */
   --page-wash-stop-1-opacity: 32%;
   --page-wash-stop-2-opacity: 22%;
@@ -182,6 +190,30 @@
   --color-accent-3-900: #540012;
   --color-accent-3-950: #1e0003;
   --color-shadow-tint: #0f172a;
+
+  /* ── 圖表類別色（配置圖共用 20 色）：取自系統色相（品牌藍、天藍、青、琥珀、玫瑰、橄欖黃等）的深淺兩階（OKLCH 亮度 0.55／0.70）。
+     排序原則：前 5 色彼此兩兩都容易分辨（類別少時不會出現相近色，例如兩個藍）；其餘依序接上，相鄰兩色也容易分辨
+     （一般視覺與色盲模擬皆經 dataviz 驗證工具檢查通過）。請依序使用，不要跳號或重排 ── */
+  --color-chart-1: #4d6eba; /* 品牌藍 */
+  --color-chart-2: #ce9042; /* 琥珀 */
+  --color-chart-3: #aa8dde; /* 薰衣草 */
+  --color-chart-4: #ad5434; /* 磚紅 */
+  --color-chart-5: #50b584; /* 薄荷綠 */
+  --color-chart-6: #9f6200; /* 焦糖棕 */
+  --color-chart-7: #7a9ce9; /* 天藍 */
+  --color-chart-8: #008757; /* 森林綠 */
+  --color-chart-9: #d080b6; /* 藕粉 */
+  --color-chart-10: #837200; /* 深橄欖 */
+  --color-chart-11: #df7e86; /* 玫瑰粉 */
+  --color-chart-12: #1f77b5; /* 海藍 */
+  --color-chart-13: #dd8364; /* 珊瑚橘 */
+  --color-chart-14: #7d5eaf; /* 靛紫 */
+  --color-chart-15: #17b6a8; /* 湖水綠 */
+  --color-chart-16: #ae4f5a; /* 莓紅 */
+  --color-chart-17: #58a5e4; /* 晴空藍 */
+  --color-chart-18: #a05188; /* 梅紫 */
+  --color-chart-19: #b0a03c; /* 橄欖黃 */
+  --color-chart-20: #00887b; /* 青 */
 
   /* ── 字型 ── */
   --font-family: "Noto Sans", "Noto Sans TC", sans-serif;

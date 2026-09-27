@@ -9,20 +9,22 @@ from app.db import get_db
 from app.errors import ApiError
 from app.models import HoldingLot, Portfolio, User
 from app.security import current_user
-from app.services.portfolio import build_detail, build_lot, build_positions, build_totals
+from app.services.portfolio import PRICE_DISCLAIMER, build_detail, build_history, build_lot, build_positions, build_totals
 from app.services.portfolio_data import (
     LOT_FIELDS,
-    QUANTITY_INT_DIGITS,
     check_lot_limits,
     check_portfolio_limit,
     close_on_date,
     get_owned_portfolio,
     invalid,
+    load_history_quotes,
     load_market,
     load_previous_prices,
+    load_quotes_updated,
+    load_stock_meta,
     lock_user,
     parse_name,
-    parse_positive,
+    parse_quantity,
     parse_symbol,
     parse_trade_date,
     require_stock,
@@ -54,7 +56,7 @@ def get_lot(db: Session, portfolio_id: int, lot_id: int) -> HoldingLot:
 @router.get("", summary="取得自己的投資組合清單與各組合損益摘要（需登入）")
 def list_portfolios(user: User = Depends(current_user), db: Session = Depends(get_db)):
     # 【組合清單】依建立時間由新到舊回傳，每個組合含持股代號與名稱、市值、未實現損益與報酬率、年化報酬率、
-    # 最新日損益、最新價格日期、最近分析時間。參數：user=目前登入者
+    # 最新日損益、最新價格日期、最近分析時間；另回傳全部持股報價的最後更新時間（dataUpdatedAt）。參數：user=目前登入者
     # 1. 一次取出全部組合與其買進紀錄，再一次查最新報價與前一日收盤價（避免每個組合各查一次）
     portfolios = db.scalars(select(Portfolio).where(Portfolio.user_id == user.id).order_by(Portfolio.created.desc(), Portfolio.id.desc())).all()
     lots = db.scalars(select(HoldingLot).where(HoldingLot.portfolio_id.in_([p.id for p in portfolios]))).all() if portfolios else []
@@ -84,7 +86,9 @@ def list_portfolios(user: User = Depends(current_user), db: Session = Depends(ge
             "latestPriceDate": max(dates) if dates else None,
             "lastAnalysisAt": None,  # 量化分析尚未實作，之後改為最近一次分析的時間
         })
-    return {"items": items}
+    # 3. 資料更新時間：這位使用者所有持股的報價最後一次寫入資料庫的時間（daily_quotes.updated 最大值）
+    updated = load_quotes_updated(db, {x.symbol for x in lots})
+    return {"items": items, "dataUpdatedAt": iso(updated) if updated else None}
 
 
 @router.post("", status_code=201, summary="新增投資組合（需登入）")
@@ -109,13 +113,26 @@ def create_portfolio(body: dict = Body(...), user: User = Depends(current_user),
     return serialize_portfolio(p)
 
 
-@router.get("/{portfolio_id}", summary="取得單一投資組合的持股部位、買進紀錄與損益（需登入）")
+@router.get("/{portfolio_id}", summary="取得單一投資組合的持股部位、買進紀錄、損益與資料更新時間（需登入）")
 def get_portfolio(portfolio_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    # 【組合明細】回傳依市值排序的持股部位（每檔含其全部買進紀錄）與總覽。參數：portfolio_id=組合編號、user=目前登入者
+    # 【組合明細】回傳依市值排序的持股部位（每檔含其全部買進紀錄、產業別、市場別、有價證券別）、
+    # 總覽（含最新日損益）與報價資料的最後更新時間。參數：portfolio_id=組合編號、user=目前登入者
     p = get_owned_portfolio(db, user, portfolio_id)
     lots = db.scalars(select(HoldingLot).where(HoldingLot.portfolio_id == p.id)).all()
+    symbols = {x.symbol for x in lots}
     names, prices = load_market(db, lots)
-    return {**serialize_portfolio(p), **build_detail(lots, names, prices, today_taipei())}
+    detail = build_detail(lots, names, prices, today_taipei(), load_stock_meta(db, symbols), load_previous_prices(db, symbols))
+    updated = load_quotes_updated(db, symbols)
+    return {**serialize_portfolio(p), **detail, "dataUpdatedAt": iso(updated) if updated else None}
+
+
+@router.get("/{portfolio_id}/history", summary="取得投資組合每日市值、累計投入成本與年化報酬率走勢（需登入）")
+def get_portfolio_history(portfolio_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    # 【組合走勢】從第一筆買進日起，每個交易日一個點：當天市值、累計投入成本與年化報酬率；區間切換由前端處理。
+    # 參數：portfolio_id=組合編號、user=目前登入者
+    p = get_owned_portfolio(db, user, portfolio_id)
+    lots = db.scalars(select(HoldingLot).where(HoldingLot.portfolio_id == p.id)).all()
+    return {"points": build_history(lots, load_history_quotes(db, lots)), "priceDisclaimer": PRICE_DISCLAIMER}
 
 
 @router.patch("/{portfolio_id}", summary="修改投資組合名稱（需登入）")
@@ -154,7 +171,7 @@ def add_lot(portfolio_id: int, body: dict = Body(...), user: User = Depends(curr
         raise invalid("須提供 symbol、tradeDate、quantity 三個欄位（價格由系統依日期帶入）")
     symbol = parse_symbol(body["symbol"])
     trade_date = parse_trade_date(body["tradeDate"])
-    quantity = parse_positive(body["quantity"], "股數", QUANTITY_INT_DIGITS)
+    quantity = parse_quantity(body["quantity"])
     # 2. 確認組合屬於自己（同時鎖定，避免同時新增繞過上限）、股票存在且不是指數、未超過上限
     p = get_owned_portfolio(db, user, portfolio_id, lock=True)
     require_stock(db, symbol)
@@ -180,7 +197,7 @@ def update_lot(portfolio_id: int, lot_id: int, body: dict = Body(...), user: Use
     if "tradeDate" in body:
         parsed["trade_date"] = parse_trade_date(body["tradeDate"])
     if "quantity" in body:
-        parsed["quantity"] = parse_positive(body["quantity"], "股數", QUANTITY_INT_DIGITS)
+        parsed["quantity"] = parse_quantity(body["quantity"])
     # 2. 確認組合與紀錄屬於自己；日期有改時，每股價格一併改為新日期的收盤價
     get_owned_portfolio(db, user, portfolio_id, lock=True)
     lot = get_lot(db, portfolio_id, lot_id)

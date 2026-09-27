@@ -1,0 +1,33 @@
+/* 【提示框】液態玻璃：與頂端 Tab 列、彈出視窗同一套質感（半透明底＋模糊飽和、白色細邊與四周內側反光，參考 iOS 27 Tab Bar）；
+   文字與圖示用中性色，不搶主內容的視覺焦點。 */
+.notice {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface-variant);
+  line-height: 1.5;
+  background-color: color-mix(in srgb, var(--color-surface) 45%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--liquid-glass-edge);
+  box-shadow:
+    var(--liquid-glass-rim),
+    var(--shadow-level-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* 提示文字：佔滿圖示右側的寬度，多行時左右對齊（DESIGN.md Typography） */
+.notice > span:last-child {
+  flex: 1;
+  min-width: 0;
+  text-align: justify;
+}
+
+.notice :global(.material-symbols-rounded) {
+  color: var(--color-on-surface-variant);
+  flex-shrink: 0;
+}

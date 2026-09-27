@@ -1,312 +1,486 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api";
-import LotForm from "../components/LotForm";
-import TradeDatePicker from "../components/TradeDatePicker";
-import { AllocationChart, PnlChart } from "../components/PortfolioCharts";
-import Footer from "../components/layout/Footer";
-import { DISCLAIMER, PRICE_NOTE, TOO_SHORT, checkLotFields, decimal, fix4, money, pct, pnlColor, signedMoney } from "../format";
+import LotForm, { EditingLot } from "../components/LotForm";
+import { HistoryPoint, HistoryTrend, HoldingsHeatmap, IndustryTreemap, ShareDonut, SparkPoint, Sparkline } from "../components/PortfolioCharts";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import Chip from "../components/ui/Chip";
+import Icon from "../components/ui/Icon";
+import IconButton from "../components/ui/IconButton";
+import InfoPopover from "../components/ui/InfoPopover";
+import Modal from "../components/ui/Modal";
+import Notice from "../components/ui/Notice";
+import { ConfirmDialog, RenameDialog } from "../components/PortfolioDialogs";
+import { decimal, formatDateTime, money, NA, pct, pnlColor, signedMoney, todayTaipei } from "../format";
+import styles from "./PortfolioDetail.module.css";
+
+const PRICE_NOTE = "每股價格為系統依買進日期自動帶入，可能與實際成交價略有不同"; // 庫存明細標題旁的說明
 
 // 單筆買進紀錄（含該筆損益與持有天數）
 type Lot = {
   id: number; symbol: string; tradeDate: string; quantity: string; unitCost: string; costAmount: string;
   marketValue: string | null; unrealizedPnl: string | null; unrealizedReturn: number | null; holdingDays: number;
 };
-// 持股部位：同一檔全部買進紀錄的彙總
+// 持股部位：同一檔全部買進紀錄的彙總（industry／market／securityType 取自官方股票基本資料）
 type Position = {
-  symbol: string; name: string; quantity: string; averageCost: string; costAmount: string;
+  symbol: string; name: string; industry: string; market: string; securityType: string; quantity: string; averageCost: string; costAmount: string;
   latestPrice: string | null; latestPriceDate: string | null; marketValue: string | null; unrealizedPnl: string | null;
   unrealizedReturn: number | null; holdingDays: number; annualizedReturn: number | null; weight: number | null; lots: Lot[];
 };
 type Detail = {
   id: number; name: string; positions: Position[];
-  totals: { costAmount: string; marketValue: string | null; unrealizedPnl: string | null; unrealizedReturn: number | null; holdingDays: number; annualizedReturn: number | null };
-  priceDisclaimer: string; latestPriceDate: string | null;
+  totals: {
+    costAmount: string; marketValue: string | null; unrealizedPnl: string | null; unrealizedReturn: number | null;
+    holdingDays: number; annualizedReturn: number | null; latestDayPnl: string | null; latestDayPnlPercent: number | null;
+  };
+  priceDisclaimer: string; latestPriceDate: string | null; dataUpdatedAt: string | null;
 };
-const NAME_MAX = 30; // 組合名稱最長字數（與後端一致）
+// 目前開著的彈出視窗：新增買進、修改某筆買進紀錄、改名、刪除某筆買進紀錄
+type Dialog = { kind: "add" } | { kind: "editLot"; lot: EditingLot } | { kind: "rename" } | { kind: "deleteLot"; lot: Lot } | null;
 
-// 【年化報酬顯示】有值顯示百分比；持有未滿 30 日顯示原因；缺報價顯示「—」。參數：v=年化報酬率、days=持有天數、hasPrice=是否有報價
-function annualText(v: number | null, days: number, hasPrice: boolean): string {
-  if (v != null) return pct(v, true);
-  return hasPrice && days < 30 ? TOO_SHORT : "—";
+
+// 【年化報酬顯示】有值顯示百分比；無法計算（持有未滿 30 日或缺報價）一律顯示「N/A」。參數：v=年化報酬率、_days=持有天數、_hasPrice=是否有報價（保留參數，呼叫端不必改）
+function annualText(v: number | null, _days: number, _hasPrice: boolean): string {
+  return v != null ? pct(v, true) : NA;
 }
 
-// 【投資組合詳情頁】單一組合的總覽數字、配置與損益圖、持股表格（每檔可展開看全部買進紀錄並修改／刪除）、新增買進紀錄表單、
-// 以及分析入口與歷史分析報告區。組合不存在或不是自己的，導回首頁。無參數。
+// 【投資組合詳情頁】由上而下四個區塊：
+// 0. 標題列（名稱＋編輯；右側資料更新時間與「新增持股」），下方液態玻璃提示框
+// 1. 總覽與核心績效指標（一個大外框：左側「目前總市值」，右側 2×2 小卡；五張迷你趨勢圖皆為近 1 個月、同一風格）
+// 2. 歷史走勢（市值變化、損益變化兩張圖，共用區間切換）
+// 3. 資產與產業配置（市場別、證券別環形圖；產業別、個股別方塊圖）
+// 4. 庫存明細（每檔一列總覽，預設收合，可展開看每筆買進紀錄；右上角也有「新增持股」）
+// 5. 歷史分析報告（右上角「進行分析」）
+// 組合不存在或不是自己的，導回投資組合頁。無參數。
 export default function PortfolioDetail() {
   const { portfolioId } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState<Detail | null>(null); // null＝載入中
   const [error, setError] = useState("");
-  const [open, setOpen] = useState<Set<string>>(new Set()); // 已展開的代號
-  const [preset, setPreset] = useState<{ symbol: string; name: string; market: string; industry: string } | null>(null);
-  const [editingName, setEditingName] = useState<string | null>(null); // 非 null＝改名中（內容為輸入值）
-  const [actionError, setActionError] = useState(""); // 改名、刪除、修改紀錄失敗的說明
+  const [history, setHistory] = useState<HistoryPoint[] | null>(null); // null＝走勢載入中
+  const [historyError, setHistoryError] = useState("");
+  const [open, setOpen] = useState<Set<string>>(new Set()); // 已展開買進紀錄的代號（預設全部收合）
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const scrollToHoldings = useRef(false); // 新增持股成功後，等畫面更新完再捲到庫存明細
+  const [scrollTick, setScrollTick] = useState(0);
 
-  // 【載入明細】取得組合；404／403 導回首頁，其他錯誤顯示整頁錯誤卡
+  // 【捲到庫存明細】新增成功、畫面重新畫好後執行一次（尊重「減少動態效果」設定）
+  useEffect(() => {
+    if (!scrollToHoldings.current) return;
+    scrollToHoldings.current = false;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById("holdings")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }, [scrollTick]);
+
+  // 【載入走勢】另外呼叫，失敗不影響頁面其他部分
+  const loadHistory = useCallback(async () => {
+    setHistoryError("");
+    try {
+      setHistory((await api<{ points: HistoryPoint[] }>(`/portfolios/${portfolioId}/history`)).points);
+    } catch (e) {
+      setHistoryError(e instanceof ApiError ? e.message : "走勢載入失敗");
+    }
+  }, [portfolioId]);
+
+  // 【載入明細】取得組合（同時重抓走勢）；404／403 導回投資組合頁，其他錯誤顯示整頁錯誤卡
   const load = useCallback(async () => {
+    loadHistory();
     try {
       setData(await api<Detail>(`/portfolios/${portfolioId}`));
       setError("");
     } catch (e) {
-      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) navigate("/", { replace: true });
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) navigate("/portfolios", { replace: true });
       else setError(e instanceof ApiError ? e.message : "載入失敗，請稍後再試");
     }
-  }, [portfolioId, navigate]);
-  useEffect(() => { setData(null); load(); }, [load]);
+  }, [portfolioId, navigate, loadHistory]);
+  useEffect(() => { setData(null); setHistory(null); load(); }, [load]);
 
   // 【展開／收合】切換某檔持股的買進紀錄列表。參數：symbol=代號
   function toggle(symbol: string) {
     setOpen((s) => { const n = new Set(s); n.has(symbol) ? n.delete(symbol) : n.add(symbol); return n; });
   }
 
-  // 【儲存新名稱】改名成功後重新載入
-  async function rename() {
-    const n = (editingName ?? "").trim();
-    if (n.length < 1 || n.length > NAME_MAX) return setActionError(`組合名稱須為 1～${NAME_MAX} 字`);
-    try {
-      await api(`/portfolios/${portfolioId}`, { name: n }, "PATCH");
-      setEditingName(null); setActionError("");
-      await load();
-    } catch (e) { setActionError(e instanceof ApiError ? e.message : "改名失敗"); }
+  if (error) {
+    return (
+      <main className={styles.page}>
+        <BackLink />
+        <Card className={`${styles.stateCard} ${styles.whiteCard}`}>
+          <Chip variant="error">{error}</Chip>
+          <Button variant="outlined" onClick={load}>重試</Button>
+        </Card>
+      </main>
+    );
   }
-
-  // 【刪除組合】二次確認後刪除整個組合（含全部買進紀錄），回首頁
-  async function removePortfolio() {
-    if (!window.confirm(`確定刪除「${data?.name}」？組合內全部買進紀錄也會一併刪除，無法復原。`)) return;
-    try {
-      await api(`/portfolios/${portfolioId}`, undefined, "DELETE");
-      navigate("/", { replace: true });
-    } catch (e) { setActionError(e instanceof ApiError ? e.message : "刪除失敗"); }
+  if (!data) {
+    return (
+      <main className={styles.page}>
+        <BackLink />
+        <div className={styles.skeletonTitle} />
+        <Card className={`${styles.skeleton} ${styles.whiteCard}`} role="status" aria-label="載入中" />
+        <Card className={`${styles.skeleton} ${styles.whiteCard}`} />
+      </main>
+    );
   }
-
-  // 【刪除買進紀錄】二次確認後刪除單筆。參數：lot=要刪除的紀錄
-  async function removeLot(lot: Lot) {
-    if (!window.confirm(`確定刪除 ${lot.symbol} 於 ${lot.tradeDate} 的這筆買進紀錄？`)) return;
-    try {
-      await api(`/portfolios/${portfolioId}/holding-lots/${lot.id}`, undefined, "DELETE");
-      setActionError("");
-      await load();
-    } catch (e) { setActionError(e instanceof ApiError ? e.message : "刪除失敗"); }
-  }
-
-  if (error) return <Shell><div role="alert" style={{ border: "1px solid #b91c1c", padding: "1rem" }}>{error}　<button onClick={load}>重試</button></div></Shell>;
-  if (!data) return <Shell><p role="status">載入中…</p></Shell>;
 
   const { totals, positions } = data;
-  const missingPrice = positions.some((p) => p.marketValue == null); // 有持股缺最新報價
   const empty = positions.length === 0;
-  return (
-    <Shell>
-      {/* 標題列：組合名稱（可改名）與刪除 */}
-      <header style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
-        {editingName === null ? (
-          <>
-            <h1 style={{ margin: 0 }}>{data.name}</h1>
-            <button onClick={() => { setEditingName(data.name); setActionError(""); }}>改名</button>
-          </>
-        ) : (
-          <>
-            <input value={editingName} maxLength={NAME_MAX} onChange={(e) => setEditingName(e.target.value)} autoFocus />
-            <button onClick={rename} disabled={!editingName.trim()}>儲存</button>
-            <button onClick={() => { setEditingName(null); setActionError(""); }}>取消</button>
-          </>
-        )}
-        <button onClick={removePortfolio} style={{ marginLeft: "auto" }}>刪除組合</button>
-      </header>
-      {actionError && <div role="alert" style={{ color: "#b91c1c" }}>{actionError}</div>}
+  const missingPrice = positions.some((p) => p.marketValue == null); // 有持股缺最新報價
+  const openAdd = () => setDialog({ kind: "add" });
 
-      {/* 總覽數字：投入成本、市值、未實現損益、報酬率、持有天數、年化報酬 */}
-      <section aria-label="總覽" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0.75rem", margin: "1rem 0" }}>
-        <Stat label="投入成本（元）" value={money(totals.costAmount)} />
-        <Stat label="目前市值（元）" value={money(totals.marketValue)} />
-        <Stat label="未實現損益（元）" value={signedMoney(totals.unrealizedPnl)} color={pnlColor(totals.unrealizedPnl)} />
-        <Stat label="未實現報酬率" value={pct(totals.unrealizedReturn, true)} color={pnlColor(totals.unrealizedReturn)} />
-        <Stat label="平均持有天數" value={empty ? "—" : `${totals.holdingDays} 天`} />
-        <Stat label="年化持有報酬率" value={empty ? "—" : annualText(totals.annualizedReturn, totals.holdingDays, totals.marketValue != null)} />
-      </section>
-      <p style={{ color: "#666", marginTop: 0 }}>
-        損益{data.priceDisclaimer || DISCLAIMER}；價格資料日期 {data.latestPriceDate ?? "—"}。
-      </p>
-      {missingPrice && <p role="alert" style={{ color: "#b45309" }}>部分持股缺少最新報價，市值、損益與市值權重暫時無法計算（配置圖改依投入成本）。</p>}
+  // 【新增成功】關閉視窗、重新載入，資料回來後把頁面捲到庫存明細（讓使用者馬上看到剛新增的持股）
+  async function afterAdded() {
+    setDialog(null);
+    await load();
+    scrollToHoldings.current = true;
+    setScrollTick((n) => n + 1);
+  }
+
+  // 迷你趨勢圖資料：用完整走勢算好每天的數值，圖表自己只取最新交易日往前 1 個月
+  const hist = history ?? [];
+  const pnlOf = (p: HistoryPoint) => Number(p.marketValue) - Number(p.costAmount);
+  const series = (f: (p: HistoryPoint, i: number) => number | null): SparkPoint[] => hist.map((p, i) => ({ date: p.date, value: f(p, i) }));
+  const mvSeries = series((p) => Number(p.marketValue));
+  const costSeries = series((p) => Number(p.costAmount));
+  const pnlSeries = series(pnlOf);
+  // 每日損益 = 今日損益 − 昨日損益（當天新買進的成本不算賺）；第一天沒有前一天，不畫
+  const dailySeries = series((p, i) => (i === 0 ? null : pnlOf(p) - pnlOf(hist[i - 1]))); // 第一天沒有前一天可比較，不推算、直接留空
+  const annualSeries = series((p) => p.annualizedReturn);
+  // 圖表顏色跟著卡片上的數字顏色走（正紅、負綠）；市值與投入成本的數字不上色，圖表也用中性色
+  const signOf = (v: string | number | null) => (v == null ? undefined : Number(v));
+  const sparkLabel = "近 1 個月";
+  // 資料更新時間：沒有持股或沒有時間時整行不顯示（不顯示「-」或 N/A）
+  const updated = !empty && data.dataUpdatedAt ? (
+    <><Icon name="schedule" size={16} />資料更新時間：{formatDateTime(data.dataUpdatedAt)}</>
+  ) : null;
+
+  return (
+    <main className={styles.page}>
+      {/* 0. 標題列：名稱與編輯鈕；右側是資料更新時間與「新增持股」（手機版時間移到名稱下方） */}
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <div className={styles.nameRow}>
+            <h1 className={styles.title}>{data.name}</h1>
+            <IconButton icon="edit" label="修改組合名稱" onClick={() => setDialog({ kind: "rename" })} />
+          </div>
+          {updated && <div className={`${styles.metaText} ${styles.metaTextMobile}`}>{updated}</div>}
+        </div>
+        {/* 右上角：資料更新時間（有持股才有）＋「新增持股」（位置同風險屬性頁的「開始填寫」） */}
+        <div className={styles.headerActions}>
+          {updated && <div className={`${styles.metaText} ${styles.metaTextDesktop}`}>{updated}</div>}
+          <Button onClick={() => openAdd()}>新增持股</Button>
+        </div>
+      </header>
+
+      {/* 提示語：與投資組合總覽頁相同的液態玻璃提示框；有持股時才顯示 */}
+      {!empty && <Notice className={styles.noticeGap}>損益為未實現損益，未納入手續費與交易稅；股價採調整後收盤價（已還原除權息），僅供參考，不構成投資建議。</Notice>}
+      {missingPrice && <Notice icon="warning" className={styles.warnNotice}>部分持股缺少最新報價，市值、損益與權重暫時無法計算（配置圖改依投入成本）。</Notice>}
+
 
       {empty ? (
-        <div style={{ border: "1px dashed #999", padding: "1.5rem", textAlign: "center", margin: "1rem 0" }}>
-          <p>這個組合還沒有買進紀錄。請在下方「新增買進紀錄」輸入第一筆。</p>
+        // 沒有持股：與風險屬性頁未填問卷時相同的虛線外框、無背景，只放一句提示（按鈕在右上角）
+        <div className={styles.emptyCard}>
+          <p className={styles.emptyText}>請點擊右上角「新增持股」，<br className={styles.mobileBreak} />建立完整的庫存明細</p>
         </div>
       ) : (
-        <>
-          {/* 圖表：配置比例與各檔損益 */}
-          <section aria-label="圖表" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", margin: "1rem 0" }}>
-            <AllocationChart positions={positions} />
-            <PnlChart positions={positions} />
+        <div className={styles.content}>
+          {/* 1. 總覽與核心績效指標：一個大外框；左側直接放「目前總市值」（靠左），右側 2×2 小卡 */}
+          <Card className={`${styles.whiteCard} ${styles.overview}`} role="region" aria-label="總覽與核心績效指標">
+            <div className={styles.hero}>
+              <span className={styles.heroLabel}>目前總市值</span>
+              <span className={styles.heroValue}>{money(totals.marketValue)}{totals.marketValue != null && <span className={styles.unit}>元</span>}</span>
+              <div className={styles.heroChart}>
+                <Sparkline tall blue points={mvSeries} label={`${sparkLabel}市值走勢`} />
+              </div>
+            </div>
+            <div className={styles.miniGrid}>
+              <MetricCard label="總投入成本" value={money(totals.costAmount)} unit="元"
+                chart={<Sparkline blue points={costSeries} label={`${sparkLabel}投入成本走勢`} />} />
+              <MetricCard label="年化報酬率" value={annualText(totals.annualizedReturn, totals.holdingDays, totals.marketValue != null).replace(/%$/, "")}
+                unit={totals.annualizedReturn != null ? "%" : undefined}
+                color={pnlColor(totals.annualizedReturn)} small={totals.annualizedReturn == null}
+                chart={<Sparkline points={annualSeries} direction={signOf(totals.annualizedReturn)} label={`${sparkLabel}年化報酬率走勢`} />} />
+              <MetricCard label="最新日損益" value={signedMoney(totals.latestDayPnl)} unit="元" color={pnlColor(totals.latestDayPnl)}
+                change={totals.latestDayPnlPercent}
+                chart={<Sparkline points={dailySeries} direction={signOf(totals.latestDayPnl)} label={`${sparkLabel}每日損益`} />} />
+              <MetricCard label="歷史總損益" value={signedMoney(totals.unrealizedPnl)} unit="元" color={pnlColor(totals.unrealizedPnl)}
+                change={totals.unrealizedReturn}
+                chart={<Sparkline points={pnlSeries} direction={signOf(totals.unrealizedPnl)} label={`${sparkLabel}累計損益走勢`} />} />
+            </div>
+          </Card>
+
+          {/* 2. 歷史走勢：最上方區間切換，下面市值變化與損益變化兩張圖（不另放區塊標題） */}
+          <Card className={styles.whiteCard}>
+            {historyError ? (
+              <div className={styles.inlineState}><Chip variant="error">{historyError}</Chip><Button variant="outlined" onClick={loadHistory}>重試</Button></div>
+            ) : history === null ? (
+              <div className={styles.chartSkeleton} role="status" aria-label="走勢載入中" />
+            ) : history.length < 2 ? (
+              <p className={styles.muted}>買進後累積兩個交易日以上的資料，才會顯示走勢。</p>
+            ) : (
+              <HistoryTrend points={history} />
+            )}
+          </Card>
+
+          {/* 3. 資產與產業配置：上排兩張環形圖、下排兩張方塊圖 */}
+          <section className={styles.allocGrid} aria-label="資產與產業配置">
+            <Card className={styles.whiteCard}><ShareDonut title="市場別" positions={positions} keyOf={(p) => p.market} /></Card>
+            <Card className={styles.whiteCard}><ShareDonut title="證券別" positions={positions} keyOf={(p) => p.securityType} /></Card>
+            <Card className={styles.whiteCard}><IndustryTreemap positions={positions} /></Card>
+            <Card className={styles.whiteCard}><HoldingsHeatmap positions={positions} /></Card>
           </section>
 
-          {/* 持股表格：每檔一列，可展開全部買進紀錄 */}
-          <section aria-label="持股列表">
-            <h2>持股列表</h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+          {/* 4. 庫存明細：每檔一列總覽，最右側按鈕展開每筆買進紀錄（預設收合）；右上角「新增持股」 */}
+          <Card id="holdings" className={`${styles.tableCard} ${styles.whiteCard} ${styles.anchor}`}>
+            <div className={styles.cardHead}>
+              {/* 標題右側接單價說明（比照問卷頁標題旁「共 14 題」的樣式；提示語前加 info 圖示） */}
+              <div className={styles.titleWithNote}>
+                <h2 className={styles.tableTitle}>庫存明細</h2>
+                {/* 桌機：標題旁直接顯示說明；手機：只顯示 info 圖示，點一下（或滑鼠移上去）跳出說明框 */}
+                <div className={`${styles.metaText} ${styles.noteDesktop}`}>
+                  <Icon name="info" size={16} />{PRICE_NOTE}
+                </div>
+                <InfoPopover label="每股價格說明" className={styles.noteMobile}>{PRICE_NOTE}。</InfoPopover>
+              </div>
+              <Button onClick={() => openAdd()}>新增持股</Button>
+            </div>
+            <div className={styles.tableScroll}>
+              <table className={styles.table}>
                 <thead>
-                  <tr style={{ textAlign: "right", borderBottom: "1px solid #999" }}>
-                    <th style={{ textAlign: "left" }}>股票</th><th>股數</th><th>加權平均成本</th><th>最新價</th><th>市值</th>
-                    <th>未實現損益</th><th>報酬率</th><th>年化報酬</th><th>權重</th><th />
+                  <tr>
+                    <th className={styles.left}>代號/名稱<span className={styles.thUnit}>(市場別/產業別)</span></th>
+                    <th>平均單價<span className={styles.thUnit}>(元)</span></th>
+                    <th>持有數量<span className={styles.thUnit}>(股)</span></th>
+                    <th>持有成本<span className={styles.thUnit}>(元)</span></th>
+                    <th>最新價格<span className={styles.thUnit}>(元)</span></th>
+                    <th>未實現損益<span className={styles.thUnit}>(元)</span></th>
+                    <th>年化報酬率<span className={styles.thUnit}>(%)</span></th>
+                    <th>市值權重<span className={styles.thUnit}>(元)</span></th>
+                    <th aria-label="展開明細" />
                   </tr>
                 </thead>
                 <tbody>
-                  {positions.map((p) => (
-                    <Fragment key={p.symbol}>
-                      <tr style={{ textAlign: "right", borderBottom: "1px solid #ddd" }}>
-                        <td style={{ textAlign: "left" }}>{p.symbol} {p.name}</td>
-                        <td>{decimal(p.quantity)}</td>
-                        <td>{decimal(p.averageCost)}</td>
-                        <td>{decimal(p.latestPrice)}<div style={{ fontSize: "0.75rem", color: "#666" }}>{p.latestPriceDate ?? "無報價"}</div></td>
-                        <td>{money(p.marketValue)}</td>
-                        <td style={{ color: pnlColor(p.unrealizedPnl) }}>{signedMoney(p.unrealizedPnl)}</td>
-                        <td style={{ color: pnlColor(p.unrealizedReturn) }}>{pct(p.unrealizedReturn, true)}</td>
-                        <td style={{ maxWidth: 110 }}>{annualText(p.annualizedReturn, p.holdingDays, p.marketValue != null)}</td>
-                        <td>{pct(p.weight)}</td>
-                        <td>
-                          <button onClick={() => toggle(p.symbol)} aria-expanded={open.has(p.symbol)}>
-                            {open.has(p.symbol) ? "收合" : `明細（${p.lots.length}）`}
-                          </button>
-                        </td>
-                      </tr>
-                      {open.has(p.symbol) && (
-                        <tr>
-                          <td colSpan={10} style={{ background: "#f9fafb", padding: "0.5rem 1rem" }}>
-                            <LotTable position={p} portfolioId={data.id} onChanged={load} onError={setActionError}
-                              onRemove={removeLot}
-                              onBuyMore={() => { setPreset({ symbol: p.symbol, name: p.name, market: "", industry: "" }); document.getElementById("lot-form")?.scrollIntoView({ behavior: "smooth" }); }} />
+                  {positions.map((p, i) => {
+                    const isOpen = open.has(p.symbol);
+                    return (
+                      <Fragment key={p.symbol}>
+                        {/* 每檔之間的間隔列（不用 border-spacing，才不會把展開的列與下方明細面板拆開） */}
+                        {i > 0 && <tr className={styles.gapRow} aria-hidden="true"><td colSpan={9} /></tr>}
+                        <tr className={`${styles.row} ${isOpen ? styles.rowOpen : ""}`} onClick={() => toggle(p.symbol)}>
+                          {/* 代號/名稱：代號＋名稱，下方小字為產業 */}
+                          <td className={styles.left}>
+                            <div className={styles.stock}><span className={styles.code}>{p.symbol}</span><span>{p.name}</span></div>
+                            <div className={styles.industry}><span>{p.market}</span><span>{p.industry}</span></div>
+                          </td>
+                          <td>{decimal(p.averageCost)}</td>
+                          <td>{decimal(p.quantity)}</td>
+                          <td>{money(p.costAmount)}</td>
+                          <td>{p.latestPrice == null ? <span className={styles.subCell}>無報價</span> : decimal(p.latestPrice)}</td>
+                          <td style={{ color: pnlColor(p.unrealizedPnl) }}>
+                            {signedMoney(p.unrealizedPnl)}<div className={styles.subCell} style={{ color: "inherit" }}><ChangePct v={p.unrealizedReturn} /></div>
+                          </td>
+                          <td style={{ color: pnlColor(p.annualizedReturn) }}>{annualText(p.annualizedReturn, p.holdingDays, p.marketValue != null).replace(/%$/, "")}</td>
+                          {/* 市值權重：上方為目前市值，下方橫條長度代表占組合的權重 */}
+                          <td>
+                            {money(p.marketValue)}
+                            {p.weight != null && <div className={styles.weightBar} title={`權重 ${pct(p.weight)}`}><span style={{ width: `${Math.min(100, p.weight * 100)}%` }} /></div>}
+                          </td>
+                          <td>
+                            <button type="button" className={styles.expand} aria-expanded={isOpen}
+                              aria-label={`${isOpen ? "收合" : "展開"} ${p.symbol} 的買進紀錄`}
+                              onClick={(e) => { e.stopPropagation(); toggle(p.symbol); }}>
+                              <Icon name="expand_more" size={22} />
+                            </button>
                           </td>
                         </tr>
-                      )}
-                    </Fragment>
-                  ))}
+                        {isOpen && (
+                          <tr className={styles.lotsRow}>
+                            <td colSpan={9}>
+                              <LotTable position={p}
+                                onEdit={(lot) => setDialog({ kind: "editLot", lot: { id: lot.id, symbol: p.symbol, name: p.name, tradeDate: lot.tradeDate, quantity: lot.quantity } })}
+                                onRemove={(lot) => setDialog({ kind: "deleteLot", lot })} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          </section>
-        </>
+          </Card>
+
+          {/* 5. 歷史分析報告：右上角「進行分析」；尚無報告時以虛線空白狀態引導 */}
+          <Card className={styles.whiteCard}>
+            <div className={styles.cardHead}>
+              <h2 className={styles.tableTitle}>歷史分析報告</h2>
+              <Button onClick={() => navigate(`/analysis?portfolio=${data.id}`)}>進行分析</Button>
+            </div>
+            <div className={styles.emptyCard}>
+              <p className={styles.emptyText}>請點擊右上角「進行分析」，<br className={styles.mobileBreak} />產生第一份分析報告</p>
+            </div>
+          </Card>
+        </div>
       )}
 
-      {/* 新增買進紀錄 */}
-      <div id="lot-form" style={{ margin: "1.5rem 0" }}>
-        <LotForm portfolioId={data.id} preset={preset} onAdded={() => { setPreset(null); load(); }} />
-      </div>
-
-      {/* 分析入口：量化分析尚未實作，按鈕先停用；沒有買進紀錄時另註明原因 */}
-      <section aria-label="量化分析" style={{ margin: "1.5rem 0" }}>
-        <h2>量化分析</h2>
-        <button disabled>開始分析</button>{" "}
-        <span style={{ color: "#666" }}>{empty ? "請先新增至少一筆買進紀錄才能分析。" : "量化分析功能開發中，完成後會在此啟動。"}</span>
-      </section>
-
-      {/* 歷史分析報告：分析功能完成後列出該組合每次的分析 */}
-      <section aria-label="歷史分析報告">
-        <h2>歷史分析報告</h2>
-        <div style={{ border: "1px dashed #999", padding: "1rem", color: "#666" }}>尚無分析報告。每次分析都會留下一份唯讀報告，之後可在這裡回看。</div>
-      </section>
-    </Shell>
+      {/* 彈出視窗 */}
+      {dialog?.kind === "add" && (
+        <Modal title="新增買進紀錄" onCancel={() => setDialog(null)}>
+          <LotForm portfolioId={data.id} onDone={afterAdded} onCancel={() => setDialog(null)} />
+        </Modal>
+      )}
+      {/* 修改買進紀錄：與新增相同的視窗，帶入該筆的股票（不可更改）、日期與數量 */}
+      {dialog?.kind === "editLot" && (
+        <Modal title="修改買進紀錄" onCancel={() => setDialog(null)}>
+          <LotForm portfolioId={data.id} editing={dialog.lot} onDone={() => { setDialog(null); load(); }} onCancel={() => setDialog(null)} />
+        </Modal>
+      )}
+      {dialog?.kind === "rename" && (
+        <RenameDialog portfolioId={data.id} current={data.name} onClose={() => setDialog(null)} onDone={() => { setDialog(null); load(); }} />
+      )}
+      {dialog?.kind === "deleteLot" && (
+        <ConfirmDialog title="刪除買進紀錄" confirmLabel="刪除"
+          message={`確定刪除 ${dialog.lot.symbol} 於 ${dialog.lot.tradeDate} 買進 ${decimal(dialog.lot.quantity)} 股的這筆紀錄？`}
+          onClose={() => setDialog(null)}
+          onConfirm={async () => { await api(`/portfolios/${portfolioId}/holding-lots/${dialog.lot.id}`, undefined, "DELETE"); setDialog(null); load(); }} />
+      )}
+    </main>
   );
 }
 
-// 【頁面外框】置中、限制寬度並附「回首頁」連結；版權宣告貼在頁面下方（內容短就貼齊畫面下緣，內容長則跟著捲動）。參數：children=頁面內容
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontFamily: "sans-serif", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: "1 0 auto", width: "100%" }}>
-        <div style={{ padding: "2rem", maxWidth: 1080, margin: "0 auto" }}>
-          <p><Link to="/portfolios">← 回投資組合</Link></p>
-          {children}
-        </div>
-      </div>
-      <Footer />
-    </div>
-  );
+// 【返回連結】回投資組合清單（載入中與錯誤畫面使用）。無參數。
+function BackLink() {
+  return <Link to="/portfolios" className={styles.back}><Icon name="arrow_back" size={18} />我的投資組合</Link>;
 }
 
-// 【數字卡】顯示一個標題與一個數字。參數：label=標題、value=數字文字、color=數字顏色（可省略）
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div style={{ border: "1px solid #ddd", padding: "0.75rem" }}>
-      <div style={{ fontSize: "0.85rem", color: "#666" }}>{label}</div>
-      <div style={{ fontSize: "1.25rem", fontWeight: "bold", color }}>{value}</div>
-    </div>
-  );
-}
-
-// 【買進紀錄列表】展開某檔持股後顯示其全部買進紀錄（日期、股數、單價、該筆損益、持有天數），每筆可就地修改或刪除。
-// 參數：position=該檔持股、portfolioId=組合編號、onChanged=修改成功後通知重新載入、onError=回報錯誤說明、onRemove=刪除、onBuyMore=在此檔再新增一筆
-function LotTable({ position, portfolioId, onChanged, onError, onRemove, onBuyMore }: {
-  position: Position; portfolioId: number; onChanged: () => void; onError: (m: string) => void; onRemove: (l: Lot) => void; onBuyMore: () => void;
+// 【指標卡片】總覽區右側的一張數值小卡：粗體標題、數字、下方迷你趨勢圖。
+// 參數：label=標題、value=數字、unit=單位（可省略）、color=數字顏色（可省略）、small=數字用較小字級（文字較長時）、
+//      change=漲跌幅（比例，如 -0.0807；可省略，給了就在金額下方顯示 ▲／▼ 與百分比）、chart=下方趨勢圖
+function MetricCard({ label, value, unit, color, small, change, chart }: {
+  label: string; value: string; unit?: string; color?: string; small?: boolean; change?: number | null; chart: React.ReactNode;
 }) {
-  const [editing, setEditing] = useState<number | null>(null); // 修改中的紀錄編號
-  const [draft, setDraft] = useState({ tradeDate: "", quantity: "" });
-  const [busy, setBusy] = useState(false);
-
-  // 【開始修改】把該筆現值帶入輸入框。參數：l=紀錄
-  function edit(l: Lot) {
-    setDraft({ tradeDate: l.tradeDate, quantity: l.quantity });
-    setEditing(l.id);
-    onError("");
+  // 無法計算（N/A）：不顯示空白的趨勢圖，「N/A」置中於標題下方的整塊區域（數字＋圖表的位置）
+  if (value === NA) {
+    return (
+      <div className={styles.smallCard}>
+        <span className={styles.metricLabel}>{label}</span>
+        <span className={`${styles.metricValue} ${styles.metricNA}`}>N/A</span>
+      </div>
+    );
   }
+  return (
+    <div className={styles.smallCard}>
+      <span className={styles.metricLabel}>{label}</span>
+      <FitLine className={`${styles.metricValue} ${small ? styles.metricValueSmall : ""}`} color={color}>
+        {value}{unit && value !== NA && <span className={styles.unit}>{unit}</span>}
+      </FitLine>
+      {/* 漲跌幅（金額下方一行）：實心三角箭頭（▲漲、▼跌）＋不帶正負號的百分比；數字字級與顏色跟著金額，% 與「元」同樣是小字單位 */}
+      {change != null && (
+        <span className={`${styles.metricValue} ${styles.change}`} style={{ color }} aria-label={`${change >= 0 ? "上漲" : "下跌"} ${pct(Math.abs(change))}`}>
+          {change !== 0 && <span className={styles.changeArrow}>{change > 0 ? "▲" : "▼"}</span>}{pct(Math.abs(change)).replace("%", "")}<span className={styles.unit}>%</span>
+        </span>
+      )}
+      <div className={styles.metricChart}>{chart}</div>
+    </div>
+  );
+}
 
-  // 【儲存修改】只送有改動的欄位；沒改動就直接關閉。參數：l=原本的紀錄
-  async function save(l: Lot) {
-    const msg = checkLotFields(draft.tradeDate, draft.quantity);
-    if (msg) return onError(msg);
-    const body: Record<string, string> = {};
-    if (draft.tradeDate !== l.tradeDate) body.tradeDate = draft.tradeDate;
-    if (Number(draft.quantity) !== Number(l.quantity)) body.quantity = fix4(draft.quantity);
-    if (Object.keys(body).length === 0) return setEditing(null);
-    setBusy(true);
-    try {
-      await api(`/portfolios/${portfolioId}/holding-lots/${l.id}`, body, "PATCH");
-      setEditing(null);
-      onError("");
-      onChanged();
-    } catch (e) {
-      onError(e instanceof ApiError ? e.message : "修改失敗");
-    } finally { setBusy(false); }
-  }
+// 【單行數字】金額一律單行顯示、不換行；卡片太窄放不下時（例如手機上很大的金額）自動把字級等比例縮小到剛好放得下。
+// 參數：className=樣式、color=文字顏色、children=內容
+function FitLine({ className, color, children }: { className: string; color?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [size, setSize] = useState<number | null>(null); // 縮小後的字級（px）；null＝用原本的字級
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const box = el?.parentElement;
+    if (!el || !box) return;
+    // 1. 以原始字級量出內容寬度，與卡片可用寬度比較，放不下才縮小
+    const measure = () => {
+      el.style.fontSize = "";
+      const base = parseFloat(getComputedStyle(el).fontSize);
+      const need = el.scrollWidth;
+      const cs = getComputedStyle(box);
+      const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      setSize(need > room && need > 0 ? Math.floor(base * (room / need) * 10) / 10 : null);
+    };
+    measure();
+    // 2. 卡片寬度改變（旋轉螢幕、調整視窗）時重新計算
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [children]);
+  return (
+    <span ref={ref} className={`${className} ${styles.fitLine}`}
+      style={{ color, fontSize: size ? `${size}px` : undefined }}>
+      {children}
+    </span>
+  );
+}
+
+// 【買進紀錄明細面板】展開某檔持股後，在該列下方顯示「歷史批次買進明細」：每筆一列（買進日期、每股價格、買進股數、持有成本、
+// 未實現損益與報酬率、目前市值、持有天數），右側可修改（開啟與新增相同的彈出視窗）或刪除（先確認）。
+// 參數：position=該檔持股、onEdit=按下修改、onRemove=按下刪除
+function LotTable({ position, onEdit, onRemove }: {
+  position: Position; onEdit: (l: Lot) => void; onRemove: (l: Lot) => void;
+}) {
+  // 計算持有天數
+  const getHoldingDays = (tradeDate: string) => {
+    const d = new Date(tradeDate);
+    const t = new Date(todayTaipei());
+    return Math.max(0, Math.floor((t.getTime() - d.getTime()) / 86400000));
+  };
 
   return (
-    <div>
-      <table style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead>
-          <tr style={{ textAlign: "right", borderBottom: "1px solid #ccc" }}>
-            <th style={{ textAlign: "left" }}>買進日期</th><th>股數</th><th>每股價格（調整後）</th><th>投入成本</th><th>該筆損益</th><th>持有天數</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {position.lots.map((l) => editing === l.id ? (
-            <tr key={l.id} style={{ textAlign: "right" }}>
-              <td style={{ textAlign: "left" }}><TradeDatePicker symbol={position.symbol} value={draft.tradeDate} onChange={(v) => setDraft({ ...draft, tradeDate: v })} /></td>
-              <td><input type="number" step="any" min="0" value={draft.quantity} style={{ width: 110 }} onChange={(e) => setDraft({ ...draft, quantity: e.target.value })} onBlur={() => setDraft((d) => ({ ...d, quantity: fix4(d.quantity) }))} /></td>
-              <td colSpan={4} style={{ textAlign: "left", fontSize: "0.85rem", color: "#666" }}>日期只能選有資料的交易日；每股價格會依新日期重新帶入當天調整後收盤價</td>
-              <td>
-                <button onClick={() => save(l)} disabled={busy}>{busy ? "儲存中…" : "儲存"}</button>{" "}
-                <button onClick={() => { setEditing(null); onError(""); }} disabled={busy}>取消</button>
-              </td>
-            </tr>
-          ) : (
-            <tr key={l.id} style={{ textAlign: "right" }}>
-              <td style={{ textAlign: "left" }}>{l.tradeDate}</td>
-              <td>{decimal(l.quantity)}</td>
-              <td>{decimal(l.unitCost)}</td>
-              <td>{money(l.costAmount)}</td>
-              <td style={{ color: pnlColor(l.unrealizedPnl) }}>{signedMoney(l.unrealizedPnl)}（{pct(l.unrealizedReturn, true)}）</td>
-              <td>{l.holdingDays} 天</td>
-              <td><button onClick={() => edit(l)}>修改</button> <button onClick={() => onRemove(l)}>刪除</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p style={{ margin: "0.5rem 0 0" }}>
-        <button onClick={onBuyMore}>在 {position.symbol} 再新增一筆</button>
-        <span style={{ marginLeft: 8, fontSize: "0.85rem", color: "#666" }}>{PRICE_NOTE} 損益{DISCLAIMER}。代號無法修改，若買錯股票請刪除後重建。</span>
-      </p>
+    <div className={styles.lots}>
+      <div className={styles.lotsHeader}>
+        <div className={styles.lotsTitle}>歷史批次買進明細</div>
+        <div className={styles.lotsCount}>{position.lots.length} 筆交易紀錄</div>
+      </div>
+      
+      <div className={styles.lotGrid}>
+        <div className={styles.lotsHeaderRow}>
+          <div className={styles.colDate}>買進日期</div>
+          <div>每股價格</div>
+          <div>買進股數</div>
+          <div>持有成本</div>
+          <div>未實現損益</div>
+          <div>目前市值</div>
+          <div>持有天數</div>
+          <div>操作</div>
+        </div>
+        {position.lots.map((l) => (
+          <div key={l.id} className={styles.lotRow}>
+            <div className={styles.colDate}>{l.tradeDate}</div>
+            <div>{decimal(l.unitCost)}</div>
+            <div>{decimal(l.quantity)}</div>
+            <div>{money(l.costAmount)}</div>
+            <div className={styles.pnlText} style={{ color: pnlColor(l.unrealizedPnl) }}>
+              {signedMoney(l.unrealizedPnl)}
+              <div className={styles.subCell} style={{ color: "inherit" }}><ChangePct v={l.unrealizedReturn} /></div>
+            </div>
+            <div>{money(l.marketValue)}</div>
+            <div>{getHoldingDays(l.tradeDate)}</div>
+            <div className={styles.colActions}>
+              <div className={styles.lotActions}>
+                <IconButton icon="edit" label={`修改 ${l.tradeDate} 這筆`} onClick={() => onEdit(l)} />
+                <IconButton icon="delete" label={`刪除 ${l.tradeDate} 這筆`} onClick={() => onRemove(l)} className={styles.dangerSolid} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
+  );
+}
+
+// 【漲跌幅文字】表格內的報酬率：實心三角箭頭（▲漲、▼跌，較小）＋不帶正負號的數字＋小字 %；箭頭、數字與 % 的顏色都跟著外層的漲跌色。參數：v=報酬率（比例）
+function ChangePct({ v }: { v: number | null }) {
+  if (v == null) return <>-</>;
+  return (
+    <>
+      {v !== 0 && <span className={styles.changeArrow}>{v > 0 ? "▲" : "▼"}</span>}
+      {pct(Math.abs(v)).replace("%", "")}
+      <span className={`${styles.unit} ${styles.unitTone}`}>%</span>
+    </>
   );
 }

@@ -229,7 +229,7 @@ typography:
     letterSpacing: '0em'
   input-text:
     fontFamily: 'Noto Sans, Noto Sans TC'
-    fontSize: '14px'
+    fontSize: '16px'
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: '0em'
@@ -255,7 +255,7 @@ components:
     textColor: '{colors.on-primary}'
     typography: '{typography.label-lg}'
     rounded: '25px'
-    padding: '8px 24px'
+    padding: '14px 24px'
   button-primary-hover:
     backgroundColor: '{colors.primary-hover}'
   button-secondary:
@@ -263,24 +263,24 @@ components:
     textColor: '{colors.on-button-secondary}'
     typography: '{typography.label-lg}'
     rounded: '25px'
-    padding: '8px 24px'
+    padding: '14px 24px'
   button-inverted:
     backgroundColor: '{colors.button-inverted}'
     textColor: '{colors.on-button-inverted}'
     typography: '{typography.label-lg}'
     rounded: '25px'
-    padding: '8px 24px'
+    padding: '14px 24px'
   button-outlined:
     textColor: '{colors.button-outlined-text}'
     typography: '{typography.label-lg}'
     rounded: '25px'
-    padding: '8px 24px'
+    padding: '14px 24px'
   input:
-    backgroundColor: '{colors.surface-container-lowest}'
+    backgroundColor: 'transparent'
     textColor: '{colors.on-surface}'
-    typography: '{typography.body-md}'
+    typography: '{typography.input-text}'
     rounded: '30px'
-    padding: '8px 16px'
+    padding: '12px 24px'
   card:
     backgroundColor: '{colors.surface}'
     textColor: '{colors.on-surface}'
@@ -360,7 +360,7 @@ Signature traits (what makes it recognizable):
 **Secondary (teal) and tertiary (amber).**
 
 - `secondary` (#0d9488) with `on-secondary` (#ffffff) is a deliberate pairing at 3.74:1, below the 4.5:1 text ratio. The rule that goes with it: labels set on a `secondary` fill are `headline-sm` (20px, 600) or larger, or the fill carries icons and graphics only. Smaller text in teal uses `secondary-container` (#daf2ee) with `on-secondary-container`.
-- `secondary` and `success` are the same value (#0d9488). Never use secondary for something that could be read as a success state.
+- `secondary` and `success` are the same value (#0d9488). Never use secondary for something that could be read as a success state. **Exception — market direction:** following the Taiwan stock-market convention, a fall or a loss is shown in `success` teal-green and a rise or a gain in `error` red (see Components → Financial figures). This is the only place `success`/`error` mean something other than success/failure.
 - `tertiary` (#f59e0b) with `on-tertiary` (#000000) is for highlights and "new" markers. It is only 1.8:1 against `background`, so it cannot be the only boundary of a button; pair it with a shadow or place it on `surface`.
 
 **Semantic.** `success` (#0d9488), `warning` (#d37200), `error` (#dc2626), `info` (#2563eb), each with an `on-*` label color. These fills are for icons, badges and solid status buttons. Status text on the page uses `on-*-container` on `*-container`, because success and warning fills are below 4.5:1 on `surface`. Status chips are the one deliberate exception — see Components → Chip — they use the raw status color plus a matching-color edge instead, because they need to read clearly against the page wash.
@@ -389,7 +389,7 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 
 **Family.** One family for all roles: Noto Sans for Latin and numerals, Noto Sans TC as the Traditional Chinese fallback. Weights in use: 400, 500, 600, 700.
 
-**Levels and roles.**
+**Levels and roles.** On mobile (≤734px) every level is 2px smaller (for example `headline-lg` 29px, `body-md` 14px); `tokens.css` switches them automatically.
 
 | Level | Size / weight / line-height | Role |
 |---|---|---|
@@ -406,11 +406,11 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 | `brand-title` | 36px / 700 / 1.2, `0.2em` tracking (28px on mobile, ≤734px) | Wordmark only (the product name on the entry pages' card, e.g. Login) |
 | `brand-subtitle` | 17px / 700 / 1.6 | Wordmark subtitle only (the platform description on the entry pages' card) |
 | `form-heading` | 22px / 700 / 1.3 | Form title inside an entry card (Login / Register / Settings section heading) |
-| `input-text` | 14px / 400 / 1.4 | Text typed into a pill-shaped entry-page input (Login, Settings password fields) |
+| `input-text` | 16px (14px on mobile) / 400 / 1.4 | Text typed into any pill-shaped input |
 
 **Hierarchy collision.** `headline-sm` and `body-lg` are both 20px. Never place `body-lg` directly under `headline-sm`; they differ only by weight and would read as one level. Under `headline-sm` use `body-md`. Use `body-lg` only under `headline-md` or larger, or as a standalone statement.
 
-**Small text.** `label-sm` (10px) is below the 12px readability floor. Use it only for uppercase Latin micro-badges or a numeric superscript, never for a CJK sentence and never as the only carrier of information. For CJK labels the minimum is `label-md` (13px).
+**Small text.** `label-sm` (10px) is below the 12px readability floor. Use it only for uppercase Latin micro-badges or a numeric superscript, never for a CJK sentence and never as the only carrier of information. For CJK labels the minimum is `label-md` (14px; 12px on mobile).
 
 **CJK rules.**
 
@@ -423,6 +423,8 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 
 **Color of text.** `on-surface` for headings and body. `on-surface-variant` for captions, chrome and helper text. `link` only for inline links. On accent fills text is #000000. Never set text in `secondary` or `tertiary` fills below `headline-sm` size.
 
+**Justified text blocks (required).** Any block of text that is wider than its container and wraps onto more than one line is justified (`text-align: justify`), so both edges line up; the last line stays left-aligned. This covers notice boxes, modal and alert messages, the AI analysis paragraphs, form help notes and any similar paragraph. It does not apply to one-line labels, numbers, buttons, table cells or deliberately centered empty-state hints (justifying those would push their single last line to the left).
+
 ## Layout & Spacing
 
 **Spacing scale** (4px base; inferred, since the tokens define none): `xs` 4px, `sm` 8px, `md` 16px, `lg` 24px, `xl` 32px, `2xl` 48px, `3xl` 64px, `gutter` 24px, `margin` 32px.
@@ -431,7 +433,7 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 
 - Inside components: `xs`–`sm` (icon-to-label gaps, chip padding, marker padding), `md` (input horizontal padding), `lg` (button horizontal padding). Card and nested-card padding is the fixed 20px from the tokens.
 - Between cards in a web grid: `gutter`. Between tiles on a slide: `md`. Between unrelated groups: `xl`–`2xl`.
-- Between page sections: `3xl`. Use larger air, not extra dividers, to separate sections.
+- Between page sections and between the cards stacked on a web page: `lg` (24px) on desktop, `md` (16px) on mobile (≤734px) — the app keeps sections close together; `3xl` is for slides only. Use air, not extra dividers, to separate sections.
 
 **Web grid.** Desktop: 12 columns, `gutter` between columns, `margin` (32px) side margins, content column about 1080px wide (a guideline, not a token). Mobile: 4 columns, `md` (16px) side margins. Breakpoints (guideline): up to about 734px single column, about 735–1068px two columns, above about 1068px three or four columns.
 
@@ -462,6 +464,17 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 **Which level for what.** `card` uses `level-1` (the only assignment given by the tokens). The rest is guidance: `level-2` for hovered or raised tiles and sticky toolbars, `level-3` for menus, popovers and tooltips, `level-4` for modal sheets and dialogs, `level-5` for full-screen overlays. Nested cards, pills and chips have no shadow.
 
 **Page backdrop (revised — this is now the one default for every page, not a per-page choice).** Earlier drafts had each page pick one of three radial washes; the product now uses a single diagonal wash everywhere, applied once on `body` rather than per page, so it is automatically consistent across the whole app: `linear-gradient(135deg, color-mix(in srgb, accent-1-500 32%, transparent) 0%, color-mix(in srgb, accent-2-500 22%, transparent) 50%, color-mix(in srgb, accent-3-500 28%, transparent) 100%)` over `background`, direction fixed top-left to bottom-right (135deg), `background-attachment: fixed` so it does not scroll with page content. There is no flat, wash-less page anymore — every page sits on this gradient; a glass card over it always has something to read as "glass" against.
+
+**Liquid glass (the app's second glass recipe).** Floating chrome and emphasized panels use a lighter, more "liquid" glass than cards: `background: color-mix(in srgb, surface 30–45%, transparent)`, `backdrop-filter: blur(10–20px) saturate(180%)`, a `1px` edge in white at 65% (`--liquid-glass-edge`), and a rim of inner light modelled on the iOS 27 Tab Bar (`--liquid-glass-rim`): `inset 1px 1px 0` white at 85% (brighter top-left highlight), `inset -1px -1px 0` white at 50% (softer bottom-right highlight) and `inset 0 0 12px` white at 30% (a soft inner glow), so the whole edge catches light like glass instead of only the top; then the element's elevation level. There is no dark inner shade at the bottom anymore. Both values are tokens in `tokens.css`; use them rather than repeating the literals. Where it is used:
+
+| Element | Surface opacity / blur |
+|---|---|
+| Top tab bar (desktop) and mobile bottom tab bar | 30% / 10px — the most transparent; never make it white |
+| Notice box (`Notice` component), Settings section cards | 45% / 20px |
+| Modal | 75% / 24px, `level-4` |
+| Info popover (`InfoPopover`) | 90% / 24px, `level-4`, plus a 1px `on-background` 12% outer ring so it stays visible over a white card |
+
+Popover menus (the account menu and the `⋮` more menu) do **not** use liquid glass; they use the same glass as the page content cards (75% `surface`, `blur(24px) saturate(150%)`, the 1px dark glass edge) with a `level-3` shadow, so they are lighter than an opaque sheet yet stay readable over a dark button underneath.
 
 **Rules.**
 
@@ -498,7 +511,7 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 | Standalone images outside the grid | `rounded.lg` (18px); large hero media `rounded.xl` (24px) |
 | Tooltips, popovers | `rounded.xl` |
 
-**What this looks like.** At default heights (about 38px buttons, about 42px inputs) the button and input radii exceed half the height, so both render as full pills. Cards at 30px read as generously rounded panels; controls inside them keep smaller radii by their own tokens.
+**What this looks like.** At default heights (about 50px buttons, about 48px inputs) the button and input radii exceed half the height, so both render as full pills. Cards at 30px read as generously rounded panels; controls inside them keep smaller radii by their own tokens.
 
 **Nesting.** A nested card is 20px inside a 30px card with 20px padding. Ideal concentric rounding would be 10px (30 − 20), so the corners are not concentric; this is how the source tokens define it and it is kept as specified. Media that runs edge to edge inside a card is clipped by the card's 30px radius.
 
@@ -506,13 +519,18 @@ Rules for washes: a wash never sits behind small body text without a card; do no
 
 **Checkbox versus radio.** Checkbox radius is 15px on a 20px control, which renders as a circle and looks identical to a radio. They are distinguished by construction: a checked checkbox is a solid `primary` fill with no inner mark; a selected radio is a `primary` ring with an inner dot. Do not use both in the same group.
 
-**Borders.** `borderWidth` is 0px and `subcardBorderWidth` is 0px: no card, nested card, divider or glass edge. Controls keep a 1px `outline` edge because they would otherwise disappear (input, outlined button, unchecked checkbox/radio).
+**Borders.** By default nothing draws a line: `borderWidth` and `subcardBorderWidth` are 0px, and separation comes from air, tone and shadow. Controls keep a 1px `outline` edge because they would otherwise disappear (input, outlined button, unchecked checkbox/radio). Allowed exceptions, and only these:
+
+- the 1px glass edge on glass surfaces (see Elevation & Depth);
+- a 1px `outline-variant` hairline under a card's title row (for example the portfolio cards on the list page);
+- the 1px `outline-variant` edge of an outline stat tile (see Components);
+- the 1px dashed `outline` edge of an empty state (see Components).
 
 ## Components
 
 All components use tokens from the frontmatter. Shared state rules: focus-visible is a 2px `focus-ring` outline with a 1px offset; disabled is 38% opacity with no shadow and no hover; pressed reuses the hover color.
 
-**Button primary.** `primary` fill, `on-primary` label in `label-lg`, radius 25px, padding 8px 24px. Hover `primary-hover`. One per view.
+**Button primary.** `primary` fill, `on-primary` label in `label-lg`, radius 25px, padding 14px 24px (about 50px tall, so it renders as a pill). Hover `primary-hover`. At most one per page header and one per section card: a long dashboard page may have a primary action in its header (for example 新增持股) and one in the top-right of each section card that owns an action (for example 新增持股 on the holdings card, 進行風險分析 on the analysis-report card).
 
 **Button secondary.** `button-secondary` fill, `on-button-secondary` label, same geometry. Hover `surface-container-high`.
 
@@ -524,7 +542,21 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Meta pill / link pill.** `rounded.full`, `surface` fill, `on-surface` label in `label-lg` (or `label-md` for chrome-sized pills), padding `sm` (8px) vertical and `lg` (24px) horizontal. Used on washes and photos for company name, date, "Add a link" and speaker-name captions. On a white card use `button-secondary` fill instead so the pill remains visible. No shadow.
 
-**Input.** Transparent fill (no `surface-container-lowest`, no translucent surface tint — revised: a filled or even tinted pill read as one visual step too many stacked on a glass card), `on-surface` text in `body-md` (or `input-text` on an entry-page pill input), radius 30px, padding 8px 16px, 1px `outline` edge, placeholder in `on-surface-variant`. It still carries its own `backdrop-filter: blur(16px)`, so typed text stays legible against the wash even with no background color. Focus: the 1px edge itself switches to `focus-ring` — width and position stay put, only the color changes, so the border never visibly shifts (revised from a 2px outline replacing the edge, which read as a jump). Error: edge in `error`, helper text in `body-sm` using `on-error-container` on `error-container`. Labels sit above in `label-lg`. Never rely on the browser's native validation bubble (`required`'s default tooltip) — submit with `noValidate` and show the same failure as an inline status chip below the form, styled like any other error.
+**Input.** Transparent fill (no `surface-container-lowest`, no translucent surface tint — revised: a filled or even tinted pill read as one visual step too many stacked on a glass card), `on-surface` text in `body-md` (or `input-text` on an entry-page pill input), radius 30px, padding 12px 24px, 1px `outline` edge, placeholder in `on-surface-variant`. Focus: the 1px edge switches to `focus-ring` and an inset 1px `focus-ring` shadow is added inside it, so it reads as a 2px ring while the border width and the layout never shift. Error: edge in `error`, helper text in `body-sm` using `on-error-container` on `error-container`. Labels sit above in `label-lg`. Never rely on the browser's native validation bubble (`required`'s default tooltip) — submit with `noValidate` and show the same failure as an inline status chip below the form, styled like any other error.
+
+**Input placeholder (required).** Every text, number and password field shows a placeholder by default, in Traditional Chinese. It always starts with 「請」 and only says what to enter (for example 「請輸入投資組合名稱」, 「請輸入代號或名稱」, 「請輸入股數」, 「請輸入新密碼」); it never gives an example value such as 「如 1000」. Placeholder text is `on-surface-variant` at 60% opacity, and it never replaces the visible label above the field.
+
+**Buttons are never disabled (required).** Submit, save, create and similar action buttons are never greyed out because of missing or invalid input. They stay clickable; on click the form checks every field (required values, formats, lookups such as an unknown stock code) and shows what is wrong in the red error chip (see Form messages). The only allowed non-clickable state is the brief `busy` spinner while a request is in flight.
+
+**Numeric inputs.** Quantity and amount fields are plain text inputs without browser spin buttons; the user just types the number. A share quantity (「數量」) accepts whole numbers greater than 0 only (`inputMode="numeric"`, non-digits are filtered out as the user types, and the error reads 「數量須為大於 0 的整數」).
+
+**Search box with attached results (combobox).** A search field (for example the 標的 picker) sits in a fixed-height slot; while results are open, the field and its result list become **one floating box** above the form (so nothing below shifts): `rounded.xl`, `level-3` shadow, the field part on `surface-container` and the list part on `surface`, with a single frame all the way round — a 1px `focus-ring` border plus a 1px `focus-ring` outline drawn just inside it on top of everything, so the frame reads as 2px (the same weight as a focused input), never breaks at the joint and never shows a line between the field and the list. The list shows at most six options (row height = `body-sm` × 1.5 + 20px) and scrolls beyond that. Each option is a rounded row (`rounded.lg`); the current option (moved to with the arrow keys or by the mouse — hovering makes that row current, so only one row is ever gray) turns `surface-container`. **Keyboard:** ↑/↓ move the current option (stopping at the first and last option — never wrapping around — opening the list if it was collapsed, and scrolling it into view while keeping the list's 4px inner padding between the current option and the list edge, so the highlight never touches the edge); Enter fills in the current option; if no option is current, Enter fills it in directly when the match is unambiguous — only one result, or a code that exactly matches the typed text (for example 「2330」) — even if the user presses Enter before the search has finished; otherwise Enter just opens the list with the first row current. After a keyboard selection the cursor moves on to the next text field (數量). Esc with the list open only closes the list, not the modal. Enter in the search box never submits the form. Clearing the text closes the list. A query with no matches shows a single non-selectable 「查無資料」 row in the list (neutral `on-surface-variant`, never red text or an error chip). While there is a query, the field's right side is a collapse/expand icon button: collapsing keeps the typed text, and clicking the field again reopens the list. Clicking anywhere else also only closes the list — the typed text is always kept. After a selection the field shows the chosen value (for example 「2330 台積電」) with a clear icon button to choose again. When the value may not be changed (for example the 標的 of a record being edited), it is shown as a read-only value field (see Read-only value fields) instead of a search box.
+
+**Date picker.** Modelled on the iOS date picker: a white rounded popover (`rounded.xl`, `level-3`) under a plain text trigger field (no calendar icon inside the field). Header: bold 「2026 年 9 月」 on the left followed by a blue `chevron_right`, and previous/next month arrows on the right in `on-surface`. Tapping the title switches the body to Apple-style year/month wheels — two side-by-side scrolling columns that snap to one row, with a `surface-container` rounded band marking the selected row and the top and bottom rows fading out; the chevron turns downward while the wheels are shown, months outside the data range are faded, and tapping the title again returns to the calendar. Weekday headings are small `on-surface-variant` labels and **weeks start on Sunday**. Days are round cells; today is a solid black circle (`button-inverted`) with white text, the selected day a solid primary-blue circle (`primary`) with white text (`on-primary`), and unavailable days (for example market holidays with no price data) are faded and cannot be picked. When a stock is chosen and no date is set yet, the picker pre-selects the most recent date that has data, so users do not accidentally enter a holiday.
+
+**Read-only value fields.** Values the system fills in (for example the purchase-date price and the resulting cost) look like inputs but with a `surface-container-highest` fill (dark enough to read as a field on a translucent modal) and no edge; they show 「—」 until a value is available and 「查詢中…」 while loading. Never place a separate explanatory paragraph box inside a form to describe them.
+
+**Form messages (required).** Error messages for input fields (and a form's success message, such as a changed password) use the status chip: the `Chip` component with the `error` variant (or `success`) — `*-container` fill, the raw status color for text and the leading icon, a 1px edge at 35% of that color, `rounded.full`. It sits **between the last input field and the button row**, never below the buttons and never as plain red text next to a field. A form shows one message at a time in that slot. This applies to every form: login and register, change password, new portfolio, rename, add purchase, questionnaire and any new one.
 
 **Checkbox and radio backgrounds follow the same rule**: per Shapes → Checkbox/Radio below, the unchecked/unselected state is already transparent (just the 1px `outline` edge) — that hasn't changed, it's restated here because inputs now match it: no control's resting background should compete with the glass card behind it.
 
@@ -533,6 +565,8 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 **Corner-gradient card.** A card may carry one accent gradient in its top-left corner: `radial-gradient(90% 90% at 0% 0%, accent-N-500, transparent 70%)` over `surface`, for hero statements and key stats (yellow for goals, pink for people). Text stays `on-surface`.
 
 **Nested card / stat tile.** `surface-raised` fill (or an accent tint: `accent-1-200`, `accent-2-300`, `accent-3-200`), radius 20px, padding 20px, no border, no shadow. Stat tile: numeral in `headline-lg`, caption in `body-md`. Text color is `on-surface` on `surface-raised` and #000000 on accent tints.
+
+**Outline stat tile.** Inside a glass card (for example the portfolio overview), small stat tiles have no background, no blur and no shadow — only a 1px `outline-variant` edge and the nested-card radius (20px) — so they never become glass on glass. Title in bold `label-lg`, value centered. **Values never wrap:** a figure always stays on one line. On mobile (≤734px) the tiles use 12px padding, the value drops to `headline-sm` and the ▲/▼ % line to `body-md`; if a value still does not fit (a very large amount or a very narrow phone), its font size is scaled down just enough to fit on one line (the `FitLine` helper in the detail page).
 
 **Checkbox.** 20px, radius 15px. Unchecked: transparent with a 1px `outline` edge. Checked: solid `primary` fill, no glyph.
 
@@ -552,25 +586,77 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Photo tile and avatar.** Photo tile: image clipped by the card radius (30px), same height as the row's cards. Avatar: circle (`rounded.full`), optional 3px rim in `accent-2-500` on one side. Name in `label-lg`, role in `body-sm` `on-surface-variant`. A speaker-name caption may overlay the photo as a meta pill.
 
-**Toolbar / navigation bar.** Sticky, glass at `level-2`, radius `rounded.full` when floating or full-width with no radius when docked. Title in `label-lg`, actions as circular icon buttons (44px hit target) on `surface-container-high`.
+**Toolbar / navigation bar.** Sticky, glass at `level-2`, radius `rounded.full` when floating or full-width with no radius when docked. Title in `label-lg`, actions as circular icon buttons (40×40px button, 22×22px icon, transparent at rest; see Iconography).
 
 **Entry header.** Fixed to the top of Login, Register and Settings, transparent (no glass, no shadow, sits directly on the page backdrop), edge-to-edge — **no max-width or centered content column**: the logo sits flush against the true left edge of the viewport and the account icon flush against the true right edge, each inset only by `margin` (32px), `lg` (24px) top/bottom padding. Left: a 40px circular `primary` badge with an `on-primary` icon (the product mark); signed in, "診股整股" appears beside it in `label-lg`/700/`primary`, and the whole logo-plus-text block becomes a plain click target back to Home — no hover state, since it's identity chrome rather than a button. Signed out (Login/Register), it's icon-only and inert. Right: one circular icon button, 36px, transparent, `on-surface-variant` icon, hover fill a translucent `on-surface` overlay (not a flat token, so it reads as gray over any part of the wash) — the account icon (`person`). The icon button's `:focus-visible` state is the standard 2px `focus-ring` outline with 1px offset, not the browser default.
 
-**Account menu.** When signed in, the account icon opens a popover instead of navigating directly: `Tooltip / popover` glass (`level-3`, `rounded.xl`), anchored top-right under the icon, closes on an outside click. Two items, each full-width, `body-md`, centered, hover fill (a translucent `on-surface` overlay); item radius scales with the popover's own radius rather than using a fixed token — `rounded.xl` minus the popover's own padding, the same concentric-rounding relationship as a nested card: "設定" (navigates to Settings) and "登出" in `error` color (calls `/auth/logout`, clears the session, navigates to Login). Signed out (only possible on Login/Register, since Settings requires a session), the account icon is inert — there is no menu to show.
+**Account menu.** When signed in, the account icon opens a popover instead of navigating directly: the page-card glass (75% `surface`, 24px blur, 1px glass edge, `level-3` shadow — see Elevation & Depth), `rounded.xl`, anchored top-right under the icon, closes on an outside click. Two items, each full-width, `body-md`, centered, hover fill (a translucent `on-surface` overlay); item radius scales with the popover's own radius rather than using a fixed token — `rounded.xl` minus the popover's own padding, the same concentric-rounding relationship as a nested card: "設定" (navigates to Settings) and "登出" in `error` color (calls `/auth/logout`, clears the session, navigates to Login). Signed out (only possible on Login/Register, since Settings requires a session), the account icon is inert — there is no menu to show.
+
+**More menu (`⋮`).** Cards that can be edited or deleted (for example a portfolio card) carry a `more_vert` icon button (40×40px, see Iconography) in their top-right corner, vertically centered with the card title. It opens a popover styled exactly like the account menu (page-card glass, `rounded.xl`, centered full-width items); destructive items such as 刪除 use the `error` color. The button sits outside the card's link so clicking it never opens the card. Choosing 刪除 never deletes directly — it always opens a confirmation modal first. In code this is the `MoreMenu` component.
+
+**Empty state.** When a page or section has no data yet (no questionnaire, no portfolios, no holdings), show one block with a 1px dashed `outline` edge, `radius-card` (30px), no background and no shadow, containing a single centered sentence that points at the action button in the header — for example 「請點擊右上角「新增持股」，建立完整的庫存明細」 (no icon, no title, no trailing period). The action button itself stays in the page header's top-right, never inside the empty block. While a page is empty, hide the notice box, the data-update time and any action that needs data (such as 進行風險分析).
 
 **Sidebar.** `surface-container-low` panel, grouped lists with `label-md` section labels in `on-surface-variant`. Selected row: `surface-container-high` fill with `rounded.md`.
 
 **Form / list group.** One nested card per group; one row per setting; label left in `body-md`, value or control right in `on-surface-variant` or the control itself. Rows are separated by `sm` spacing, not lines.
 
+**Enter to continue (required).** Every screen or modal with input fields is a real form with a submit button. Pressing Enter in a field moves focus to the next field; pressing Enter in the last field runs the form's confirm/submit action (save, create, log in, change password…), so the user never has to reach for the mouse to continue. If the submit button is disabled (for example a required field is still empty), Enter does nothing. Enter while an input method is composing text (Zhuyin, Cangjie and similar) only confirms the characters and never jumps or submits. In code, attach the shared `enterToNextField` handler (`frontend/src/formKeys.ts`) to the form's `onKeyDown`.
+
 **Switch.** Track `rounded.full`, about 44px by 28px; off `surface-container-highest` with a 1px `outline` edge, on `primary`; thumb 24px in `surface`.
 
-**Segmented control / tabs.** Pill container in `surface-container-high`; the selected segment is a `surface` pill at `level-1`; labels in `label-md`.
+**Segmented control / tabs.** Pill container in `surface-container-high`; the selected segment is a `surface` pill at `level-1`; labels in `label-md`. The selected pill is one sliding indicator, animated exactly like the top navigation bar's tab indicator: it slides to the new segment with a slightly springy curve (`cubic-bezier(0.32, 0.72, 0.35, 1)`, 0.38s for position and width) and briefly scales up when pressed (quick 0.16s grow, 0.32s settle); no animation when the user prefers reduced motion.
 
-**Modal / sheet.** Glass at `level-4`, radius 30px, padding 20px; scrim is `on-surface` at about 40%. Title `headline-sm`, actions in a row: `button-secondary` then `button-primary`, or stacked on mobile. No focus ring (outline) on the modal container itself when clicked.
+**Modal / sheet.** Liquid glass (see Elevation & Depth → Liquid glass) at 75% white with `level-4`, radius 30px, padding 20px; the scrim is `on-surface` at 22% plus `blur(20px) saturate(140%)`. Title `headline-sm`, actions in one row: `button-secondary` then `button-primary` (see the rules below). No focus ring (outline) on the modal container itself when clicked.
+
+- **No close button (required).** Modals and dialogs never have a close (×) icon in the top-right corner.
+- **Close only by a button (required).** A modal closes only when the user clicks one of its buttons (取消, 確認, 刪除, 關閉…). Clicking the scrim or blank space inside the modal does nothing, so nothing is dismissed by accident. The Esc key is the one keyboard exception: it does exactly what the modal's cancel button does (取消, or the single 關閉/確認 button on a one-button alert). Every modal therefore needs at least one button that closes it; a form modal always has 取消 next to its submit button.
+- **Width (required).** On desktop every modal is **450px** wide; on narrow screens it shrinks to the viewport minus the `md` (16px) side padding.
+- **Never blur the navigation, block everything behind (required).** The scrim blurs and dims the page but sits **below** the top bar and the mobile bottom tab bar (scrim z-index 40, top bar 50), so both stay sharp and visible. Above them sits a transparent interaction layer (z-index 60) that holds the centered modal, so while a modal is open nothing behind it can be used: the page does not scroll (scrolling is locked) and the top bar and tab bar cannot be clicked. Only the modal responds. Never open a modal with the native `<dialog>.showModal()` top layer, which renders above everything including the top bar. In code, every modal and alert (including one-button alerts and gate prompts) uses the shared `Modal` component; no page builds its own scrim.
+- **Full-width actions (required).** The action buttons at the bottom share the full width equally: two buttons (for example 取消 + 儲存, or 取消 + 刪除) each take half; a single button (for example 建立) takes the whole row. Secondary on the left, primary on the right, always in one horizontal row — on mobile too; they never stack into multiple rows.
 
 **Tooltip / popover.** Glass at `level-3`, radius `rounded.xl`, text in `body-sm`.
 
+**Info popover (iOS style).** When a title note does not fit on mobile, show only a 40×40px `info` icon button (see Iconography); the note opens in a popover below it — liquid glass (see the table above), `rounded.xl`, padding 12px 16px, `body-md` `on-surface` (large enough to read on a phone), justified, with **no arrow** — it simply appears 8px below the icon (growing out from the icon's position), with a 1px outer ring so it stays visible over a white card. It opens on mouse hover or on click/tap; a tap on the icon again, a tap outside or Esc closes it, and it follows the icon while the page scrolls, staying at least 16px from the screen edges. In code this is the `InfoPopover` component.
+
+**Financial figures.**
+
+- **Units** (元, %) follow the number, are smaller (`body-sm`, 400) and `on-surface-variant`, with a 4px gap; when the value is missing ("-") the unit is hidden.
+- **Up/down color follows the Taiwan market convention:** a gain or a rise is `error` red, a loss or a fall is `success` teal-green, zero is neutral `on-surface`. This applies to P&L amounts, returns and annualized returns, and to the mini trend charts beside them (the chart color follows its number's color; a number that is not colored, such as total market value or invested cost, gets a neutral gray chart).
+- **Percentages inside tables** (for example an unrealized return under its P&L amount) use the same ▲/▼ triangle, no sign, and a small `%` unit — here the `%` takes the same up/down color as the number instead of neutral gray.
+- **Change percentages** sit on the line below the amount, one size smaller (`headline-sm`), in the same color, led by a solid triangle — ▲ for up, ▼ for down, drawn at about 70% of the number's size — with no plus or minus sign, and the `%` in the small unit style.
+- **No value is always 「N/A」 (system-wide).** Any value that is missing, cannot be computed or has no data yet — an annualized return for a holding under 30 days old, a value with no price, a read-only field that has nothing to show yet (for example 每股價格 and 持有成本 before a stock and date are chosen), an empty timestamp — shows 「N/A」. Never use 「-」, 「—」 or a blank for this, and do not show a unit (元, %) after 「N/A」. In code the text comes from the `NA` constant in `frontend/src/format.ts`, and the shared formatters (`money`, `signedMoney`, `decimal`, `pct`, `formatDateTime`) already return it for empty values. A loading state is different: while a value is being fetched, show a loading text such as 「查詢中…」, not 「N/A」. In an overview metric card, 「N/A」 replaces both the number and the mini chart and is centered in that whole area below the card title.
+- **Mini trend charts** use the card number's up/down color, except amounts that have no up/down meaning — 目前總市值 and 總投入成本 — which use the primary blue (`primary-500`, the same as the market-value line).
+- **Mini trend charts** (overview cards) show the last month — or all available data when there is less than a month of history. Each chart starts at its own first real data point and stretches across the full width; never fill in or estimate values just to make charts start on the same day (for example, the daily-P&L chart starts on the second day, because the first day has nothing to compare with); their zero line sits on the bottom edge unless the month has negative values, in which case room is left below zero.
+
 **Table.** Header in `label-md` on `on-surface-variant`, rows on `surface`, hover `surface-container-low`, numeric columns right-aligned, no gridlines or borders.
+
+**Chart captions.** A chart card's caption row has the bold title on the left and a short `body-sm` `on-surface-variant` note on the right (for example 「依目前市值」, 「面積：市值，顏色：報酬率」); explanatory pairs use the full-width colon 「：」, never 「＝」, and several pairs are separated by 「｜」 (for example 「面積：市值｜顏色：報酬率」).
+
+**History trend (歷史走勢).** One section card (24px padding) with **no section title**. At the top is a full-width segmented range control with equal-width segments (1 個月, 3 個月, 6 個月, 1 年, 3 年, 5 年, 10 年, 全部 — only ranges shorter than the available history are offered, plus 全部). Below it, two stacked blocks that share the range and the time axis. Neither chart draws grid lines; instead both draw a light `outline-variant` line at the top and bottom limits of the plot and a neutral **0 baseline**. The amount axis always includes 0 (the market-value chart starts at 0) and uses round steps (1, 2, 2.5 or 5 × a power of ten, about four steps), so both limit lines and the 0 baseline sit exactly on labelled ticks.
+- **Block header.** The chart title in bold `headline-sm` on the left (「市值變化」, 「損益變化」) immediately followed by the range's period — a `schedule` icon and 「2026-06-09 ~ 2026-09-24」 in `body-sm` `on-surface-variant` — and the readout on the right in the same row, vertically centered (wrapping when there is no room). There is no explanatory note.
+- **市值變化** — the market value as a 2px `primary-500` line over a flat light fill of the same color (12% opacity, no gradient), and the cumulative invested cost as a 1.5px dashed neutral line. 280px tall (230px on mobile).
+- **損益變化** — one P&L line with its area, red above the 0 line and green below it (Taiwan convention), and a solid neutral 0 line. 200px tall (170px on mobile).
+- **Readout.** Each series with its line key (solid or dashed) as the legend, the label, the amount in bold `body-md` and 「元」 as a small unit; the P&L return follows 「元」 directly (the full-width bracket already carries its own spacing) and reads 「（ **+6.71** % ）」 — a half-width space inside each bracket and between the number and 「%」 — the number bold like the amount, the parentheses and 「%」 in the small unit style, with a half-width space before 「%」 — all in the up/down color. It shows the values of the last day of the range until the user points at a chart (the pointed date appears in the crosshair's date label).
+- **Time axis.** Ranges of one month or less show five evenly spaced trading days. Longer ranges put every tick on the 1st of a month, using the first interval that fits — every month, every quarter (1/1, 4/1, 7/1, 10/1), every year, every 2 years, every 5 years — with at most 8 ticks on desktop and 4 on mobile; so 3 and 6 months tick monthly, 1 year ticks quarterly, and 全部 ticks quarterly or yearly depending on its length. Labels read 「M/D」; when the range crosses a year boundary the first label carries the year (「2025/10/1」), and yearly-or-longer ticks always carry the year. Amount axis labels use the compact form (「150萬」).
+- **Crosshair (trading-software style).** Pointing at either chart (mouse move; tap or drag on touch, with vertical page scrolling still allowed) snaps a **solid** vertical line to the nearest trading day on **both** charts at once, with hollow dots on each series at that day; the chart under the pointer also draws a **solid** horizontal line at the pointer height, with dark `on-surface` pill labels showing the amount at that height on the left axis and the full date on the time axis. Leaving the chart, changing the range or resizing the window clears it. There is no floating tooltip — the readouts carry the values.
+- **Smoothness.** The crosshair lives on its own transparent layer above the chart and updates at most once per animation frame; the chart underneath only redraws when the data, range or width changes, never while the pointer moves.
+
+**Chart legend list.** The treemap cards (產業別, 個股別) have a fixed height of exactly six list rows, so the two cards in a row are equal; a treemap without a gradient scale fills that height to its bottom with no extra space underneath. Donut and treemap cards share one layout: a 200px chart column, a 24px gap, then the list, so the lists of all cards in a grid start at the same left edge. The list (dot, name, value) grows with its items up to the full height of the chart beside it (including any gradient scale under it, so a full list lines up with the chart at both top and bottom) and then scrolls inside itself; when there are few items it is vertically centered against the chart. List text is never shrunk for long lists. **Scrolling snaps one whole row at a time** (scroll snap on each row), so a list only ever shows complete rows — never a row cut in half at its top or bottom edge; visually only the content changes while the list box stays put. Donut lists are at most five rows tall on desktop too. On mobile (≤480px) the list moves under the chart, the card grows with the number of items, and the list is exactly five rows tall at most (row height = text size × 1.6 + 12px) before it scrolls; donut lists follow the same five-row rule on mobile. Names that do not fit end in an ellipsis and never overflow the card. Donut slices and treemap tiles show the pointer (hand) cursor on hover. Hovering or clicking a row highlights the matching slice or tile, and hovering a slice or tile scrolls the list to its row.
+
+**Title note.** A short explanatory note can sit right after a page or section title in the same row; its icon is vertically centered with the text (the same applies to notice boxes) — `body-sm` `on-surface-variant` with a leading 16px `info` icon, 12px from the title, wrapping below it when space runs out (for example the questionnaire's 「共 14 題，皆為必填」 and the holdings card's unit-price note). On mobile (≤734px) the holdings card's note collapses to the `info` icon button of an Info popover instead of wrapping; other title notes are unchanged.
+
+**Section card header on mobile.** The action button always stays on the right of the header row; the title and its note take the remaining width and wrap instead of pushing the button onto a new line.
+
+**Section card header.** Every large section card on a page uses the same 24px (`lg`) inner padding, so the distance from each section title to the card edge is identical across the page. A section card (for example 庫存明細, 歷史分析報告) starts with a row: the section title in bold `headline-sm` on the left and, if the section owns an action, its button on the right (primary). No counts or badges next to the title. The button is taller than the title, so it must not make the row taller: it stays vertically centered on the title and overhangs the row above and below, which keeps the title exactly 24px from the card's top edge, the same as cards without a button (for example 市場別); the row then leaves 24px (`lg`) before the content so the button still has room below it.
+
+**Expandable table (holdings).** A table whose rows can open a detail panel.
+
+- **Main row.** Body cells in `body-md` (16px; rows are compact on desktop and mobile alike — 8px vertical padding, a 4px gap between rows, and the 40px expand button overhangs the row instead of setting its height; on mobile the line height is 1.35 and cells are 16px with secondary lines at 14px, never smaller than 14px; the expanded purchase-history panel uses exactly the same sizes as the main rows), headers in `label-lg` (16px) `on-surface-variant`, each header carrying its unit on a second line in `body-sm` — for example 「單價」 over 「(元)」, 「股數」 over 「(股)」, 「年化報酬率」 over 「(%)」 — so the cells show bare numbers without repeating the unit. Right after the section title, in the same row, a short info note (with the `info` icon) explains how prices are determined — 「每股價格為系統依買進日期自動帶入，可能與實際成交價略有不同。」; every column (header and cells) is **center-aligned** except the identity column 「標的」, which is left-aligned; values stay on one line. Column widths are fixed and balanced (`table-layout: fixed`): 「標的」 20%, the expand column 64px, all other columns share the rest equally. Hovered and open rows use `surface-container` (the same gray as a hovered legend row). Main rows are separated by a 4px gap — made with empty spacer rows rather than `border-spacing`, so an open row stays joined to its detail panel. **Alignment with the card:** the table is pulled out by 16px on each side so that the first column's text lines up exactly with the section title (both 24px from the card edge) and the expand arrow's icon lines up with the right edge of the header button (24px from the card edge); the row highlight extends 16px beyond the text on the left. The expand column is right-aligned with 8px right padding. The first column merges identity fields into one column whose header reads 「代號/名稱」 with 「(市場別/產業別)」 as its unit line (the other main-table headers are 平均單價, 持有數量, 持有成本, 最新價格, 未實現損益, 年化報酬率 and 市值權重). The header row scrolls with the table (it is not pinned), and the table scrolls sideways when it is wider than the card: code in bold plus name on the first line, the market and industry separated by an 8px gap like the code and name above them, with no slash (for example 「上市 半導體業」) in `body-sm` `on-surface-variant` on the second line. A share-of-total column shows the amount (market value) above a 6px `rounded.full` bar whose length is the weight; the weight is not printed as a number. The last cell is only an expand arrow (a 40×40 icon button, `expand_more`, rotating 180° when open), vertically centered on the row's content (it is laid out as a block, not an inline element, so it never sits on the text baseline) — no counts.
+- **Open state.** The open row and the panel under it share one `surface-container` tint with continuous rounded corners; the tint is painted on the cells (not the table row) so the corners join without a notch. Inside sits a panel with the same background as the section card (`rgba(255, 255, 255, 0.75)`), radius 20px, with visually equal space above its title and below its last row: a header row — the title 「歷史批次買進明細」 on the left (`on-surface`) and the record count (for example 「2 筆交易紀錄」) on the right in neutral gray (`neutral-600`), both bold `label-lg` — then the records as one compact block: column headers without units (買進日期, 每股價格, 買進股數, 持有成本, 未實現損益, 目前市值, 持有天數, 操作), dates as `YYYY-MM-DD`, P&L in regular weight (color only) with its ▲/▼ percentage on a second line, and rows with no gaps, no separate backgrounds and no divider lines, each only as tall as its buttons. The panel title, the first column header and the dates share one left edge, inset so their distance from the panel edge matches the distance from the delete icon to the right edge (the actions column is exactly as wide as its two 40px buttons). Row actions sit on the right: edit is a normal icon button that opens the same modal used for adding, pre-filled with that record (never an inline edit row inside the table); delete is an icon button whose icon is `error` red with no fill at rest and becomes a solid `error` circle with an `on-error` icon on hover; it always asks for confirmation in a modal.
+- **Compact panel.** The purchase-history panel is compact like the main rows: 19px padding at the top and 8px at the bottom — the last row's date is centered against the two-line P&L cell, which already leaves about 10px under it, so this makes the gap from the panel's top edge to the title text and from the last date's text to the bottom edge look the same (about 24px); on mobile it is compact like the outer rows — 16px side and top padding, 4px bottom padding, the title-to-column-header and column-header-to-date spacing scaled down from desktop in the same proportion (about 13px and 18px text to text, versus about 18px and 25px on desktop) — which still keeps the top and bottom text gaps visually equal (about 18px) — a 4px gap under its title, 4px vertical padding on its header row and on each record row, line height 1.35, and the 40px edit/delete buttons overhang the row instead of setting its height.
+- **Panel gap.** The panel starts right under the open row with no extra margin, so the gap between the row's content and the panel equals the row's own top padding (8px), on desktop and mobile.
+- **Card bottom.** The holdings card's bottom padding is 8px, so the last row (or an open panel under it) is exactly as far from the card's bottom edge as from its left and right edges.
+- **No extra footers.** The panel has no "add one more" button or explanatory footnote; adding happens through the section's primary button.
 
 **AI Processing / Waiting State.** When the user is waiting for an AI operation to complete (e.g., analyzing results), apply a full-screen blurred inner gradient glow (the `AnalyzingGlow` component) that breathes (pulses opacity). The glow is created using an oversized pseudo-element with a thick `border-image` gradient (`accent-1-500` to `accent-2-500` to `accent-3-500`) and a strong Gaussian blur (`filter: blur`), clipping the outer edge to the viewport to create a continuous, soft, multi-color inner boundary. Do not use standard loading spinners or solid sharp borders for AI analysis states.
 
@@ -602,9 +688,24 @@ All components use tokens from the frontmatter. Shared state rules: focus-visibl
 
 **Charts.** Categorical or phase-coded data uses the accent order pink `accent-3-500`, yellow `accent-2-500`, blue `accent-1-500` with #000000 labels on the fills. Quantitative series order: `primary-500`, `secondary-500`, `tertiary-500`, `link-500`, then the accents. Gridlines and month dividers are 1px `outline`. Axis labels in `label-md` `on-surface-variant`. Bars and pills use `rounded.full`; chart containers sit in a card and use `rounded.lg`. Never encode meaning by color alone; add direct labels.
 
+**App chart palette (product UI).** In the web app, categorical charts (allocation donuts, treemaps) use the 20 chart tokens `chart-1` … `chart-20` in `tokens.css`, always in numeric order and never reordered or skipped. They are the system hues (brand blue, sky blue, teal, amber, rose, olive yellow and neighbouring hues) at two lightness steps (OKLCH L 0.55 / 0.70), ordered so the first five are all mutually distinguishable (a chart with few categories never shows two similar hues, such as two blues), and every adjacent pair after that stays distinguishable, in normal vision and under color-vision-deficiency simulation. More than 20 categories fold into a neutral-gray "其他". Every chart that uses them has a legend list beside it (name and value as text), so identity never relies on color alone.
+
 ## Iconography
 
-Material Symbols Rounded icons, about 1.5–2px stroke at 20–24px, round caps and joins, no fills except selected states. Section markers and corner arrows are a solid `button-inverted` circle with an `on-button-inverted` glyph (for example a small arrow before a title, or a corner arrow on a tile). Circular icon buttons (44px hit target minimum) sit on `surface-container-high`; a selected state fills the circle with `primary` and the icon with `on-primary`. Icon color is `on-surface` or `on-surface-variant`, never a palette shade.
+Material Symbols Rounded icons, about 1.5–2px stroke at 20–24px, round caps and joins, no fills except selected states. Section markers and corner arrows are a solid `button-inverted` circle with an `on-button-inverted` glyph (for example a small arrow before a title, or a corner arrow on a tile). Circular icon buttons have a transparent background at rest and show a translucent `on-surface` circle (about 14%) on hover, with the icon turning `on-surface`; pressing scales them to 95%. A selected state fills the circle with `primary` and the icon with `on-primary`. Icon color is `on-surface` or `on-surface-variant`, never a palette shade.
+
+**Icon button size (required).** Every icon-only button in the web app (edit, delete, close, password visibility, account menu and similar) is one size: the button is **40×40px** (circular, `rounded.full`, no border, no padding) and the icon inside is **22×22px**, centered. Do not scale them per page or per context. In code this is the `IconButton` component's default; use it for any icon-only button and don't override its width, height or `iconSize`. Hover and pressed states keep the same 40px footprint.
+
+**Leading icons for info, tooltip and time text (required).** Whenever a page shows one of the text types below, the text is preceded by its matching icon, inline in the same row, with a `xs` (4px) gap. The icon takes the same color as the text (`on-surface-variant` for meta text and notices).
+
+| Text type | Icon | Size | Examples |
+|---|---|---|---|
+| Info note, disclaimer, notice box | `info` | 16px inline meta; 24px in a notice box | 「未納入手續費與交易稅」、風險屬性有效期限提示 |
+| Tooltip / hint / help text | `help` | 16px | 欄位說明、「?」提示 |
+| Time or date-time | `schedule` | 16px | 「資料更新時間：2026-09-25 16:00:41」、「上次填寫時間：…」 |
+| Warning | `warning` | 16px | 缺少最新報價 |
+
+Times shown to users are local time down to the second (`YYYY-MM-DD HH:mm:ss`). A page-level time (for example the price data update time) sits in the header's top-right, left of the header action button, and moves under the page title on mobile (≤734px). Chart tooltips (the hover cards on Nivo charts) are exempt: they are already anchored to the data point.
 
 ## Imagery
 

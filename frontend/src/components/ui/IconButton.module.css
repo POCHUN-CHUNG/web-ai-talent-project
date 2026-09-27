@@ -1,9 +1,12 @@
+/* 圖示按鈕統一尺寸（DESIGN.md）：按鈕 40×40px、圖示 22×22px */
 .iconButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   border: none;
   border-radius: var(--radius-full);
   background: transparent;
