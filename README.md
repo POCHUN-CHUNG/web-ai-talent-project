@@ -27,7 +27,7 @@ ai-talent-project/
 ├── frontend/                # React 原始碼
 ├── backend/                 # FastAPI 原始碼
 ├── spec/                    # 系統規格（問卷規則、Prompt 等；SPEC.md 為索引）
-├── tests/                   # 自動化測試（問卷規則、AI 輸出驗證、投資組合損益計算）
+├── tests/                   # 自動化測試（問卷規則、AI 輸出驗證、投資組合損益、風險指標與黃金測試向量）
 ├── references/              # 爬蟲原型腳本（實際執行的版本在 backend/app/services/）
 ├── database/
 │   ├── postgres_data/       # PostgreSQL 資料（本地掛載）
@@ -164,6 +164,14 @@ n8n 端設定（一次即可，在 n8n 網頁操作）：
 - 「開始分析」與歷史分析報告區塊目前為預留位置，量化分析完成後啟用。
 - API 清單見後端 `/docs` 頁面。
 
+## 風險分析
+
+後端已可對投資組合計算 14 項風險指標（最大回撤、風險貢獻度、相關係數、年化波動度、Beta、95% 預期短缺、夏普與索丁諾比率，以及有效持股檔數、下行波動度、HHI、判定係數、偏態、超額峰度），其中 6 項同時計算台股加權報酬指數（IR0001，含息）的對照值，並依固定規則判定四組風險診斷（風險報酬效率、下行與尾端風險、集中與分散風險、市場敏感與風險來源）。每次分析都存成唯讀快照，可回看歷史。前端畫面與 AI 解說尚在開發中。
+
+- 分析前可選：分析期間（預設為全部持股都有資料的最長期間，最短 2 年）、無風險利率（0% 或五大公股銀行平均定存利率，預設 0%）、問卷第 7、8、13 題（預設為問卷作答，只記錄不影響計算）。
+- 任一持股的價格資料不足 2 年時無法分析，訊息會列出是哪一檔。
+- 公式、門檻與四組規則的依據見 `spec/04-behavior.md` §4.1；計算全部集中在 `backend/app/services/risk_metrics.py`。
+
 ## 常用指令
 
 ```bash
@@ -198,7 +206,7 @@ docker compose down -v
 
 ## 開發備註
 
-- 問卷規則、AI 輸出驗證與投資組合損益計算的自動化測試（需先 `pip install pytest openai fastapi sqlalchemy argon2-cffi redis psycopg2-binary`）：`python -m pytest tests -q`。
+- 問卷規則、AI 輸出驗證、投資組合損益與風險指標計算的自動化測試（需先 `pip install pytest numpy openai fastapi sqlalchemy argon2-cffi redis psycopg2-binary python-dateutil`）：`python -m pytest tests -q`。風險指標以 `tests/fixtures/` 的黃金測試向量比對，公式變更時執行 `python tests/fixtures/generate_vectors.py` 重新產生。
 - frontend、backend 皆以 bind mount 方式掛進容器（`./frontend:/app`、`./backend:/app`），修改本機程式碼即時生效（熱重載），不需要重新 build image。
 - 新增前端套件（`npm install <pkg>`）或後端套件（更新 `requirements.txt`）後，需要重新建置對應 image：
   ```bash

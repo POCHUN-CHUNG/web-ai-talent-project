@@ -1,7 +1,7 @@
 # 02 · 系統層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.8.0 ｜ 最後更新：2026-09-25
+> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
 
 本層定義技術棧版本、執行環境、系統架構與資料流、檔案結構、模組相依規則與環境變數。任何實作開始前必須先讀完本檔。
 
@@ -49,7 +49,7 @@
 | `pytest-cov` | `5.0.0` | 覆蓋率 | **新增（僅測試）** |
 | `httpx` | `0.27.2` | FastAPI TestClient | **新增（僅測試）** |
 
-**執行期只新增四個套件，另三個僅供測試。** 偏態、峰度、迴歸、分位數皆以 `spec/04-behavior.md` §4.1 的明確公式用 NumPy 實作，**不引入 `pandas`、`scipy`、`statsmodels`**：三者體積遠大於實際需求，且 `scipy.stats.skew` 預設為母體偏態（分母 $n$），與本系統指定的樣本偏態（$G_1$，分母 $(n-1)(n-2)$）不同，混用會直接產生錯誤數值。
+**風險指標模組 `services/risk_metrics.py` 只使用 NumPy**：偏態、峰度、迴歸、分位數皆以 `spec/04-behavior.md` §4.1 的明確公式實作，**不引入 `scipy`、`statsmodels`，也不在該模組使用 `pandas`**（pandas 僅供資料抓取端解析表格）：且 `scipy.stats.skew` 預設為母體偏態（分母 $n$），與本系統指定的樣本偏態（$G_1$，分母 $(n-1)(n-2)$）不同，混用會直接產生錯誤數值。
 
 **為什麼必須引入 Alembic**：現況的 `Base.metadata.create_all(engine)` 只建立不存在的資料表，**不會修改既有表**。本規格要求新增 8 張表並將 `User.created_at` 改名為 `created`，靠 `create_all` 無法完成，會讓程式定義與實際結構不一致——`bank_rates` 已經發生過一次同類問題。
 
@@ -192,8 +192,8 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
 | --- | --- | --- |
 | `computing` | 送出 `POST /portfolios/{id}/analysis` 之後 | 載入指示器 + 「正在計算量化指標」 |
 | `interpreting` | 量化結果已回，送出 `GET /analysis/{id}/report` 之後 | 載入指示器 + 「正在產生分析解說」 |
-| `ready` | 兩者皆成功 | 一次揭露四張圖與完整解說 |
-| `partial` | 量化成功、AI 失敗或逾時 | 顯示四張圖與全部數字，解說區塊顯示失敗說明與重試按鈕 |
+| `ready` | 兩者皆成功 | 一次揭露三張圖與完整解說 |
+| `partial` | 量化成功、AI 失敗或逾時 | 顯示三張圖與全部數字，解說區塊顯示失敗說明與重試按鈕 |
 | `failed` | 量化本身失敗 | 顯示錯誤碼對應的說明，不顯示圖表 |
 
 `partial` 是 AI 失敗時的降級狀態（FR-36），不是正常流程中的過渡狀態。正常流程只會經過 `computing → interpreting → ready`。
@@ -204,24 +204,23 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
 ```
 使用者點「評估管理」
   → GET /risk-profiles/latest            取得 saved 風險屬性
-  → 前端顯示確認彈窗（滑桿 + 兩項可調欄位）
-  → POST /portfolios/{id}/analysis       body: lookback_years, mode, overrides
+  → GET /portfolios/{id}/analysis/options  取得最大期間、利率選項、Q7／Q8／Q13 預設值
+  → 風險分析頁標題下方的分析條件列（期間滑桿 + 報酬比較基準 + Q7／Q8／Q13 三個下拉），不使用彈窗
+  → POST /portfolios/{id}/analysis       body: lookbackYears, rateOption, profileInputs
   → 前端進入 computing 狀態（不顯示圖表）
        ├─ 讀 holding_lots → 彙總部位與目前市值權重
-       ├─ 讀 daily_quotes（持股代號）→ 求最長共同期間（D-09）
-       ├─ 讀 daily_quotes（symbol = MARKET_BENCHMARK_SYMBOL）→ 對齊同一期間
-       ├─ 讀 bank_rates 最新一批 → 算術平均得 risk_free_rate
-       ├─ 計算 11 項純量 + RC/PCR + 相關矩陣
-       ├─ 以 effective profile 重算 2 條 finding
-       └─ 寫入 analysis_results（唯讀快照）
-  → 回傳 analysis_id + 量化結果 + 四張圖的資料
+       ├─ 讀 daily_quotes（持股代號與 IR0001）→ 取共同交易日，依 lookbackYears 決定期間（最短 2 年，D-110）
+       ├─ rateOption = bank_average 時讀 bank_rates → 算術平均得 risk_free_rate（zero 時為 0）
+       ├─ risk_metrics.py：14 項指標（6 項含 IR0001 對照值）+ 四組風險診斷
+       └─ 寫入 analysis_results（唯讀快照，含 profileInputs）
+  → 回傳 analysis_id + 量化結果 + 三張圖的資料
   → 前端切換為 interpreting 狀態（仍不顯示圖表）
   → GET /analysis/{id}/report            AI 解說
        ├─ 組裝 PORTFOLIO_ANALYSIS_DATA（不含成本、損益與買進日期欄位）
        ├─ 呼叫 OpenAI
        ├─ schema 與內容檢查，失敗則重試（共最多 3 次）
        └─ 寫入 analysis_reports
-  → 前端進入 ready，一次揭露四張圖、圖說與解說
+  → 前端進入 ready，一次揭露三張圖、圖說與解說
      （AI 失敗則進入 partial：圖表照常顯示，解說區塊顯示重試按鈕）
 ```
 
@@ -284,10 +283,8 @@ web-ai-talent-project/
 │           ├── questionnaire.py  # 【新增】14 題 → 指標與 finding 的轉換規則
 │           ├── profile_ai.py     # 【新增】風險屬性解析：OpenAI 呼叫、內容檢查、重試、寫回
 │           ├── portfolio.py      # 【新增】買進紀錄彙總、權重、損益
-│           ├── metrics.py        # 【新增】11 項純量指標
-│           ├── risk_contribution.py  # 【新增】RC / PCR
-│           ├── correlation.py    # 【新增】相關係數矩陣
-│           ├── analysis.py       # 【新增】分析流程編排與快照寫入
+│           ├── risk_metrics.py   # 【新增】14 項風險指標與四組風險診斷（唯一的計算模組，D-109）
+│           ├── analysis.py       # 【新增】分析流程編排：讀價格與利率、決定期間、寫入快照
 │           └── ai_client.py      # 【新增】分析報告的 OpenAI 呼叫、schema 驗證、重試
 ├── frontend/
 │   ├── Dockerfile
@@ -305,7 +302,7 @@ web-ai-talent-project/
 │       │   ├── tokens.css        # DESIGN.md 全部 token 的 CSS 變數
 │       │   └── global.css        # reset、字型、body 背景
 │       ├── theme/                # 【新增】
-│       │   └── nivoTheme.ts      # 從 CSS 變數讀值，供四張圖共用
+│       │   └── nivoTheme.ts      # 從 CSS 變數讀值，供三張圖共用
 │       ├── components/           # 【新增】共用元件
 │       │   ├── charts/
 │       │   │   ├── CorrelationHeatmap.tsx
@@ -319,7 +316,7 @@ web-ai-talent-project/
 │           ├── Questionnaire.tsx # 【新增】14 題問卷
 │           ├── RiskProfile.tsx   # 【新增】四項核心指標與 AI 描述
 │           ├── PortfolioDetail.tsx  # 【新增】持股部位、買進紀錄、損益
-│           ├── AnalysisReport.tsx   # 【新增】四張圖與 AI 解說
+│           ├── AnalysisReport.tsx   # 【新增】指標卡、三張圖與 AI 解說
 │           └── Settings.tsx
 ├── tests/                        # 【新增】
 │   ├── conftest.py               # 共用 fixture 與測試資料庫設定
@@ -350,7 +347,7 @@ web-ai-talent-project/
 
 | 模組 | 可以相依 | **不可**相依 | 理由 |
 | --- | --- | --- | --- |
-| `services/metrics.py`、`risk_contribution.py`、`correlation.py` | `numpy` 與標準函式庫 | SQLAlchemy、FastAPI、Redis、`models.py`、任何 I/O | 純函式，輸入 list/ndarray 輸出數值。這是能以黃金向量驗證的前提 |
+| `services/risk_metrics.py` | `numpy` 與標準函式庫 | SQLAlchemy、FastAPI、Redis、`models.py`、任何 I/O | 純函式，輸入 list/ndarray 輸出數值。這是能以黃金向量驗證的前提 |
 | `services/questionnaire.py` | 標準函式庫 | 任何 I/O、AI 客戶端 | 轉換規則是純函式，必須可單獨測試全部 27 種與 25 種組合 |
 | `services/portfolio.py` | 標準函式庫、`decimal` | FastAPI、AI 客戶端 | 買進紀錄彙總與損益是純計算 |
 | `services/analysis.py` | 上述所有 service、`models.py`、`db.py` | FastAPI 的 `Request` / `Response` | 流程編排層，不碰 HTTP |
@@ -413,8 +410,8 @@ CI 檢查：`src/` 底下除 `tokens.css` 外，不得出現 `#[0-9a-fA-F]{3,8}`
 | `OPENAI_MAX_OUTPUT_TOKENS` | int | `8000` | all | 單次輸出上限，含推理 token。四段解析約 1,500 token，其餘為推理與餘裕 | 否 |
 | `OPENAI_TIMEOUT_SECONDS` | int | `60` | all | 單次呼叫逾時 | 否 |
 | `OPENAI_MAX_ATTEMPTS` | int | `3` | all | 總呼叫次數上限（含第一次），重試前依序等 2、5 秒 | 否 |
-| `ANALYSIS_DEFAULT_LOOKBACK_YEARS` | int | `5` | all | 滑桿預設值 | 否 |
-| `ANALYSIS_MIN_LOOKBACK_YEARS` | int | `1` | all | 滑桿下界 | 否 |
+| ~~`ANALYSIS_DEFAULT_LOOKBACK_YEARS`~~ | — | — | — | 已移除（v1.9.0）：預設改為可分析的最大期間（D-110） | — |
+| ~~`ANALYSIS_MIN_LOOKBACK_YEARS`~~ | — | — | — | 已移除（v1.9.0）：下限固定 2 年，寫於程式常數（D-110） | — |
 | `ANALYSIS_MAX_LOOKBACK_YEARS` | int | `10` | all | 滑桿上界；同時是日行情的保留年數與首次抓取年數，範圍 1～10，不合法即無法啟動 | 否 |
 | `MARKET_BENCHMARK_SYMBOL` | string | `IR0001` | all | 市場基準代號 | 否 |
 | `PRICE_RETENTION_BUFFER_DAYS` | int | `31` | all | 保留期在 `ANALYSIS_MAX_LOOKBACK_YEARS` 之外的緩衝天數，範圍 0～366，不合法即無法啟動。實際保留期 = 上限年數 + 此緩衝，不另設固定天數 | 否 |

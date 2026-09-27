@@ -1,7 +1,7 @@
 # 附錄 D · 資料來源與參考文獻
 
 > 本檔為 `SPEC.md` 的子文件。回答「這個公式／規則／資料是哪來的」時看這裡。
-> 文件版本：1.5.0 ｜ 最後更新：2026-09-21
+> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
 
 **本附錄的核心用途是區分三件事**：哪些是學界或業界的既有定義、哪些是監理機關的要求、哪些是本專題自行建立的規則。專題書面與口試答辯時，第三類**絕對不能說成前兩類**。
 
@@ -65,25 +65,26 @@
 
 ### D.2.1 十四項指標的逐項出處對照
 
-| # | 指標 | 公式位置 | 主要來源 | 標記 |
-| --- | --- | --- | --- | --- |
-| 1 | 年化報酬率 | §4.1.1 | 幾何年化（複利）標準做法，無單一原始文獻 | — |
-| 2 | 年化波動度 $\sigma_p$ | §4.1.2 | 組合變異數矩陣形式：Markowitz (1952)<br>年化：平方根時間法則 | ⚠️ |
-| 3 | 年化下行波動度 $DD$ | §4.1.3 | Sortino & Price (1994)；門檻一致性依 Rollinger & Hoffman (2013) | ⚠️ |
-| 4 | Beta | §4.1.4 | Sharpe (1963) 單一指數模型（估計式）<br>Sharpe (1964) CAPM（理論意義） | ✅ 已查證卷期頁碼 |
-| 5 | $R^2$ | §4.1.4 | 最小平方法標準性質：單因子含截距時 $R^2=\mathrm{Corr}(R_p,R_m)^2$ | — |
-| 6 | 最大回撤 $MDD$ | §4.1.5 | 業界通用路徑相依指標，無單一原始文獻<br>形式化為風險測度：Chekhlov, Uryasev & Zabarankin (2005) | ✅ 已查證 DOI |
-| 7 | 95% 預期短缺 $ES_{95}$ | §4.1.6 | Rockafellar & Uryasev (2000)（CVaR 最佳化形式）<br>連貫性論證：Artzner et al. (1999)<br>分位數 type 7：Hyndman & Fan (1996) | ✅ 已查證卷期 |
-| 8 | 樣本偏態 $G_1$ | §4.1.7 | Joanes & Gill (1998) | ⚠️ |
-| 9 | 樣本超額峰度 $G_2$ | §4.1.8 | Joanes & Gill (1998) | ⚠️ |
-| 10 | $HHI$ | §4.1.9 | Hirschman (1945)／Herfindahl (1950)；美國司法部反托拉斯指引採用 | ⚠️ |
-| 11 | 有效持股檔數 $N_{eff}$ | §4.1.9 | $1/HHI$，HHI 的標準倒數轉換 | — |
-| 12 | 風險貢獻 $RC_i$ 與 $PCR_i$ | §4.1.10 | 歐拉分解：Litterman (1996)；Maillard, Roncalli & Teïletche (2010) | ⚠️ |
-| 13 | 相關係數矩陣 | §4.1.11 | Pearson 積差相關，統計學標準定義 | — |
-| 14 | 夏普比率 | §4.1.12 | Sharpe (1966)；修訂版 Sharpe (1994) | ⚠️ |
-| 14 | 索丁諾比率 | §4.1.12 | Sortino & Price (1994)；$MAR=R_f$ 依 Rollinger & Hoffman (2013) | ⚠️ |
+依診斷規則文件（2026-09-26）的 14 項指標，公式位置為 `spec/04-behavior.md` §4.1。原「年化報酬率」不再列入指標（Sharpe／Sortino 改採算術口徑，D-114）。
 
-> 指標編號依 §4.1 的小節順序，夏普與索丁諾同列第 14 項（共同構成「風險調整後績效」）。計數方式見 `SPEC.md` §1.3 FR-21。
+| # | 指標 | 層 | 公式位置 | 主要來源 | 標記 |
+| --- | --- | :---: | --- | --- | --- |
+| 1 | 最大回撤 $MDD$ | 前端 | §4.1.4 | 業界通用路徑相依指標；形式化：Chekhlov, Uryasev & Zabarankin (2005) | ✅ 已查證 DOI |
+| 2 | 風險貢獻 $RC_i$ 與 $PCR_i$ | 前端 | §4.1.9 | 歐拉分解：Litterman (1996)；Maillard, Roncalli & Teïletche (2010)；集中度應用：MSCI 風險貢獻研究 | ⚠️ |
+| 3 | 相關係數矩陣 | 前端 | §4.1.10 | Pearson 積差相關；分散效果定義：BIS Basel Framework | — |
+| 4 | 年化波動度 $\sigma_p$ | 前端 | §4.1.1 | Markowitz (1952)；年化：平方根時間法則 | ⚠️ |
+| 5 | Beta | 前端 | §4.1.3 | Sharpe (1963) 單一指數模型；Sharpe (1964) CAPM | ✅ 已查證卷期頁碼 |
+| 6 | 95% 預期短缺 $ES_{95}$ | 前端 | §4.1.5 | BIS Basel Framework 定義；Rockafellar & Uryasev (2000)；Artzner et al. (1999)；分位數 type 7：Hyndman & Fan (1996) | ✅ 已查證卷期 |
+| 7 | 夏普比率 | 前端 | §4.1.11 | Sharpe (1966)；修訂版 Sharpe (1994)（以平均超額報酬 ÷ 標準差定義，與本版算術口徑一致） | ⚠️ |
+| 8 | 索丁諾比率 | 前端 | §4.1.11 | Sortino & Price (1994) | ⚠️ |
+| 9 | 有效持股檔數 $N_{eff}$ | 後端 | §4.1.8 | $1/HHI$；MSCI IndexMetrics 的 Effective Number of Constituents | ⚠️ |
+| 10 | 下行波動度 $DD$ | 後端 | §4.1.2 | Sortino & Price (1994) | ⚠️ |
+| 11 | $HHI$ | 後端 | §4.1.8 | Hirschman (1945)／Herfindahl (1950)；MSCI Index Concentration Metrics | ⚠️ |
+| 12 | $R^2$ | 後端 | §4.1.3 | 最小平方法標準性質；70%／40% 區間：Morningstar *R-Squared* | ⚠️ |
+| 13 | 樣本偏態 $G_1$ | 後端 | §4.1.6 | Joanes & Gill (1998)；NIST/SEMATECH | ⚠️ |
+| 14 | 樣本超額峰度 $G_2$ | 後端 | §4.1.7 | Joanes & Gill (1998)；NIST/SEMATECH | ⚠️ |
+
+**診斷規則文件列出的專業參考資料**（柏鈞整理，本附錄未逐一查證卷期）：臺灣證券交易所《發行量加權股價指數編製要點》、CFA Institute *Portfolio Performance Evaluation*、BIS *Basel Framework – Market Risk Terminology*、NIST/SEMATECH *Measures of Skewness and Kurtosis*、MSCI IndexMetrics®、MSCI *Index Concentration Metrics*、MSCI *How Concentrated Are Small Caps Today?*、MSCI *Managing Benchmark Concentration*、Morningstar *R-Squared*。
 
 ---
 
@@ -246,7 +247,9 @@ MDD 本身沒有單一權威文獻，是業界通用的路徑相依風險指標�
 | 風險意願－能力關係矩陣 | §4.2.3 | CFA：willingness vs. capacity | 9 格的五種關係，以及 Q13 簡化為三級的切點（A/B → 低、C → 中、D/E → 高） |
 | 短期財務韌性的四級 MIN 規則 | §4.2.2 | CFA：cash savings、outside income、liquidity needs | 四級分界與 Q3＋Q4＋Q8 的組合方式 |
 | 主要財務限制的 11 個觸發條件 | §4.2.3 | FINRA／金管會：綜合多項因素 | 每一個觸發門檻 |
-| 偏態分類門檻 $\lvert G_1 \rvert < 0.5$ | §4.1.13 | 統計學常見經驗判準 | 以 0.5 作為切點、以 $n \ge 30$ 作為可判定的最小樣本 |
+| 偏態分類門檻 $\lvert G_1 \rvert < 0.5$ | §4.1.12 | 統計學常見經驗判準 | 以 0.5 作為切點、以 $n \ge 30$ 作為可判定的最小樣本 |
+| 四組後端風險分析的訊號與典型標籤 | §4.1.13 | 柏鈞《投資組合風險指標與風險診斷規則》《四組後端風險分析規則》；R² 分界取自 Morningstar；Top-k 風險與權重的比較參考 MSCI Top-N 集中度與產業經濟學的集中度比率 CR_k | 「大致相當」範圍（風險類 ±10%、比率類 ±0.1）、峰度 ±1、權重集中 $HHI>1.43/N$、高相關 0.6／群聚 25%／低相關 0.3、RCGap ±10 個百分點、群組集中 50%、$\beta\approx1$ 為 0.9–1.1（D-117、D-120～D-124）；前 k 名 $k=\min(3,N-1)$：k=3 為自訂規模，N−1 是數學限制（全部持股的風險貢獻合計恆為 100%，前 k 名涵蓋全部持股時差距恆為 0）；不利訊號的優先順序（P-49） |
+| Sortino 優先參考提示 | §4.1.12 | 診斷規則文件：偏態明顯偏離 0 時 | 以偏態分類門檻觸發（P-47），非 CFA、Morningstar 的法定門檻 |
 | 零變異判定門檻 $\sigma < 10^{-12}$ | §4.1.0 | 浮點數運算的實務需求 | 門檻數值 |
 | 年化持有報酬率的 30 日下限 | P-40 | 短期報酬年化會產生誤導性數字 | 30 日這個切點 |
 | 風險貢獻預設顯示前 5 名 | D-18 | 介面可讀性 | 5 這個數字 |
@@ -266,7 +269,7 @@ MDD 本身沒有單一權威文獻，是業界通用的路徑相依風險指標�
 | 資料 | 來源 | 取得方式 | 備註 |
 | --- | --- | --- | --- |
 | 個股與 ETF 日收盤價 | yfinance | 由後端 `services/market_data.py` 抓取（D-56） | 一律取 `Adj Close`（已還原除權息）。非官方 API，可能中斷（R-03） |
-| 市場基準 IR0001 | 臺灣證券交易所《發行量加權股價報酬指數》 | `https://www.twse.com.tw/rwd/zh/TAIEX/MFI94U?response=json&date=YYYYMM01` | ✅ 已驗證回傳結構。一次一個月；日期為民國年；數值含千分位逗號 |
+| 市場基準 IR0001 | 臺灣證券交易所《發行量加權股價報酬指數》 | `https://www.twse.com.tw/rwd/zh/TAIEX/MFI94U?response=json&date=YYYYMM01` | ✅ 已驗證回傳結構。一次一個月；日期為民國年；數值含千分位逗號。2026-09-26 再次確認回傳標題為「發行量加權股價報酬指數」（9/1 = 108,395.72；同日價格指數 IX0001 = 46,177.11），不是價格指數（D-118） |
 | 股票基本資料 | 臺灣證券交易所 ISIN 分類表 | `https://isin.twse.com.tw/isin/class_main.jsp?market={m}&issuetype={i}` | ✅ 由後端 `services/stock_info.py` 抓取（D-56）。四組參數涵蓋上市普通股（含 KY）、上櫃普通股、上市 ETF、上櫃 ETF |
 | 無風險利率 | 五大公股銀行牌告 1 年期定期存款機動利率 | 由後端 `services/bank_rates.py` 爬取 | ✅ 現況已實作。臺灣銀行、合作金庫、土地銀行、華南銀行、第一銀行 |
 

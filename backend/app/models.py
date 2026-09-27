@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, SmallInteger, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -145,4 +145,42 @@ class HoldingLot(Base):
         CheckConstraint("quantity > 0", name="ck_holding_lots_quantity"),
         CheckConstraint("unit_cost > 0", name="ck_holding_lots_unit_cost"),
         Index("idx_holding_lots_pf_symbol", "portfolio_id", "symbol", "trade_date"),
+    )
+
+
+class AnalysisResult(Base):
+    # 【分析結果資料表】一次風險分析的唯讀快照：當次採用的期間、利率、問卷參數與全部計算結果；只新增與查詢，重新分析就新增一列
+    __tablename__ = "analysis_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)  # 分析編號（自動遞增）
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))  # 所屬使用者
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"))  # 分析的投資組合（刪組合時一併清除）
+    # 預設值來源的風險屬性（快照必須能追溯，故不允許刪除仍被引用的風險屬性）
+    risk_profile_id: Mapped[int] = mapped_column(ForeignKey("risk_profiles.id", ondelete="RESTRICT"))
+    requested_years: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)  # 使用者選的年數；空值代表採可分析的最大期間
+    max_years: Mapped[Decimal] = mapped_column(Numeric(5, 2))  # 當時可分析的最長年數
+    start_date: Mapped[date] = mapped_column(Date)  # 分析期間起日
+    end_date: Mapped[date] = mapped_column(Date)  # 分析期間迄日
+    trading_days: Mapped[int] = mapped_column(Integer)  # 分析期間的交易日數
+    limited_by: Mapped[list] = mapped_column(JSONB, default=list)  # 決定最大期間起點的代號
+    benchmark_symbol: Mapped[str] = mapped_column(String(10))  # 市場基準代號（IR0001）
+    rate_option: Mapped[str] = mapped_column(String(20))  # 利率選項：zero／bank_average
+    risk_free_rate: Mapped[Decimal] = mapped_column(Numeric(8, 6))  # 採用的無風險利率（年利率小數）
+    rate_as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # 銀行利率的更新時間；選 0% 時為空
+    mar: Mapped[Decimal] = mapped_column(Numeric(8, 6))  # 最低可接受報酬（恆等於無風險利率）
+    profile_inputs: Mapped[dict] = mapped_column(JSONB)  # 分析前確認的 Q7／Q8／Q13 與被調整的欄位
+    metrics: Mapped[dict] = mapped_column(JSONB)  # 12 項純量指標（含大盤對照值）
+    positions: Mapped[list] = mapped_column(JSONB)  # 每檔權重與風險貢獻
+    correlation: Mapped[dict] = mapped_column(JSONB)  # 相關係數矩陣
+    interpretation: Mapped[dict] = mapped_column(JSONB)  # 偏態分類與索丁諾提示
+    diagnosis: Mapped[dict] = mapped_column(JSONB)  # 四組風險診斷與集中度事實
+    figures: Mapped[list] = mapped_column(JSONB)  # 三張圖的描述與資料
+    data_quality: Mapped[dict] = mapped_column(JSONB)  # 資料品質提醒
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 建立時間（UTC）
+    __table_args__ = (
+        CheckConstraint("requested_years IS NULL OR requested_years >= 2", name="ck_ar_requested_years"),
+        CheckConstraint("rate_option IN ('zero','bank_average')", name="ck_ar_rate_option"),
+        CheckConstraint("trading_days > 0", name="ck_ar_trading_days"),
+        CheckConstraint("end_date >= start_date", name="ck_analysis_period"),
+        Index("idx_ar_pf_created", "portfolio_id", "created"),
     )
