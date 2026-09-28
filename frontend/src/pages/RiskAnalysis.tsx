@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api";
-import { NA } from "../format";
+import { monthsBefore, NA } from "../format";
 import AlertDialog from "../components/ui/AlertDialog";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -110,17 +110,6 @@ const RATE_DESCRIPTIONS: Record<string, string> = {
   zero: "本金不虧損",
   bank_average: "五大公股銀行的一年期定期存款機動利率",
 };
-
-// 【往前推 N 個月】回傳 N 個月前的同一天，只用來顯示試算的起始日；直接對月數做整數運算，
-// 不經過「年」的小數轉換，沒有浮點誤差。參數：day=YYYY-MM-DD、months=月數
-function monthsBefore(day: string, months: number): string {
-  const [y, m, d] = day.split("-").map(Number);
-  const targetIndex = y * 12 + (m - 1) - months; // 0-based 月索引（可能為負或超過 11，下面再正規化）
-  const ty = Math.floor(targetIndex / 12);
-  const tm = targetIndex - ty * 12 + 1; // 1-based 月份
-  const last = new Date(Date.UTC(ty, tm, 0)).getUTCDate(); // 該月最後一天
-  return `${ty}-${String(tm).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
-}
 
 // 【換算成實際有資料的起始日】往回推算出的日期不一定是交易日，改成範圍內第一個「大於等於」該日期的實際交易日
 // （與後端 services/analysis.py 的 `[d for d in dates if d >= start]` 邏輯一致，確保前端顯示的起始日跟後端算出來的一樣）；

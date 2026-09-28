@@ -206,7 +206,7 @@ export default function PortfolioDetail() {
               <span className={styles.heroValue}>{money(totals.marketValue)}{totals.marketValue != null && <span className={styles.unit}>元</span>}</span>
               {showCharts && (
                 <div className={styles.heroChart}>
-                  <Sparkline tall blue points={mvSeries} label={`${sparkLabel}市值走勢`} />
+                  <Sparkline tall blue fit points={mvSeries} label={`${sparkLabel}市值走勢`} />
                 </div>
               )}
             </div>

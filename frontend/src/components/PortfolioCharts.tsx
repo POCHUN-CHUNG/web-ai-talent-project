@@ -2,7 +2,7 @@ import { createContext, memo, useContext, useEffect, useId, useLayoutEffect, use
 import { ResponsiveLine } from "@nivo/line";
 import { ResponsivePie } from "@nivo/pie";
 import { NodeComponent, ResponsiveTreeMap } from "@nivo/treemap";
-import { compactMoney, money, pct, signedMoney } from "../format";
+import { money, monthsBefore, pct, signedMoney } from "../format";
 import Icon from "./ui/Icon";
 import styles from "./PortfolioCharts.module.css";
 
@@ -73,6 +73,26 @@ function mix(a: string, b: string, t: number): string {
   return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
 
+const FIT_MIN_SPAN = 0.1; // 市值圖縱軸依數值縮放時，顯示範圍至少為目前數值的 10%，避免極小的變動被放大成劇烈起伏
+
+// 【依目前數值的尺度決定範圍】市值類的圖不從 0 開始：以資料的最小～最大值為範圍，但範圍至少是數值大小的 10%
+// （不夠就以中間值為中心往兩邊撐開）；資料都不是負數時，下限不會低於 0。參數：lo、hi=資料的最小與最大值；回傳 [下限, 上限]
+function fitSpan(lo: number, hi: number): [number, number] {
+  const minSpan = Math.max(Math.abs(lo), Math.abs(hi)) * FIT_MIN_SPAN || 1;
+  let a = lo;
+  let b = hi;
+  if (b - a < minSpan) {
+    const mid = (a + b) / 2;
+    a = mid - minSpan / 2;
+    b = mid + minSpan / 2;
+  }
+  if (lo >= 0 && a < 0) {
+    b -= a;
+    a = 0;
+  }
+  return [a, b];
+}
+
 // 【漲跌色】台股慣例：正為紅、負為綠、零為中性。參數：v=數值、t=色票
 function toneOf(v: number, t: ReturnType<typeof useChartTokens>): string | undefined {
   return v > 0 ? t.up : v < 0 ? t.down : undefined;
@@ -104,26 +124,29 @@ export type SparkPoint = { date: string; value: number | null };
 // 1. 橫軸為「最新交易日往前 1 個月」；資料不足 1 個月時改為顯示全部。橫軸一律從「這張圖第一個有數值的日期」開始、撐滿整個寬度，
 //    不為了和其他圖對齊而補值或推算，所以各張圖的起點可能不同（例如每日損益第一天沒有數值，就從第二天開始）。
 // 2. 0 軸平常貼齊圖表最下緣；只有出現負值時才往上挪，留出 0 軸下方的負值區域（面積一律由折線填到 0 軸）。
+//    fit＝市值圖：縱軸改依目前數值的尺度縮放（不從 0 開始，見 fitSpan），面積填到圖表下緣、不畫 0 軸。
 // 3. 顏色由呼叫端決定（跟著卡片上數字的顏色）：direction > 0 紅、< 0 綠、= 0 或未給為中性灰（台股慣例）；
 //    blue＝不分漲跌的金額（目前總市值、總投入成本）用主色藍。
-// 參數：points=每日數值（由舊到新）、direction=決定顏色的數值（通常就是卡片上的數字；未給＝中性色）、blue=用主色藍、label=無障礙說明、tall=大尺寸（撐滿容器）
-export function Sparkline({ points, direction, blue, label, tall }: { points: SparkPoint[]; direction?: number; blue?: boolean; label: string; tall?: boolean }) {
+// 參數：points=每日數值（由舊到新）、direction=決定顏色的數值（通常就是卡片上的數字；未給＝中性色）、blue=用主色藍、label=無障礙說明、tall=大尺寸（撐滿容器）、
+//      fit=縱軸依目前數值的尺度縮放（市值用）
+export function Sparkline({ points, direction, blue, label, tall, fit }: { points: SparkPoint[]; direction?: number; blue?: boolean; label: string; tall?: boolean; fit?: boolean }) {
   const t = useChartTokens();
   const box = tall ? styles.sparkTall : styles.spark;
   if (points.length === 0) return <div className={box} aria-hidden="true" />;
   // 1. 時間範圍：最近 1 個月內「有數值」的點；橫軸從第一個有數值的點開始（不足 1 個月時等於顯示全部）
   const end = toDate(points[points.length - 1].date);
-  const monthAgo = new Date(end.getFullYear(), end.getMonth() - 1, end.getDate());
+  const monthAgo = monthsBefore(points[points.length - 1].date, 1); // 與歷史走勢、分析期間同一種「往回推 1 個月」算法
   const pts = points
-    .filter((p) => p.value != null && toDate(p.date) >= monthAgo)
+    .filter((p) => p.value != null && p.date >= monthAgo)
     .map((p) => ({ x: toDate(p.date), y: p.value as number }));
   if (pts.length < 2) return <div className={box} aria-hidden="true" />;
   const start = pts[0].x;
-  // 2. 縱軸：沒有負值時下限就是 0（0 軸在最下緣）；有負值時下限往下多留 10% 空間。上緣一律留 10%
-  const lo = Math.min(0, ...pts.map((p) => p.y));
-  const hi = Math.max(0, ...pts.map((p) => p.y));
+  // 2. 縱軸：沒有負值時下限就是 0（0 軸在最下緣）；有負值時下限往下多留 10% 空間。上緣一律留 10%。
+  //    fit：依目前數值的尺度縮放，上下各留 10%
+  const ys = pts.map((p) => p.y);
+  const [lo, hi] = fit ? fitSpan(Math.min(...ys), Math.max(...ys)) : [Math.min(0, ...ys), Math.max(0, ...ys)];
   const pad = (hi - lo || 1) * 0.1;
-  const yMin = lo < 0 ? lo - pad : 0;
+  const yMin = fit ? Math.max(lo - pad, Math.min(...ys) >= 0 ? 0 : -Infinity) : lo < 0 ? lo - pad : 0;
   // 3. 顏色
   const color = blue ? t.line : direction == null || direction === 0 ? t.cost : direction > 0 ? t.up : t.down;
   return (
@@ -144,13 +167,14 @@ export function Sparkline({ points, direction, blue, label, tall }: { points: Sp
         isInteractive={false}
         animate={false}
         layers={[
-          ({ series, lineGenerator, yScale, innerWidth }) => {
+          ({ series, lineGenerator, yScale, innerWidth, innerHeight }) => {
             const p = series[0].data.map((d) => d.position);
             const zero = (yScale as (v: number) => number)(0);
+            const base = fit ? innerHeight : zero; // 面積填到哪裡：fit 填到圖表下緣，其他填到 0 軸
             return (
               <g key="a">
-                <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} strokeOpacity={0.35} strokeDasharray="3 3" />
-                <path d={`${lineGenerator(p)}L${p[p.length - 1].x},${zero}L${p[0].x},${zero}Z`} fill={color} fillOpacity={0.12} />
+                {!fit && <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} strokeOpacity={0.35} strokeDasharray="3 3" />}
+                <path d={`${lineGenerator(p)}L${p[p.length - 1].x},${base}L${p[0].x},${base}Z`} fill={color} fillOpacity={0.12} />
               </g>
             );
           },
@@ -404,16 +428,17 @@ export function HoldingsHeatmap({ positions }: { positions: ChartPosition[] }) {
 
 // ─────────────────────────── 2. 歷史走勢 ───────────────────────────
 
-// 走勢圖可選的區間（依資料長度動態顯示）；天數為 null 代表全部
+// 走勢圖可選的區間（依資料長度動態顯示）；以「月數」往回推，與風險分析的分析期間同一種算法（見 format.ts 的 monthsBefore），
+// months 為 null 代表全部
 const RANGES = [
-  { key: "1M", label: "1 個月", days: 31 },
-  { key: "3M", label: "3 個月", days: 92 },
-  { key: "6M", label: "6 個月", days: 183 },
-  { key: "1Y", label: "1 年", days: 366 },
-  { key: "3Y", label: "3 年", days: 366 * 3 },
-  { key: "5Y", label: "5 年", days: 366 * 5 },
-  { key: "10Y", label: "10 年", days: 366 * 10 },
-  { key: "ALL", label: "全部", days: null },
+  { key: "1M", label: "1 個月", months: 1 },
+  { key: "3M", label: "3 個月", months: 3 },
+  { key: "6M", label: "6 個月", months: 6 },
+  { key: "1Y", label: "1 年", months: 12 },
+  { key: "3Y", label: "3 年", months: 36 },
+  { key: "5Y", label: "5 年", months: 60 },
+  { key: "10Y", label: "10 年", months: 120 },
+  { key: "ALL", label: "全部", months: null },
 ] as const;
 const TREND_MARGIN = { top: 12, right: 12, bottom: 32, left: 64 }; // 兩張走勢圖同一組邊距，時間軸與十字線才會上下對齊
 const TICK_STEPS = [1, 3, 12, 24, 60]; // 月刻度的間隔（月）：每月、每季、每年、每 2 年、每 5 年，挑第一個放得下的
@@ -476,9 +501,9 @@ function useMaxTicks(): number {
 export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
   const t = useChartTokens();
   const maxTicks = useMaxTicks();
-  const spanDays = (toDate(points[points.length - 1].date).getTime() - toDate(points[0].date).getTime()) / DAY_MS;
-  // 只提供比資料長度短的區間（加上「全部」），按了才看得到差別
-  const ranges = RANGES.filter((r) => r.days == null || r.days < spanDays);
+  const lastDate = points[points.length - 1].date;
+  // 只提供比資料長度短的區間（往回推算出的起點晚於第一筆資料，加上「全部」），按了才看得到差別
+  const ranges = RANGES.filter((r) => r.months == null || monthsBefore(lastDate, r.months) > points[0].date);
   const [range, setRange] = useState<string>("ALL");
   const cur = ranges.find((r) => r.key === range) ?? ranges[ranges.length - 1];
   const [hover, setHover] = useState<TrendHover>(null);
@@ -489,18 +514,18 @@ export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
     return () => window.removeEventListener("resize", clear);
   }, []);
 
-  // 1. 依區間截取，並算好每天的損益與報酬率；刻度只在區間或寬度改變時重算
+  // 1. 依區間截取，並算好每天的損益與報酬率；刻度只在區間或寬度改變時重算。
+  //    起點＝最後一天往回推 N 個月的同一天；那天不一定有資料，所以取範圍內最早一個有資料的日期（與風險分析的分析期間相同）
   const rows: TrendRow[] = useMemo(() => {
-    const end = toDate(points[points.length - 1].date);
-    const start = cur.days == null ? null : new Date(end.getTime() - cur.days * DAY_MS);
+    const start = cur.months == null ? null : monthsBefore(points[points.length - 1].date, cur.months);
     return points
-      .filter((p) => !start || toDate(p.date) >= start)
+      .filter((p) => !start || p.date >= start)
       .map((p) => {
         const value = Number(p.marketValue);
         const cost = Number(p.costAmount);
         return { date: p.date, x: toDate(p.date), value, cost, pnl: value - cost, ret: cost > 0 ? (value - cost) / cost : null };
       });
-  }, [points, cur.days]);
+  }, [points, cur.months]);
   const axis = useMemo(() => {
     const { ticks, step } = trendTicks(rows, maxTicks);
     const crossYear = rows[0].x.getFullYear() !== rows[rows.length - 1].x.getFullYear();
@@ -604,9 +629,9 @@ function RangeTabs({ ranges, value, onChange }: {
   );
 }
 
-// 【縱軸整數刻度】把資料範圍擴大到「整齊的刻度」（1、2、2.5、5 × 10 的次方），大約分 4 格，
-// 上下限剛好落在刻度上，0 也一定是刻度之一。參數：lo=範圍下限（≤ 0）、hi=範圍上限（≥ 0）
-function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks: number[] } {
+// 【縱軸整數刻度】把資料範圍擴大到「整齊的刻度」（1、2、2.5、5 × 10 的次方），大約分 4 格，上下限剛好落在刻度上；
+// 範圍含 0 時（損益圖一定含 0），0 也一定是刻度之一。參數：lo=範圍下限、hi=範圍上限
+function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks: number[]; step: number } {
   const raw = (hi - lo || Math.abs(hi) || 1) / 4;
   const mag = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((v) => v >= raw) ?? 10 * mag;
@@ -614,7 +639,16 @@ function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks:
   const yMax = Math.max(Math.ceil(hi / step) * step, yMin + step);
   const ticks: number[] = [];
   for (let v = yMin; v <= yMax + step / 2; v += step) ticks.push(Math.round(v / step) * step);
-  return { yMin, yMax, ticks };
+  return { yMin, yMax, ticks, step };
+}
+
+// 【縱軸金額文字】與 compactMoney 相同的「萬／億」簡寫，但小數位數依刻度間隔決定（最多 2 位），
+// 市值圖依數值縮放後刻度間隔可能只有幾千元，這樣「10.75萬」才不會被四捨五入成「10.8萬」。參數：v=金額、step=刻度間隔
+function axisMoney(v: number, step: number): string {
+  const unit = Math.abs(v) >= 1e8 ? 1e8 : Math.abs(v) >= 1e4 ? 1e4 : 1;
+  if (unit === 1) return Math.round(v).toLocaleString("zh-TW");
+  const digits = Math.min(2, Math.max(0, Math.ceil(-Math.log10(step / unit) - 1e-9)));
+  return `${Number((v / unit).toFixed(digits))}${unit === 1e8 ? "億" : "萬"}`; // Number() 去掉多餘的尾數 0（11.00 → 11），整數不受影響
 }
 
 // 【單張走勢圖】底層是只在資料改變時才重畫的 Nivo 折線圖（TrendBase），上層是負責互動的十字線（TrendCross）。
@@ -639,9 +673,12 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
   const t = useChartTokens();
   const uid = useId().replace(/:/g, ""); // 每張圖自己的 SVG id（裁切區不互相衝突）
 
-  // 1. 縱軸範圍：兩張圖都一定包含 0（市值圖從 0 開始）；上下限取整數刻度，上下限線與 0 基準線都會落在刻度上
+  // 1. 縱軸範圍：損益圖一定包含 0（0 基準線分隔賺賠）；市值圖依目前數值的尺度縮放（見 fitSpan，不從 0 開始）。
+  //    上下限都取整數刻度，上下限線（與範圍內的 0 基準線）都會落在刻度上
   const vals = kind === "value" ? rows.flatMap((r) => [r.value, r.cost]) : rows.map((r) => r.pnl);
-  const { yMin, yMax, ticks: yTicks } = niceRange(Math.min(0, ...vals), Math.max(0, ...vals));
+  const { yMin, yMax, ticks: yTicks, step: yStep } = kind === "value"
+    ? niceRange(...fitSpan(Math.min(...vals), Math.max(...vals)))
+    : niceRange(Math.min(0, ...vals), Math.max(0, ...vals));
 
   const data = kind === "value"
     ? [{ id: "市值", data: rows.map((r) => ({ x: r.x, y: r.value })) }, { id: "成本", data: rows.map((r) => ({ x: r.x, y: r.cost })) }]
@@ -668,7 +705,7 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
             {yTicks.map((v) => (
               <text key={v} x={-TREND_MARGIN.left} y={(yScale as (n: number) => number)(v)} textAnchor="start" dominantBaseline="central"
                 fill={t.theme.text.fill} fontSize={t.theme.text.fontSize} fontFamily={t.theme.text.fontFamily}>
-                {compactMoney(v)}
+                {axisMoney(v, yStep)}
               </text>
             ))}
           </g>
@@ -680,7 +717,7 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
             <g key="rules">
               <line x1={0} x2={innerWidth} y1={0} y2={0} stroke={t.rule} strokeWidth={1} />
               <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke={t.rule} strokeWidth={1} />
-              <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} />
+              {yMin <= 0 && yMax >= 0 && <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} />}
             </g>
           );
         },
