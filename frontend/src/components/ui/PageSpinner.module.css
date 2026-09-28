@@ -12,7 +12,17 @@
   pointer-events: none;
 }
 
-/* 與風險屬性頁「分析中」的轉圈圈同一種樣式：主色線條、長度伸縮的旋轉 */
+/* AI 分析中（風險屬性頁、風險分析報告頁）：放在標題與提示語下方，只佔頁面剩下的高度（頁面本身撐滿視窗、版權宣告貼齊畫面下緣），
+   不額外撐高版面、不會出現捲軸；在剩下的空間內置中，並往上提約 40px 以達到「視覺重心」的置中 */
+.inline {
+  flex: 1 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: translateY(-40px);
+}
+
+/* 轉圈圈：主色線條、長度伸縮的旋轉 */
 .spinner {
   width: 56px;
   height: 56px;

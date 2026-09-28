@@ -6,11 +6,11 @@ from app.models import User
 from app.routers.questionnaire import enforce_submit_limit
 from app.security import current_user
 from app.services.analysis import analysis_options, get_owned_analysis, history, profile_choices, run_analysis, serialize
-from app.services.analysis_ai import create_pending, fail_if_stale, get_report, mark_pending, reset_to_pending, \
-    run_report_job, serialize_report
+from app.services.analysis_ai import clear_pending, create_pending, fail_if_stale, get_report, mark_pending, \
+    reset_to_pending, run_report_job, serialize_report
 from app.services.portfolio_data import get_owned_portfolio
 
-# 【風險分析 API】分析前的選項、執行分析、查詢單次結果、AI 報告與歷史清單；全部需登入，且只能操作自己的組合與分析
+# 【風險分析 API】分析前的選項、執行分析、查詢與刪除單次結果、AI 報告與歷史清單；全部需登入，且只能操作自己的組合與分析
 router = APIRouter(tags=["風險分析"])
 
 
@@ -58,6 +58,16 @@ def get_analysis(analysis_id: int, user: User = Depends(current_user), db: Sessi
     if report:
         fail_if_stale(db, report)
     return serialize(row, report.status if report else None)
+
+
+@router.delete("/analysis/{analysis_id}", status_code=204, summary="刪除一次分析與其 AI 報告（需登入）")
+def delete_analysis(analysis_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    # 【刪除分析】連同 AI 報告一併刪除（資料庫層級串聯刪除）；報告若仍在背景產生，寫回時找不到資料會自動略過。
+    # 參數：analysis_id=分析編號、user=目前登入者
+    row = get_owned_analysis(db, user, analysis_id)
+    db.delete(row)
+    db.commit()
+    clear_pending(analysis_id)
 
 
 @router.get("/analysis/{analysis_id}/report", summary="取得一次分析的 AI 風險分析報告與產生狀態（需登入）")

@@ -9,6 +9,7 @@
   height: 24px;
   margin: 0;
   background: transparent;
+  accent-color: var(--color-primary); /* 保險：萬一自訂外觀沒套用（例如瀏覽器外掛改寫樣式），原生滑桿也用主色，不會變成系統強調色 */
   cursor: pointer;
 }
 

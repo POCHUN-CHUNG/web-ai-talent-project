@@ -134,12 +134,7 @@ export default function RiskProfile() {
 
         {analyzing && (
           <>
-            <div className={styles.spinnerWrap} role="status" aria-label="分析中">
-              <svg className={styles.spinner} viewBox="0 0 50 50">
-                <circle className={styles.spinnerTrack} cx="25" cy="25" r="20" fill="none" strokeWidth="5" />
-                <circle className={styles.spinnerHead} cx="25" cy="25" r="20" fill="none" strokeWidth="5" strokeLinecap="round" />
-              </svg>
-            </div>
+            <PageSpinner inline label="分析中" />
             <AnalyzingGlow />
           </>
         )}

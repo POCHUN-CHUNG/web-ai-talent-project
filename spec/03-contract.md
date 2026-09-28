@@ -224,7 +224,7 @@ type MetricId =
 
 type Metric = {
   value: number | null;
-  benchmark_value: number | null;  // 市場基準 IR0001（台股加權報酬指數，非 IX0001）以同一公式算出的對照值；只有附錄 B §B.1 標「大盤對照」的 6 項有值，其餘恆為 null
+  benchmark_value: number | null;  // 市場基準 IR0001（台股加權報酬指數，非 IX0001）以同一公式算出的對照值；只有附錄 B §B.1 標「大盤對照」的 6 項有值；beta 可計算時恆為 1（大盤對自己，D-157），其餘恆為 null
   unit: "fraction" | "ratio" | "count";
   status: "available" | "unavailable";
   reason: string | null;          // status 為 unavailable 時必填
@@ -279,7 +279,7 @@ type ConcentrationFacts = {
 type Figure = {
   figure_ref: "figure:drawdown_curve" | "figure:weight_vs_pcr" | "figure:correlation_heatmap";
   title: string;
-  legend_text: string;             // 診斷規則文件提供的圖表說明原文
+  legend_text: string;             // 診斷規則文件提供的圖表說明原文（保留於快照；報告頁不再顯示，改用說明框的閱讀指引，D-157）
   status: "available" | "unavailable";
   reason: string | null;
   data: unknown;                  // 回撤圖：{ series: [{date, nav_index, drawdown}], trough: {date, drawdown} }；其餘兩張圖直接引用 positions 與 correlation，data 為 null
@@ -310,16 +310,14 @@ type ReportContent = {              // AI 輸出（Structured Outputs），Promp
     focus: string;                  // 最需要關注的風險來源與代表指標或持股
     evidence_refs: string[];
   };
-  sections: Array<{                 // 固定五段、順序固定
-    key: "risk_return" | "loss_risk" | "concentration" | "market_sensitivity" | "personal_alignment";
+  sections: Array<{                 // 固定四段、順序固定（Prompt 1.1.0 起；1.0.0 的舊報告為五段，risk_return 與 market_sensitivity 分開）
+    key: "return_market" | "loss_risk" | "concentration" | "personal_alignment";
     text: string;
     evidence_refs: string[];
     figure_refs: string[];          // loss_risk 只能綁回撤圖；concentration 只能綁風險貢獻度圖與熱圖；其餘恆為空
   }>;
-  figure_captions: Array<{ figure_ref: string; caption: string; evidence_refs: string[] }>; // 每張可用的圖一則，順序同 figures
-  review_directions: Array<{ text: string; evidence_refs: string[]; figure_refs: string[] }>; // 最多 3 項
-  limitations: string[];            // 只有本次資料特有的限制（最多 3 項，可為空）；固定免責說明由前端顯示（D-137）
-};
+  review_directions: Array<{ text: string; evidence_refs: string[]; figure_refs: string[] }>; // 建議檢視重點，固定 3 項
+};                                  // 使用限制不由 AI 產生：前端固定顯示一句提示語（D-152）
 ```
 
 **不在報告中的內容**：名詞解釋由前端以固定文字顯示（tooltip，文字見 04 §4.4.11，D-137）；分析期間由前端依 `AnalysisResult.period` 顯示（D-138）；典型標籤不顯示給使用者（D-139）。
@@ -861,10 +859,13 @@ Response 200:
       "period": { "requested_years": null, "start_date": "2019-04-12", "end_date": "2026-09-25", "trading_days": 1832 },
       "settings": { "rate_option": "zero", "risk_free_rate": 0 },
       "profile_inputs": { "investment_horizon": "5 - 9 年", "withdrawal_need": "…", "loss_tolerance": "10 - 19 %", "changed_fields": [] },
-      "metrics": {                                   // 三項摘要指標，各含 value 與 benchmark_value
-        "annualized_volatility": { "value": 0.2497, "benchmark_value": 0.1797 },
+      "metrics": {                                   // 六項摘要指標，各含 value 與 benchmark_value（D-153）
         "max_drawdown":          { "value": -0.3210, "benchmark_value": -0.2841 },
-        "sharpe_ratio":          { "value": 0.85, "benchmark_value": 0.62 }
+        "annualized_volatility": { "value": 0.2497, "benchmark_value": 0.1797 },
+        "expected_shortfall_95": { "value": 0.0277, "benchmark_value": 0.0269 },
+        "beta":                  { "value": 0.93, "benchmark_value": 1 },
+        "sharpe_ratio":          { "value": 0.85, "benchmark_value": 0.62 },
+        "sortino_ratio":         { "value": 1.41, "benchmark_value": 1.44 }
       },
       "report_status": "ready",                      // pending／ready／failed；舊分析尚未建立報告時為 null
       "report_features": ["起伏比大盤大，但報酬有補償", "風險集中在少數兩檔持股"]  // 報告 ready 時為 overall.features，否則 null
@@ -900,6 +901,16 @@ Auth: Cookie
 限流：每人每分鐘 1 次（與問卷送出各自計時），超過回 429 RATE_LIMITED。
 
 Response 202: AnalysisReport
+```
+
+```
+DELETE /analysis/{analysis_id}
+Auth: Cookie
+
+刪除一次分析與其 AI 報告（資料庫層級串聯刪除，D-158）。報告若仍在背景產生，寫回時找不到資料會自動略過。
+不存在回 404、屬於他人回 403。
+
+Response 204
 ```
 
 ### 抓取端點（僅限 n8n）

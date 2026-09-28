@@ -302,7 +302,7 @@
 @media (max-width: 734px) {
   :root {
     --layout-topbar-height: 72px; /* 手機頂端列高度 */
-    --layout-tabbar-reserve: 96px; /* 手機下方懸浮分頁列＋外距，與 TabsLayout 的 padding-bottom 一致 */
+    --layout-tabbar-reserve: 73px; /* 手機下方懸浮分頁列＋外距，與 TabsLayout 的 padding-bottom 一致 */
   }
 }
 

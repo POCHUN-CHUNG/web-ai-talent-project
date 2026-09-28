@@ -1,0 +1,190 @@
+/* 【風險分析報告三張圖的樣式】圖表容器高度、圖例、色條與提示框；顏色一律用 tokens.css 的變數 */
+
+/* 回撤走勢：標題列（標題＋讀數）與圖表上下排列；圖表桌機 280px、手機 230px（與投資組合頁的市值走勢圖同高） */
+.drawdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.lineBox {
+  height: 280px;
+}
+
+@media (max-width: 734px) {
+  .lineBox {
+    height: 230px;
+  }
+}
+
+/* 風險貢獻度：高度由持股數決定（寫在 style） */
+.barBox {
+  width: 100%;
+}
+
+/* 風險貢獻度的標題列：標題靠左、圖例靠右，垂直置中；空間不夠時圖例換到下一行（仍靠右） */
+.headRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+/* 兩組序列的圖例：色點＋文字（識別不只靠顏色，長條末端另有百分比） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  margin-left: auto;
+  font-size: var(--text-body-md-size); /* 圖例 16px（風險貢獻度的文字整體放大一級） */
+  color: var(--color-on-surface-variant);
+}
+
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+/* 風險貢獻度整塊：圖例、圖、展開按鈕由上而下，按鈕置中 */
+.column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 展開／收合其餘持股：與報告頁庫存明細的展開按鈕相同（主色藍、置中、左右 16px 內距，箭頭展開時轉 180°） */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  margin-top: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  font: inherit;
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background-color: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.toggle > :global(.material-symbols-rounded) {
+  transition: transform 0.2s ease;
+}
+
+.flip {
+  transform: rotate(180deg);
+}
+
+/* 長條與熱圖格子的放大互動（與投資組合頁方塊圖相同的緩動）：外框與格子同色，滑過／點按時外框加粗到 4px，
+   看起來就是格子往四周各放大 2px；格子之間留 6px，放大後不會碰到相鄰的格子。格內數字不擋住滑鼠。 */
+.grow svg > g g > rect {
+  cursor: pointer;
+  transition: stroke-width 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.grow svg > g g:hover > rect {
+  stroke-width: 4px;
+}
+
+.grow svg text {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grow svg > g g > rect {
+    transition: none;
+  }
+}
+
+/* 提示（例如「另有具抵銷效果的持股」）：藍色資訊框，與報告頁的資訊框相同（info-container 底、info 色圖示、20px 圓角） */
+.infoBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding: var(--space-md) 20px;
+  border-radius: var(--radius-nested);
+  background-color: var(--color-info-container);
+  color: var(--color-on-info-container);
+  font-size: var(--text-body-md-size);
+  line-height: 1.6;
+}
+
+.infoBox > :global(.material-symbols-rounded) {
+  flex: none;
+  color: var(--color-info);
+}
+
+.infoBox p {
+  margin: 0;
+  text-align: justify;
+}
+
+/* 手機：圖例換到標題下一行時靠左對齊 */
+@media (max-width: 734px) {
+  .legend {
+    margin-left: 0;
+  }
+}
+
+/* 熱圖：不超過 20 檔時撐滿寬度；超過時固定格子大小並可左右捲動 */
+.heatBox {
+  width: 100%;
+}
+
+.heatScroll {
+  overflow-x: auto;
+}
+
+/* 熱圖下方的連續色條（樣式沿用投資組合頁的 heatLegend／heatBar）：與熱圖的距離 */
+.scale {
+  margin-top: var(--space-sm);
+}
+
+/* 滑過圖表的提示框：玻璃、level-3、rounded.xl、body-sm（與投資組合頁的圖表提示框相同） */
+.tooltip {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-xl);
+  background-color: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--shadow-level-3);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+  font-size: var(--text-body-sm-size);
+  line-height: 1.6;
+  color: var(--color-on-surface);
+  white-space: nowrap;
+}
+
+/* 畫面上看不到、螢幕報讀可讀的資料表（FR-34） */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -26,11 +26,13 @@ export default function TopBar() {
     { name: "歷史紀錄", path: "/history", icon: "history" }
   ];
 
-  // 【是否為作用中分頁】路徑相同即是；問卷頁屬於「風險屬性」分頁，投資組合明細頁屬於「投資組合」分頁。參數：path=分頁路徑
+  // 【是否為作用中分頁】路徑相同即是；問卷頁屬於「風險屬性」分頁，投資組合明細頁屬於「投資組合」分頁，
+  // 風險分析報告頁（/history/編號）屬於「歷史紀錄」分頁。參數：path=分頁路徑
   const isActiveTab = (path: string) =>
     location.pathname === path ||
     (path === "/risk-profile" && location.pathname === "/questionnaire") ||
-    (path === "/portfolios" && location.pathname.startsWith("/portfolios/"));
+    (path === "/portfolios" && location.pathname.startsWith("/portfolios/")) ||
+    (path === "/history" && location.pathname.startsWith("/history/"));
 
   // 【量測滑動指示條】找出目前作用中的分頁按鈕，算出它相對分頁列容器的位置與寬度。無參數。
   function measureIndicator() {

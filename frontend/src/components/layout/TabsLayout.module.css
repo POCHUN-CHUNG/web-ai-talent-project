@@ -14,6 +14,6 @@
 
 @media (max-width: 734px) {
   .wrap {
-    padding-bottom: 96px;
+    padding-bottom: 73px; /* 手機下方懸浮分頁列（約 65px）＋下外距 8px：版權宣告上下各 16px，視覺上等距 */
   }
 }

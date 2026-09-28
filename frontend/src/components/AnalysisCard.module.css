@@ -1,0 +1,234 @@
+/* 【歷史分析卡】整張卡是連結（不另放箭頭，內容撐滿寬度、分析時間貼齊右側內距）；歷史紀錄頁用玻璃卡，組合詳情頁的「歷史分析報告」區塊內用細框（避免玻璃疊玻璃） */
+
+.card {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--color-on-surface);
+  transition: box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+/* 外框：提供「⋯」選單定位；--pad 為卡片內距，選單與標題列垂直置中、貼齊右側內距（與投資組合總覽卡片相同） */
+.wrap {
+  position: relative;
+}
+
+.wrapGlass {
+  --pad: var(--space-lg);
+}
+
+.wrapNested {
+  --pad: 20px;
+}
+
+.menu {
+  position: absolute;
+  top: calc(var(--pad) + var(--text-headline-sm-size) * 0.6 - 20px); /* 與投資組合總覽卡片的選單相同的算法 */
+  right: calc(var(--pad) - 8px);
+  z-index: 2;
+}
+
+
+
+.card:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* 歷史紀錄頁：與其他頁面的區塊卡相同的玻璃卡（30px 圓角、24px 內距、level-1），滑過時升到 level-2 */
+.glass {
+  padding: var(--space-lg);
+  border-radius: var(--radius-card);
+  background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid color-mix(in srgb, var(--color-on-background) var(--glass-edge-opacity), transparent);
+  box-shadow: var(--shadow-level-1);
+}
+
+/* 滑過：與投資組合頁的組合卡片相同（level-3 陰影、描邊加深） */
+.glass:hover {
+  box-shadow: var(--shadow-level-3);
+  border-color: color-mix(in srgb, var(--color-outline) 20%, transparent);
+}
+
+/* 組合詳情頁區塊內：比照總覽的細框小卡（1px outline-variant、20px 圓角、無背景），滑過時淡灰底 */
+.nested {
+  padding: 20px;
+  border-radius: var(--radius-nested);
+  border: 1px solid var(--color-outline-variant);
+}
+
+/* 滑過：不加背景，只把細框加深（與歷史紀錄頁一樣，卡片本身不變色） */
+.nested:hover {
+  border-color: color-mix(in srgb, var(--color-outline) 40%, transparent);
+}
+
+/* 手機：內距與投資組合頁的卡片相同（玻璃卡 24px、細框小卡 20px），不另外縮小 */
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* 標題列右側留出「⋯」選單的位置 */
+.head {
+  padding-right: 36px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs) var(--space-md);
+}
+
+.name {
+  font-size: var(--text-headline-sm-size);
+  font-weight: 700;
+  line-height: var(--text-headline-sm-line-height);
+}
+
+/* 分析時間：桌機貼齊卡片右側內距；手機放到標題下一行、靠左對齊 */
+.time {
+  margin-left: auto;
+}
+
+@media (max-width: 734px) {
+  .head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .time {
+    margin-left: 0;
+  }
+}
+
+.time,
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 分析期間與報酬比較基準：桌機一行、以全形「｜」分隔；手機各佔一行、不顯示分隔符號 */
+.meta {
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface-variant);
+}
+
+/* 六項摘要指標：桌機一列六欄等寬；平板三欄兩列；手機兩欄兩列、只顯示四項（隱藏 95% 預期短缺與索丁諾比率）；數值不換行 */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+}
+
+@media (max-width: 1068px) {
+  .metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 734px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metrics .desktopOnly {
+    display: none; /* 選擇器多一層，蓋過後面 .metric 的 display: flex */
+  }
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metricLabel {
+  font-size: var(--text-label-lg-size); /* 與投資組合頁、風險屬性頁的指標名稱同級 */
+  font-weight: var(--text-label-lg-weight);
+  color: var(--color-on-surface-variant);
+}
+
+.metricValue {
+  font-size: var(--text-headline-sm-size);
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary); /* 與報告頁風險指標相同的主色藍 */
+}
+
+/* 單位（%）：比數字小、一般文字色、不加粗 */
+.unit {
+  font-size: var(--text-body-md-size);
+  font-weight: 500;
+  color: var(--color-on-surface);
+}
+
+/* 手機：分析期間與報酬比較基準各佔一行、不顯示分隔符號，字級與分析時間相同；
+   指標數值放大一級；標題「分析期間：」後換行 */
+@media (max-width: 734px) {
+  .meta {
+    display: flex;
+    flex-direction: column;
+    font-size: var(--text-body-sm-size);
+  }
+
+  .sep,
+  .rate {
+    display: none; /* 手機不顯示報酬比較基準（卡片精簡，完整條件在報告頁） */
+  }
+
+  /* 組合詳情頁內這一行只有報酬比較基準：整行隱藏，不留下空白間距 */
+  .meta:has(> .rate:only-child) {
+    display: none;
+  }
+
+  .metricValue {
+    font-size: var(--text-headline-md-size);
+  }
+
+  .periodLine {
+    display: block;
+    white-space: nowrap; /* 起訖日期整行不換行 */
+  }
+
+  /* 組合詳情頁內以分析期間當標題：字級小一點（16px），起訖日期才能放在同一行 */
+  .name:has(.periodLine) {
+    font-size: calc(var(--text-label-lg-size) + 2px);
+  }
+}
+
+
+/* AI 主要風險特徵：primary-container 膠囊（與「已調整」同一組顏色），依內容定寬、可換行 */
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.feature {
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  font-size: var(--text-label-lg-size); /* 與報告頁綜合診斷的特徵膠囊相同 */
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.status {
+  margin-top: var(--space-xs);
+}
+

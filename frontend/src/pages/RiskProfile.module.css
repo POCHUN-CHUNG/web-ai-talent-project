@@ -3,6 +3,7 @@
   max-width: 1080px;
   margin: 0 auto;
   padding: 112px var(--space-margin) 0;
+  flex: 1 0 auto; /* 撐滿版面剩下的高度：分析中的轉圈圈才能在剩餘空間置中，而不把頁面撐高 */
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
@@ -20,7 +21,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-md);
 }
 
 .headerLeft {
@@ -39,7 +39,7 @@
 
 /* 提示框（共用元件 Notice）：往上拉近標題列，與標題維持一致的間距 */
 .noticeGap {
-  margin-top: calc(-1 * var(--space-md));
+  margin-top: 0; /* 與標題列的距離只用頁面的區塊間距 */
 }
 
 .headerActions {
@@ -171,65 +171,6 @@
   color: var(--color-on-surface);
 }
 
-/* 分析中：標題下方置中的轉圈圈，精確計算剩餘的視窗高度（扣除頂部導覽、標題、與手機底部導覽列）以達到完美置中 */
-.spinnerWrap {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: calc(100dvh - 240px);
-  /* 視覺上的絕對置中通常會覺得偏低，往上提一點（約 40px）以達到「視覺重心」的置中 */
-  transform: translateY(-40px);
-}
-
-.spinner {
-  width: 56px;
-  height: 56px;
-  animation: spin 2s linear infinite;
-}
-
-.spinnerTrack {
-  stroke: transparent;
-}
-
-.spinnerHead {
-  stroke: var(--color-primary);
-  /* 圓周約 125.66 (2 * PI * 20) */
-  stroke-dasharray: 1, 150;
-  stroke-dashoffset: 0;
-  animation: dash 1.5s ease-in-out infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 讓藍色線條長度動態變化，產生現代感的伸縮轉圈效果 */
-@keyframes dash {
-  0% {
-    stroke-dasharray: 1, 150;
-    stroke-dashoffset: 0;
-  }
-  50% {
-    stroke-dasharray: 90, 150;
-    stroke-dashoffset: -35;
-  }
-  100% {
-    stroke-dasharray: 90, 150;
-    stroke-dashoffset: -124;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 4s;
-  }
-  .spinnerHead {
-    animation-duration: 3s;
-  }
-}
-
 /* AI 解析：四段各有標題，段與段之間以分隔線隔開 */
 .analysisSection {
   display: flex;
@@ -311,4 +252,11 @@
   .mobileBreak {
     display: block;
   }
+}
+
+/* 標題列與下方內容的距離全站一致（DESIGN.md Page header）：標題列不另加下外距、提示語不往上拉，
+   一律只用頁面的區塊間距（桌機 24px、手機 16px）；標題列裡的按鈕與圖示按鈕比標題高，
+   用負的上下外距讓它們不撐高標題列（仍與標題垂直置中） */
+.header button {
+  margin-block: -100px;
 }
