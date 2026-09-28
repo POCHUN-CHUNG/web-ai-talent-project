@@ -59,10 +59,10 @@ def test_golden_metrics_match(key):
     for k in METRIC_KEYS:
         assert close(res["metrics"][k]["value"], g[k]), (key, k, res["metrics"][k], g[k])
     for k in BENCHMARK_KEYS:
-        assert close(res["metrics"][k]["benchmarkValue"], g["benchmark_" + k]), (key, k)
+        assert close(res["metrics"][k]["benchmark_value"], g["benchmark_" + k]), (key, k)
     # 沒有大盤對照的指標，對照值一律為 null
     for k in set(METRIC_KEYS) - set(BENCHMARK_KEYS):
-        assert res["metrics"][k]["benchmarkValue"] is None
+        assert res["metrics"][k]["benchmark_value"] is None
 
 
 @pytest.mark.parametrize("key", VECTOR_KEYS)
@@ -77,10 +77,10 @@ def test_golden_rc_correlation_and_labels(key):
             assert close(by_symbol[s]["rc"], g["rc"][i]) and close(by_symbol[s]["pcr"], g["pcr"][i])
     for row_got, row_want in zip(res["correlation"]["matrix"], g["correlation"]):
         assert all(close(a, b) for a, b in zip(row_got, row_want))
-    assert res["interpretation"]["skewClass"] == g["skew_class"]
-    assert res["interpretation"]["sortinoPreferred"] == g["sortino_preferred"]
-    assert res["dataQuality"]["tailCount"] == g["tail_count"]
-    assert {x["key"]: x["typicalRuleId"] for x in res["diagnosis"]["groups"]} == g["diagnosis"]
+    assert res["interpretation"]["skew_class"] == g["skew_class"]
+    assert res["interpretation"]["sortino_preferred"] == g["sortino_preferred"]
+    assert res["data_quality"]["tail_count"] == g["tail_count"]
+    assert {x["key"]: x["typical_rule_id"] for x in res["diagnosis"]["groups"]} == g["diagnosis"]
 
 
 def test_d13_d14_rc_identities():
@@ -164,23 +164,23 @@ def test_d19_single_holding():
     res = run_case("V2")
     assert res["metrics"]["hhi"]["value"] == 1.0 and res["metrics"]["effective_number_of_holdings"]["value"] == 1.0
     assert res["positions"][0]["pcr"] == pytest.approx(1.0)
-    heat = next(f for f in res["figures"] if f["figureRef"] == "figure:correlation_heatmap")
+    heat = next(f for f in res["figures"] if f["figure_ref"] == "figure:correlation_heatmap")
     assert heat["status"] == "unavailable"
     group3 = next(x for x in res["diagnosis"]["groups"] if x["key"] == "concentration")
-    assert group3["typicalLabel"] is None and "只有一檔持股" in group3["ruleReport"]
+    assert group3["typical_label"] is None and "只有一檔持股" in group3["rule_report"]
 
 
 def test_drawdown_figure_has_start_point_and_trough():
     res = run_case("V1")
-    fig = next(f for f in res["figures"] if f["figureRef"] == "figure:drawdown_curve")
+    fig = next(f for f in res["figures"] if f["figure_ref"] == "figure:drawdown_curve")
     series = fig["data"]["series"]
-    assert len(series) == GOLDEN["V1"]["n"] + 1 and series[0]["navIndex"] == 1.0 and series[0]["drawdown"] == 0.0
+    assert len(series) == GOLDEN["V1"]["n"] + 1 and series[0]["nav_index"] == 1.0 and series[0]["drawdown"] == 0.0
     assert fig["data"]["trough"]["drawdown"] == pytest.approx(res["metrics"]["max_drawdown"]["value"])
 
 
 def test_d28_sortino_preferred_false_when_sortino_unavailable():
-    assert run_case("V4")["interpretation"]["sortinoPreferred"] is False
-    assert run_case("V5")["interpretation"]["sortinoPreferred"] is True
+    assert run_case("V4")["interpretation"]["sortino_preferred"] is False
+    assert run_case("V5")["interpretation"]["sortino_preferred"] is True
 
 
 # ───────────────────────── 四組分析（D27，預期值抄自 spec/04-behavior.md §4.1.13） ─────────────────────────
@@ -222,7 +222,7 @@ def test_signal_skew_and_kurtosis():
 ])
 def test_risk_return_labels(p, rule, label):
     g = rm.analyze_risk_return(p, MARKET)
-    assert (g["typicalRuleId"], g["typicalLabel"]) == (rule, label)
+    assert (g["typical_rule_id"], g["typical_label"]) == (rule, label)
 
 
 DEEP, SHALLOW, EQ_MDD = -0.3, -0.1, -0.2  # 大盤 MDD 為 -0.2
@@ -244,16 +244,16 @@ BIG_ES, SMALL_ES = 0.03, 0.01  # 大盤 ES 0.02
 ])
 def test_loss_risk_labels(mdd, dd, es, g1, g2, rule):
     g = rm.analyze_loss_risk(side(mdd=mdd, downside=dd, es=es), MARKET, g1, g2, 250)
-    assert g["typicalRuleId"] == rule
-    assert "綜合而言" in g["ruleReport"] and ("未符合典型結構" in g["ruleReport"]) == (rule is None)
+    assert g["typical_rule_id"] == rule
+    assert "綜合而言" in g["rule_report"] and ("未符合典型結構" in g["rule_report"]) == (rule is None)
 
 
 def facts(n=5, ratio=0.9, avg=0.2, share=0.0, top_pcr=0.5, top_w=0.5, cluster_pcr=0.0, neg_corr=False, neg_rc=False):
     # 一組假的集中度事實
-    return {"holdingCount": n, "hhi": 1 / (n * ratio), "equalWeightHhi": 1 / n, "effectiveHoldings": n * ratio,
-            "effectiveRatio": ratio, "topK": min(3, n - 1), "topKSymbols": ["A"], "topKWeight": top_w, "topKPcr": top_pcr,
-            "rcGap": None if top_pcr is None else top_pcr - top_w, "negativeRcPresent": neg_rc,
-            "averageCorrelation": avg, "highPairShare": share, "negativeCorrelationPresent": neg_corr, "clusterPcr": cluster_pcr}
+    return {"holding_count": n, "hhi": 1 / (n * ratio), "equal_weight_hhi": 1 / n, "effective_holdings": n * ratio,
+            "effective_ratio": ratio, "top_k": min(3, n - 1), "top_k_symbols": ["A"], "top_k_weight": top_w, "top_k_pcr": top_pcr,
+            "rc_gap": None if top_pcr is None else top_pcr - top_w, "negative_rc_present": neg_rc,
+            "average_correlation": avg, "high_pair_share": share, "negative_correlation_present": neg_corr, "cluster_pcr": cluster_pcr}
 
 
 @pytest.mark.parametrize("f, rule, label", [
@@ -270,7 +270,7 @@ def facts(n=5, ratio=0.9, avg=0.2, share=0.0, top_pcr=0.5, top_w=0.5, cluster_pc
 ])
 def test_concentration_labels(f, rule, label):
     g = rm.analyze_concentration(f)
-    assert (g["typicalRuleId"], g["typicalLabel"]) == (rule, label)
+    assert (g["typical_rule_id"], g["typical_label"]) == (rule, label)
 
 
 def test_concentration_signals_and_boundaries():
@@ -279,13 +279,13 @@ def test_concentration_signals_and_boundaries():
     assert rm.analyze_concentration(facts(avg=0.6, share=0.2))["signals"]["correlation"] == "高正相關群聚"
     assert rm.analyze_concentration(facts(avg=0.5, share=0.25))["signals"]["correlation"] == "高正相關群聚"
     assert rm.analyze_concentration(facts(avg=0.29, share=0.1))["signals"]["correlation"] == "混合相關結構"  # 有高相關配對就不算低相關
-    assert rm.analyze_concentration(facts(top_pcr=0.6, top_w=0.5))["signals"]["riskContribution"] == "風險貢獻集中"
-    assert rm.analyze_concentration(facts(top_pcr=0.4, top_w=0.5))["signals"]["riskContribution"] == "主要風險來源的風險占比低於其配置占比"
+    assert rm.analyze_concentration(facts(top_pcr=0.6, top_w=0.5))["signals"]["risk_contribution"] == "風險貢獻集中"
+    assert rm.analyze_concentration(facts(top_pcr=0.4, top_w=0.5))["signals"]["risk_contribution"] == "主要風險來源的風險占比低於其配置占比"
     g = rm.analyze_concentration(facts(neg_corr=True, neg_rc=True))
-    assert g["signals"]["negativeCorrelation"] and g["signals"]["negativeRc"]
-    assert "存在負相關持股" in g["ruleReport"] and "負風險貢獻" in g["ruleReport"]
+    assert g["signals"]["negative_correlation"] and g["signals"]["negative_rc"]
+    assert "存在負相關持股" in g["rule_report"] and "負風險貢獻" in g["rule_report"]
     single = rm.analyze_concentration(facts(n=1, ratio=1.0, top_pcr=None))
-    assert single["typicalLabel"] is None and single["signals"]["weight"] == "權重集中" and "只有一檔持股" in single["ruleReport"]
+    assert single["typical_label"] is None and single["signals"]["weight"] == "權重集中" and "只有一檔持股" in single["rule_report"]
 
 
 @pytest.mark.parametrize("r2, beta, top_pcr, rule", [
@@ -295,17 +295,17 @@ def test_concentration_signals_and_boundaries():
     (0.8, -0.2, 0.5, None),  # 高解釋力卻反向
 ])
 def test_market_labels(r2, beta, top_pcr, rule):
-    assert rm.analyze_market(beta, r2, facts(top_pcr=top_pcr))["typicalRuleId"] == rule
+    assert rm.analyze_market(beta, r2, facts(top_pcr=top_pcr))["typical_rule_id"] == rule
 
 
 def test_market_beta_role_depends_on_r2():
     assert rm.analyze_market(0.9, 0.7, facts())["signals"] | {} == {
-        "rSquared": "市場解釋力較強", "beta": "敏感度接近市場", "betaRole": "主要判斷",
-        "riskContribution": "風險貢獻與資金配置大致相稱", "negativeRc": False}
-    assert rm.analyze_market(1.1, 0.4, facts())["signals"]["betaRole"] == "輔助解讀"
+        "r_squared": "市場解釋力較強", "beta": "敏感度接近市場", "beta_role": "主要判斷",
+        "risk_contribution": "風險貢獻與資金配置大致相稱", "negative_rc": False}
+    assert rm.analyze_market(1.1, 0.4, facts())["signals"]["beta_role"] == "輔助解讀"
     weak = rm.analyze_market(1.5, 0.39, facts())
-    assert weak["signals"]["betaRole"] == "不作主要判斷" and "僅供參考" in weak["ruleReport"]
-    assert rm.analyze_market(None, 0.8, facts())["typicalLabel"] is None
+    assert weak["signals"]["beta_role"] == "不作主要判斷" and "僅供參考" in weak["rule_report"]
+    assert rm.analyze_market(None, 0.8, facts())["typical_label"] is None
 
 
 def test_adverse_signals_priority_and_beta_rule():
@@ -324,12 +324,12 @@ def test_adverse_signals_priority_and_beta_rule():
 
 def test_rule_report_mentions_values_and_benchmark():
     g = rm.analyze_risk_return(side(sharpe=2, sortino=2, volatility=0.3, downside=0.2), MARKET)
-    assert g["ruleReport"].startswith("投資組合的年化波動度為 30.00%，高於台股加權報酬指數的 20.00%")
-    assert "「高風險但具有報酬補償」" in g["ruleReport"]
+    assert g["rule_report"].startswith("投資組合的年化波動度為 30.00%，比台股加權報酬指數的 20.00% 高")
+    assert "「高風險但具有報酬補償」" in g["rule_report"]
 
 
 def test_top_k_excludes_one_holding():
     # k = min(3, N−1)：兩檔時只看第一名，差距才可能不為 0
     f = rm.concentration_facts(["A", "B"], np.array([0.45, 0.55]), np.array([1.33, -0.33]), [[1.0, -0.9], [-0.9, 1.0]])
-    assert f["topK"] == 1 and f["topKSymbols"] == ["A"] and f["rcGap"] == pytest.approx(0.88)
-    assert f["negativeRcPresent"] and f["negativeCorrelationPresent"]
+    assert f["top_k"] == 1 and f["top_k_symbols"] == ["A"] and f["rc_gap"] == pytest.approx(0.88)
+    assert f["negative_rc_present"] and f["negative_correlation_present"]

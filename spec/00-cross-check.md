@@ -587,3 +587,17 @@ web-ai-talent-project/
 | D-133 | 最新日損益改為組合當天的損益 | `latestDayPnl` 只計最新價格日之前就已持有的股數 × (最新價 − 前一日收盤價)，當天才買進的股數當天損益一律為 0；前一日完全沒有持股時最新日損益與其百分比皆為 0（等於歷史總損益）。前端每日損益走勢的第一天同樣為 0，累積 2 個交易日即可畫圖 | 03 §3.2、`services/portfolio.py`、`PortfolioDetail.tsx` |
 | D-134 | 資料不足 2 年的訊息改寫、取消「完全沒有股價」錯誤 | 訊息改為「因＜名稱＞（＜代號＞）、…歷史股價未滿 2 年，無法進行風險分析計算，請將其移除後重新嘗試。」，前端錯誤框只顯示這一句（不再有標題與逐檔清單）；持股加入組合時已確認有股價，不再單獨回「沒有股價資料」的錯誤，萬一發生視為 0 年併入同一則訊息。分析期間說明框的標的改為「名稱（代號）」、粗體、前後不留空白 | 03 §3.3、04 §4.1.0 §4.4.11、`services/analysis.py`、`RiskAnalysis.tsx` |
 
+## 二十一、已拍板決策（2026-09-28 第十三輪，風險分析報告 Prompt 與後端）
+
+| # | 項目 | 決策 | 影響 |
+| --- | --- | --- | --- |
+| D-135 | 報告產生流程比照風險屬性解析 | 送出分析後，後端建立一份 `pending` 的報告並在背景呼叫 AI；前端定時查詢，狀態 `pending → ready／failed`，畫面沿用風險屬性解析「產生中」的設計；`failed` 時顯示「重新產生」（每人每分鐘 1 次）；`pending` 逾時（Redis 標記過期）改判 `failed`。報告另存 `analysis_reports`（一次分析一份、`analysis_result_id` 唯一），`analysis_results` 維持唯讀；功能上線前的舊分析在第一次查詢報告時才產生。取代原「GET 報告時同步呼叫模型、失敗回 502、`report/retry`」的設計 | 03 §3.1 §3.2 §3.3 §3.4 §3.5 §3.11、02、04 §4.3.2 §4.4.3、05、`models.py`、`services/analysis_ai.py`、`routers/analysis.py` |
+| D-136 | 分析 API 鍵名改為 snake_case | 分析選項、執行分析的請求、`AnalysisResult`、歷史清單與報告一律使用與快照、Prompt 相同的 snake_case 鍵名，不另做 camelCase 轉換（比照 D-82） | 03 §3.1 §3.3、`services/analysis.py`、`services/risk_metrics.py`、`RiskAnalysis.tsx`、測試 |
+| D-137 | 名詞解釋與固定限制說明改用固定文字 | AI 不再產生 `glossary`；名詞解釋由前端以 04 §4.4.11 的固定文字做成 tooltip。「歷史不代表未來」「以目前權重回推歷史」「報酬比較基準」三項固定說明由前端顯示；AI 的 `limitations` 只寫本次資料特有的限制（最多 3 項，可為空） | 03 §3.1、04 §4.4.11、`spec/prompts/risk_analysis_*.md` |
+| D-138 | 移除 `period_notice` | 分析期間由前端依 `AnalysisResult.period` 顯示；送給 AI 的期間改為起訖日、交易日數與 `is_max_period`，不送 `requested_years`／`max_years`（避免模型把月數換算的小數年寫進報告） | 03 §3.1、04 §4.4.2、`spec/prompts/risk_analysis_*.md`、`services/analysis_ai.py` |
+| D-139 | 典型標籤不給使用者看 | 典型標籤只給 AI 理解該組特徵，報告不照抄、不加引號，改用白話說明；後端指標（下行波動度、HHI、有效持股檔數、R²、偏態、峰度）不寫名稱，改用白話描述；與大盤比較沿用 04 §4.4.11 的說法。後端以 `BANNED_TERMS` 等規則自動檢查，不合格即重試 | 04 §4.4.11、`spec/prompts/risk_analysis_*.md`、`services/analysis_ai.py` |
+| D-140 | 歷史清單改為使用者層級 | 新增 `GET /analysis/history`（可用 `portfolio_id` 篩選），取代 `GET /portfolios/{id}/analysis/history`；每筆附組合名稱、分析條件、三項摘要指標（含大盤對照）、報告狀態與主要風險特徵，供第三階段的歷史紀錄頁使用 | 03 §3.3、SPEC FR-37、`services/analysis.py`、`routers/analysis.py` |
+| D-142 | 規則報告改用「比…高／低」句型 | 四組規則報告與大盤比較由「高於／低於台股加權報酬指數的 X」改為「比台股加權報酬指數的 X 高／低／深／淺」。實測 AI 會沿用規則報告的句型而寫出禁用的「高於大盤」，導致重試（修改前 3 份報告共呼叫 7 次，修改後 5 份共 6 次） | 04 §4.1.13、`services/risk_metrics.py` |
+| D-143 | 內容檢查不通過時附上重試提示 | 重試時原本的 System／User Prompt 一字不改（仍命中 prompt caching），另附 `spec/prompts/risk_analysis_retry.md` 的固定模板為第二則 user 訊息，內含上次全部違規的位置與字詞；連線、逾時、429、5xx 的重試不附。後端指標（下行波動度、偏態、峰度、HHI、有效持股、R²）與 Beta 在 Prompt 中各有固定的「報告寫法」 | 03 §3.11、`spec/prompts/`、`services/analysis_ai.py` |
+| D-141 | 報告結構與個人條件比對 | 報告 = `overall`（2–3 個主要風險特徵、依四個面向的綜合說明、最需關注的風險來源，對應診斷規則文件第六章）＋固定五段（四組＋個人條件對齊）＋圖說（本次觀察）＋檢視方向＋本次資料限制。最大回撤與可接受損失區間的比較由後端完成（「5 - 9 %」視為 [5%, 10%)，依此類推），AI 只引用結果；回撤圖改送高點日、最低點日、回復日與交易日數，不送整條序列。個人條件對齊恢復為報告文字段落（圖表仍依 D-116 不做） | 03 §3.1、`spec/prompts/risk_analysis_*.md`、`services/analysis_ai.py` |
+

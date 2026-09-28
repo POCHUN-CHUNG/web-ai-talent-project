@@ -1,7 +1,7 @@
 # 06 · 執行層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
+> 文件版本：1.12.0 ｜ 最後更新：2026-09-28
 
 本層定義實作階段拆分、完成定義、版控規範與部署流程。**開工前與交付前必讀。**
 
@@ -142,10 +142,9 @@
 | 工作 | 檔案 |
 | --- | --- |
 | Prompt 純文字檔與 CI 一致性檢查 | `backend/app/prompts/`、CI |
-| OpenAI 客戶端、schema 驗證、引用白名單驗證、重試與退避 | `services/ai_client.py` |
-| payload 組裝與欄位白名單檢查（擋成本、損益、日期） | `services/ai_client.py` |
-| `analysis_reports` 表與 migration | `models.py`、`migrations/` |
-| `GET /analysis/{id}/report`、`POST .../report/retry` | `routers/analysis.py` |
+| 分析報告的 payload 組裝與欄位白名單檢查（擋成本、損益、日期）、schema 與內容檢查、重試與背景工作 | `services/analysis_ai.py` |
+| `analysis_reports` 表（`Base.metadata.create_all` 建立） | `models.py` |
+| `GET /analysis/{id}/report`、`POST .../report/regenerate`、`GET /analysis/history` | `routers/analysis.py` |
 | 風險屬性解析的 AI 呼叫與 `sections_status` 更新 | `services/profile_ai.py` |
 | `partial` 狀態與重試入口 | `frontend/src/pages/AnalysisReport.tsx` |
 

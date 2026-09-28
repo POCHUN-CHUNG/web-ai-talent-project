@@ -1,7 +1,7 @@
 # 02 · 系統層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
+> 文件版本：1.12.0 ｜ 最後更新：2026-09-28
 
 本層定義技術棧版本、執行環境、系統架構與資料流、檔案結構、模組相依規則與環境變數。任何實作開始前必須先讀完本檔。
 
@@ -191,9 +191,9 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
 | 前端狀態 | 觸發時機 | 畫面 |
 | --- | --- | --- |
 | `computing` | 送出 `POST /portfolios/{id}/analysis` 之後 | 載入指示器 + 「正在計算量化指標」 |
-| `interpreting` | 量化結果已回，送出 `GET /analysis/{id}/report` 之後 | 載入指示器 + 「正在產生分析解說」 |
+| `interpreting` | 量化結果已回、報告為 `pending`，定時查詢 `GET /analysis/{id}/report` | 與風險屬性解析的「產生中」畫面相同 |
 | `ready` | 兩者皆成功 | 一次揭露三張圖與完整解說 |
-| `partial` | 量化成功、AI 失敗或逾時 | 顯示三張圖與全部數字，解說區塊顯示失敗說明與重試按鈕 |
+| `partial` | 量化成功、報告 `failed`（AI 失敗或逾時） | 顯示三張圖與全部數字，解說區塊顯示失敗說明與「重新產生」按鈕 |
 | `failed` | 量化本身失敗 | 顯示錯誤碼對應的說明，不顯示圖表 |
 
 `partial` 是 AI 失敗時的降級狀態（FR-36），不是正常流程中的過渡狀態。正常流程只會經過 `computing → interpreting → ready`。
@@ -206,22 +206,23 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
   → GET /risk-profiles/latest            取得 saved 風險屬性
   → GET /portfolios/{id}/analysis/options  取得最大期間、利率選項、Q7／Q8／Q13 預設值；GET /portfolios/{id}/price-coverage 試算期間是否足夠
   → 前端在風險分析頁（/analysis）標題下方顯示分析條件列：滑桿選年數 + 報酬比較基準 + Q7／Q8／Q13，免用彈窗
-  → POST /portfolios/{id}/analysis       body: lookbackYears, rateOption, profileInputs
+  → POST /portfolios/{id}/analysis       body: lookback_years, rate_option, profile_inputs
   → 前端進入 computing 狀態（不顯示圖表）
        ├─ 讀 holding_lots → 彙總部位與目前市值權重
-       ├─ 讀 daily_quotes（持股代號與 IR0001）→ 取共同交易日，依 lookbackYears 決定期間（最短 2 年，D-110）
-       ├─ rateOption = bank_average 時讀 bank_rates → 算術平均得 risk_free_rate（zero 時為 0）
+       ├─ 讀 daily_quotes（持股代號與 IR0001）→ 取共同交易日，依 lookback_years 決定期間（最短 2 年，D-110）
+       ├─ rate_option = bank_average 時讀 bank_rates → 算術平均得 risk_free_rate（zero 時為 0）
        ├─ risk_metrics.py：14 項指標（6 項含 IR0001 對照值）+ 四組風險診斷
-       └─ 寫入 analysis_results（唯讀快照，含 profileInputs）
-  → 回傳 analysis_id + 量化結果 + 三張圖的資料
-  → 前端切換為 interpreting 狀態（仍不顯示圖表）
-  → GET /analysis/{id}/report            AI 解說
-       ├─ 組裝 PORTFOLIO_ANALYSIS_DATA（不含成本、損益與買進日期欄位）
-       ├─ 呼叫 OpenAI
-       ├─ schema 與內容檢查，失敗則重試（共最多 3 次）
-       └─ 寫入 analysis_reports
-  → 前端進入 ready，一次揭露三張圖、圖說與解說
-     （AI 失敗則進入 partial：圖表照常顯示，解說區塊顯示重試按鈕）
+       ├─ 寫入 analysis_results（唯讀快照，含 profile_inputs）
+       └─ 新增 analysis_reports（pending），登記「產生中」標記
+  → 回傳 analysis_id + 量化結果 + 三張圖的資料（report_status = pending）
+       └─ 回應送出後，背景工作產生 AI 報告（D-135）：
+            ├─ 由快照組裝 payload（不含成本、損益、買進日期與組合名稱；回撤圖只帶重點事實）
+            ├─ 呼叫 OpenAI
+            ├─ schema 與內容檢查，失敗則重試（共最多 3 次）
+            └─ 寫回 analysis_reports（ready 或 failed）
+  → 前端切換為 interpreting 狀態（仍不顯示圖表），定時查詢 GET /analysis/{id}/report
+  → 報告 ready：一次揭露三張圖、圖說與解說
+     （報告 failed 則進入 partial：圖表照常顯示，解說區塊顯示「重新產生」按鈕）
 ```
 
 ### 三條不可違反的架構規則
@@ -265,8 +266,8 @@ web-ai-talent-project/
 │       ├── prompts/              # 【新增】執行期 Prompt 純文字檔
 │       │   ├── risk_profile_system.txt
 │       │   ├── risk_profile_user.txt
-│       │   ├── 02_portfolio_system.txt
-│       │   └── 03_portfolio_user.txt
+│       │   ├── risk_analysis_system.txt
+│       │   └── risk_analysis_user.txt
 │       ├── routers/              # HTTP 層：只做參數驗證與呼叫 service
 │       │   ├── auth.py
 │       │   ├── questionnaire.py  # 【新增】
@@ -423,5 +424,5 @@ CI 檢查：`src/` 底下除 `tokens.css` 外，不得出現 `#[0-9a-fA-F]{3,8}`
 
 1. 新增任一變數，必須在**同一個 PR** 內同步更新三處：`.env.example`、`docker-compose.yml` 的 `backend.environment`、`README.md` 的〈環境變數〉章節（`CLAUDE.md` §5、§6）。
 2. 標記為機密的變數：只放 `.env`，程式中不得寫死預設值，不得寫入任何日誌，不得出現在 `README.md`（`CLAUDE.md` §7）。
-3. `OPENAI_API_KEY` 未設定時，後端啟動不失敗，風險屬性解析直接標為 `failed`，`/analysis/{id}/report` 一律回 `503` 並附錯誤碼 `AI_NOT_CONFIGURED`。理由：讓不需要 AI 的開發者仍能跑完整量化流程。
+3. `OPENAI_API_KEY` 未設定時，後端啟動不失敗，風險屬性解析與分析報告直接標為 `failed`。理由：讓不需要 AI 的開發者仍能跑完整量化流程。
 4. 所有整數型變數在啟動時驗證範圍，超出範圍立即拋錯並終止啟動（fail fast），不使用預設值悄悄蓋過。

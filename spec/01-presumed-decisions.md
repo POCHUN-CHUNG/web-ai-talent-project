@@ -93,10 +93,10 @@
 | `PATCH` | `/portfolios/{portfolio_id}/holding-lots/{lot_id}` | 修改該筆的日期／股數／單價 | Cookie |
 | `DELETE` | `/portfolios/{portfolio_id}/holding-lots/{lot_id}` | 刪除該筆買進紀錄 | Cookie |
 | `POST` | `/portfolios/{portfolio_id}/analysis` | 執行一次量化分析 | Cookie |
-| `GET` | `/portfolios/{portfolio_id}/analysis/history` | 該組合的歷史分析清單 | Cookie |
+| `GET` | `/analysis/history` | 自己的歷史分析清單，可用 `portfolio_id` 篩選（D-140） | Cookie |
 | `GET` | `/analysis/{analysis_id}` | 取得量化結果與圖表資料 | Cookie |
-| `GET` | `/analysis/{analysis_id}/report` | 取得 AI 解說報告 | Cookie |
-| `POST` | `/analysis/{analysis_id}/report/retry` | AI 失敗後重試產生報告 | Cookie |
+| `GET` | `/analysis/{analysis_id}/report` | 取得 AI 解說報告與產生狀態 | Cookie |
+| `POST` | `/analysis/{analysis_id}/report/regenerate` | AI 失敗後重新產生報告（D-135） | Cookie |
 | `GET` | `/stocks?q=` | 股票代號／名稱查詢 | Cookie |
 | `GET` | `/bank-rates/latest` | 最新一批五家銀行利率 | Cookie |
 | `POST` | `/bank-rates/fetch` | 抓取並寫入利率（現況既有端點，路徑不變） | `X-API-Key` |
@@ -346,8 +346,8 @@ web-ai-talent-project/
     ├── prompts/
     │   ├── risk_profile_system.md           # 風險屬性解析 system
     │   ├── risk_profile_user.md             # 風險屬性解析 user template
-    │   ├── 02_portfolio_system_prompt.md    # 分析報告 system
-    │   └── 03_user_prompt_template.md       # 分析報告 user template
+    │   ├── risk_analysis_system.md          # 風險分析報告 system
+    │   └── risk_analysis_user.md            # 風險分析報告 user template
     └── appendix/
         ├── B-constants.md
         ├── C-fixtures.md
@@ -365,7 +365,7 @@ web-ai-talent-project/
 | P-34 | `cash_flow` fact（原 Y-05） | 列為獨立 fact 輸出，`id = cash_flow`，來源 Q3。理由：`financial_capacity` 判為「低」時，AI 需要指出是哪一項拉低的，缺這個 fact 就只能含糊帶過 |
 | P-35 | Q11 選項 J 自由文字 | 作答存於 `questionnaire_answers.answers.q11_other`，送 AI 時放在 `product_experience` fact 的 `other_text`；最多 100 字、僅允許中英數與全形標點、移除換行與控制字元，以 JSON 欄位傳遞（不串接進任何指令句）。勾「其他商品」視為有投資經驗（2026-09-25 修訂） |
 | P-36 | 圖表元件對應（2026-09-26 修訂） | `@nivo/heatmap` → 相關係數熱圖；`@nivo/bar`（水平、分組）→ 權重 vs 風險貢獻；`@nivo/line`（含 `enableArea`）→ 回撤走勢。三張圖共用一個 `nivoTheme` 物件，其值全部讀自 `tokens.css` 的 CSS 變數（透過 `getComputedStyle` 取得，深色模式切換時重新計算） |
-| P-37 | 分析時的錯誤碼 | `INSUFFICIENT_PRICE_DATA`（有持股無價格，或共同期間不足 2 年）、`BENCHMARK_UNAVAILABLE`（市場指數缺資料）、`RISK_FREE_RATE_UNAVAILABLE`（選 `bank_average` 但無利率資料）、`AI_REPORT_FAILED`（模型連續解析失敗）。原 `PROFILE_LIMITED` 已移除：有衝突的作答不存檔，不會有 limited 的風險屬性 |
+| P-37 | 分析時的錯誤碼 | `INSUFFICIENT_PRICE_DATA`（有持股無價格，或共同期間不足 2 年）、`BENCHMARK_UNAVAILABLE`（市場指數缺資料）、`RISK_FREE_RATE_UNAVAILABLE`（選 `bank_average` 但無利率資料）。原 `PROFILE_LIMITED` 已移除：有衝突的作答不存檔，不會有 limited 的風險屬性 |
 | P-38 | AI 失敗降級 | 模型用盡 `OPENAI_MAX_ATTEMPTS` 次呼叫仍失敗時，量化結果與三張圖照常顯示，AI 解說區塊顯示「暫時無法產生解說」與重試按鈕，回應 `report.status = "failed"`，不阻擋整頁 |
 | P-39 | 交易明細的日期驗證 | `trade_date` 不得晚於今日，不得早於 1990-01-01。日期早於該檔 `daily_quotes` 最早一筆時仍可輸入，僅在持有天數說明旁標註「早於可取得的價格資料起點」 |
 | P-40 | 年化持有報酬率的下限 | 持有天數 < 30 日時不計算年化值，顯示「持有期間過短，暫不年化」。理由：短期報酬年化會產生數百甚至上千 % 的誤導性數字 |

@@ -1,8 +1,8 @@
 # SPEC · 診股整股－投資組合量化風險分析平台
 
 > 本檔為規格索引，包含協議層（§0）與產品層（§1）。系統層以下拆分於 `spec/`。
-> 文件版本：1.11.0 ｜ 最後更新：2026-09-28 ｜ 狀態：草稿（draft）
-> 對應程式版本：`main` 加 PR #8、問卷與風險屬性（階段 3）、投資組合與買進紀錄（階段 4），再加風險分析改版（依《投資組合風險指標與風險診斷規則》與《四組後端風險分析規則》，D-108～D-128），再加風險分析頁前端改版（D-129）
+> 文件版本：1.12.0 ｜ 最後更新：2026-09-28 ｜ 狀態：草稿（draft）
+> 對應程式版本：`main` 加 PR #8、問卷與風險屬性（階段 3）、投資組合與買進紀錄（階段 4），再加風險分析改版（依《投資組合風險指標與風險診斷規則》與《四組後端風險分析規則》，D-108～D-128），再加風險分析頁前端改版（D-129～D-134），再加風險分析報告 Prompt 與後端（D-135～D-143）
 
 ---
 
@@ -124,7 +124,7 @@ ID 一經指派永不重用。需求移除時保留 ID 並標記 `（已移除�
 | 量化分析 API p95 回應時間（10 檔持股、5 年期間） | ≤ 3 秒（不含 AI 呼叫） | 後端計時日誌 | 數學上可保證，見 `spec/05-quality.md` §5.2 |
 | AI 報告輸出通過 JSON schema 驗證 | 100% | 自動化測試：50 組固定輸入 × 3 次 | **無法保證模型輸出**，靠 schema 驗證 + 重試 + 降級達成，見 R-01 |
 | 量化指標與黃金測試向量的相對誤差 | < 1e-6 | 單元測試 | 數學上可保證 |
-| 報告中每個正式名詞都有白話說明 | 100% | 自動化檢查 `glossary` 覆蓋率 | 由 Prompt 契約保證，見 `spec/prompts/02_portfolio_system_prompt.md` |
+| 報告不出現後端指標名稱、典型標籤與內部用語 | 100% | 自動化內容檢查（`BANNED_TERMS`），不通過即重試 | 由 Prompt 契約與內容檢查保證，見 `spec/prompts/risk_analysis_system.md`；名詞解釋改由前端固定文字提供（D-137） |
 
 ## 1.4 功能需求
 
@@ -186,10 +186,10 @@ ID 一經指派永不重用。需求移除時保留 ID 並標記 `（已移除�
 | FR-32 | 報告頁呈現回撤走勢圖，並標示最大回撤 | Must | E6 |
 | FR-33 | （已移除，v1.9.0）原「可接受損失區間與最大回撤對照條」，個人條件對齊暫緩（D-116） | — | — |
 | FR-34 | 三張圖皆提供螢幕閱讀器可讀的資料表替代內容 | Must | E8 |
-| FR-35 | 系統呼叫 AI 產生四組風險分析報告與最終綜合風險診斷（第二階段定稿）；前端指標附名詞解釋、白話說明與市場基準對照 | Must | E9–E14 |
+| FR-35 | 分析完成後系統在背景呼叫 AI 產生報告：綜合診斷（2–3 個主要風險特徵、四個面向的說明、最需關注的風險來源）與五段白話說明（四組風險分析＋個人條件對齊）；典型標籤不顯示給使用者；前端指標附固定的名詞解釋、白話說明與市場基準對照（D-135～D-143） | Must | E9–E14 |
 | FR-36 | 分析等待期間顯示分階段狀態（量化指標計算中／分析解說產生中），期間不顯示任何圖表 | Must | E15–E16 |
-| FR-36a | AI 呼叫失敗時，量化結果與三張圖照常顯示，解說區塊顯示失敗說明與重試入口 | Must | E17 |
-| FR-37 | 使用者可回看同一投資組合的歷史分析報告 | Must | E18 |
+| FR-36a | AI 報告產生失敗時，量化結果與三張圖照常顯示，解說區塊顯示失敗說明與「重新產生」按鈕（每人每分鐘 1 次） | Must | E17 |
+| FR-37 | 使用者可回看自己全部或指定投資組合的歷史分析與報告（D-140） | Must | E18 |
 | FR-38 | 報告頁顯示持股的未實現損益供使用者對照，但成本與損益資料不送入 AI | Must | E19–E20 |
 
 ### 自動化與資料管線
@@ -317,8 +317,8 @@ P-01 至 P-38，完整清單見 `spec/01-presumed-decisions.md`。**這些項目
 | `spec/06-execution.md` | 階段拆分、完成定義、版控規範、部署與回滾 | 開工前與交付前 |
 | `spec/prompts/risk_profile_system.md` | 風險屬性解析的 System Prompt | 實作問卷階段 AI 呼叫時 |
 | `spec/prompts/risk_profile_user.md` | 風險屬性解析的 User Prompt 模板與組裝契約 | 同上 |
-| `spec/prompts/02_portfolio_system_prompt.md` | 分析報告的 System Prompt | 實作分析階段 AI 呼叫時 |
-| `spec/prompts/03_user_prompt_template.md` | 分析報告的 User Prompt 模板與圖表參照命名 | 同上 |
+| `spec/prompts/risk_analysis_system.md` | 風險分析報告的 System Prompt | 實作分析階段 AI 呼叫時 |
+| `spec/prompts/risk_analysis_user.md` | 風險分析報告的 User Prompt 模板、payload 組裝契約與輸出內容檢查 | 同上 |
 | `spec/appendix/B-constants.md` | 錯誤碼、指標識別碼、四組診斷識別碼與門檻、CSS 變數名稱完整清單 | 需要查名稱時 |
 | `spec/appendix/C-fixtures.md` | 黃金測試向量的定義、數值與產生方式 | 實作演算法與寫測試時 |
 | `tests/fixtures/` | 參考實作、向量產生腳本、`golden_vectors.json` | 同上 |
@@ -336,7 +336,7 @@ P-01 至 P-38，完整清單見 `spec/01-presumed-decisions.md`。**這些項目
 | 實作問卷轉換規則 | `spec/04-behavior.md` §4.2、`spec/03-contract.md` §3.1、`spec/appendix/C-fixtures.md` |
 | 修改資料表 | `spec/03-contract.md` §3.1–3.2、`spec/06-execution.md` §6.4 |
 | 做任何畫面 | `DESIGN.md` 全部、`spec/04-behavior.md` §4.4、`spec/01-presumed-decisions.md` §七 |
-| 做圖表 | `DESIGN.md` §Charts、`spec/04-behavior.md` §4.4、`spec/prompts/03_user_prompt_template.md` |
+| 做圖表 | `DESIGN.md` §Charts、`spec/04-behavior.md` §4.4、`spec/prompts/risk_analysis_user.md`（圖表 ref 清單） |
 | 串接 AI | `spec/03-contract.md` §3.11、`spec/prompts/` 全部、`spec/05-quality.md` §5.9 |
 | 設定 n8n 排程 | `spec/03-contract.md` §3.5、`spec/01-presumed-decisions.md` P-32、`README.md` |
 | 開 PR | `CLAUDE.md` §2、§4、§5、`spec/06-execution.md` §6.2–6.3 |

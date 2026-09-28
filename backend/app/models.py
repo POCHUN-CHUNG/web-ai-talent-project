@@ -1,7 +1,8 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, SmallInteger, String, Text, \
+    UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -186,4 +187,27 @@ class AnalysisResult(Base):
         CheckConstraint("trading_days > 0", name="ck_ar_trading_days"),
         CheckConstraint("end_date >= start_date", name="ck_analysis_period"),
         Index("idx_ar_pf_created", "portfolio_id", "created"),
+    )
+
+
+class AnalysisReport(Base):
+    # 【分析報告資料表】一次分析對應一份 AI 風險分析報告；產生流程與風險屬性解析相同（pending → ready／failed，失敗可重新產生）。
+    # 分析快照本身（analysis_results）維持唯讀，報告另存一表，只有下列欄位會隨產生結果更新
+    __tablename__ = "analysis_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)  # 報告編號（自動遞增）
+    analysis_result_id: Mapped[int] = mapped_column(
+        ForeignKey("analysis_results.id", ondelete="CASCADE"), unique=True
+    )  # 對應的分析（一對一；刪除分析時一併清除）
+    status: Mapped[str] = mapped_column(String(10), default="pending")  # 產生狀態：pending／ready／failed
+    attempt: Mapped[int] = mapped_column(SmallInteger, default=1)  # 第幾輪產生（首次為 1，每按一次「重新產生」加 1）
+    content: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # AI 報告內容（成功前為空）
+    model: Mapped[str | None] = mapped_column(String(40), nullable=True)  # 實際使用的模型代號（成功時寫入）
+    prompt_version: Mapped[str | None] = mapped_column(String(20), nullable=True)  # Prompt 版本（成功時寫入）
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)  # 失敗原因（最長 2000 字，僅供除錯，不回傳前端）
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 建立時間（UTC）
+    updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 最後一次狀態變更時間（UTC）
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','ready','failed')", name="ck_report_status"),
+        CheckConstraint("attempt >= 1", name="ck_report_attempt"),
     )
