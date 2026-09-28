@@ -43,6 +43,8 @@
 | 027  | 2026-09-28 | `d08fe9d` | 風險分析頁前端改版與全站 UI 修正 | [027-d08fe9d-risk-analysis-ui.md](027-d08fe9d-risk-analysis-ui.md) |
 | 028  | 2026-09-28 | `8673c25` | 歷史走勢區間以月數往回推、縱軸上限貼近資料極值 | [028-8673c25-history-range-months.md](028-8673c25-history-range-months.md) |
 | 029  | 2026-09-28 | `b43a690` | 風險分析報告 Prompt 與後端 | [029-b43a690-risk-analysis-report-backend.md](029-b43a690-risk-analysis-report-backend.md) |
+| 030  | 2026-09-28 | `a69db8b` | 風險分析報告頁與歷史紀錄頁前端 | [030-a69db8b-risk-analysis-report-ui.md](030-a69db8b-risk-analysis-report-ui.md) |
+| 031  | 2026-09-28 | `eacc3ed` | 匯出 n8n 工作流程 | [031-eacc3ed-export-n8n-workflows.md](031-eacc3ed-export-n8n-workflows.md) |
 
 ## 維護規則
 
