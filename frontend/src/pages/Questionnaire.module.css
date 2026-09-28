@@ -10,8 +10,10 @@
 }
 
 @media (max-width: 734px) {
+  /* 手機：區塊與卡片之間一律 16px（DESIGN.md Spacing：桌機 24px、手機 16px） */
   .page {
     padding: 96px var(--space-md) var(--space-xl);
+    gap: var(--space-md);
   }
 }
 
@@ -52,8 +54,7 @@
 .progress {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  margin-top: var(--space-xs);
+  gap: var(--space-md); /* 與上一題之間只用表單本身的間距（手機 16px），不另加外距 */
 }
 
 .progressTrack {
@@ -284,6 +285,5 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-md);
-  margin-top: var(--space-sm);
+  gap: var(--space-md); /* 與進度條之間只用表單本身的間距，不另加外距 */
 }

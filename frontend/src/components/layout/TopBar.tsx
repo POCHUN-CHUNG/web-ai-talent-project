@@ -46,15 +46,35 @@ export default function TopBar() {
     setIndicator({ left: btnRect.left - wrapRect.left - wrap.clientLeft, width: btnRect.width });
   }
 
-  // 分頁切換時（含瀏覽器上一頁／下一頁）重新定位指示條；畫面尺寸改變時也要重算
+  // 永遠指向最新的量測函式（裡面會讀目前網址），給下面的 ResizeObserver／字型載入回呼使用，避免讀到舊網址
+  const measureRef = useRef(measureIndicator);
+  measureRef.current = measureIndicator;
+
+  // 分頁切換時（含瀏覽器上一頁／下一頁）與剛登入、頂列第一次出現時重新定位指示條
   useLayoutEffect(() => {
     measureIndicator();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [location.pathname, username]);
+
+  // 分頁按鈕的大小或位置改變時也要重算，否則指示條會停在舊位置：
+  // 1. 圖示字型還沒載入時，圖示會先以一長串英文（如 shield_person）顯示，把按鈕撐寬，字型載入後按鈕才縮回來
+  // 2. 手機版分頁列隨畫面寬度伸縮，換頁時捲軸出現／消失會改變寬度，但不會觸發視窗的 resize 事件
   useEffect(() => {
-    window.addEventListener("resize", measureIndicator);
-    return () => window.removeEventListener("resize", measureIndicator);
-  });
+    const wrap = tabsWrapRef.current;
+    if (!wrap) return;
+    const measure = () => measureRef.current();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrap);
+    tabRefs.current.forEach((btn) => observer.observe(btn));
+    window.addEventListener("resize", measure);
+    document.fonts?.ready.then(measure);
+    document.fonts?.addEventListener("loadingdone", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      document.fonts?.removeEventListener("loadingdone", measure);
+    };
+  }, [username]);
   // 卸載時清掉還沒觸發的「放大」計時器，避免記憶體洩漏
   useEffect(() => () => window.clearTimeout(pressTimer.current), []);
 
@@ -99,7 +119,8 @@ export default function TopBar() {
   if (!username) return null;
 
   return (
-    <header className={styles.bar}>
+    // data-fixed-chrome：固定在畫面上的導覽區，浮動清單（如 Select）計算可用空間時要避開，不能蓋住它們
+    <header className={styles.bar} data-fixed-chrome>
       <div className={styles.barBackground} aria-hidden="true" />
       <div className={styles.inner}>
         <div
@@ -116,7 +137,7 @@ export default function TopBar() {
         </div>
 
         {/* 中央標籤列：indicator 是跟著作用中分頁滑動的玻璃指示條 */}
-        <div className={styles.tabsWrap} ref={tabsWrapRef}>
+        <div className={styles.tabsWrap} ref={tabsWrapRef} data-fixed-chrome>
           {indicator && (
             <div
               className={`${styles.indicator} ${pressed ? styles.indicatorPressed : ""}`}

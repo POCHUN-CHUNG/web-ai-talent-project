@@ -37,6 +37,10 @@ export default function Settings() {
       setMsg({ ok: false, text: "新密碼僅限英文與數字" });
       return;
     }
+    if (newPw === oldPw) {
+      setMsg({ ok: false, text: "新密碼不可與舊密碼相同" });
+      return;
+    }
     setBusy(true);
     try {
       // 3. 把新舊密碼送給後端
@@ -88,7 +92,7 @@ export default function Settings() {
               autoComplete="current-password"
               required
               endAdornment={
-                <IconButton icon={showOldPw ? "visibility_off" : "visibility"} label="切換舊密碼顯示" onClick={() => setShowOldPw((v) => !v)} />
+                <IconButton compact icon={showOldPw ? "visibility_off" : "visibility"} label="切換舊密碼顯示" onClick={() => setShowOldPw((v) => !v)} />
               }
             />
             <Input
@@ -103,7 +107,7 @@ export default function Settings() {
               autoComplete="new-password"
               required
               endAdornment={
-                <IconButton icon={showNewPw ? "visibility_off" : "visibility"} label="切換新密碼顯示" onClick={() => setShowNewPw((v) => !v)} />
+                <IconButton compact icon={showNewPw ? "visibility_off" : "visibility"} label="切換新密碼顯示" onClick={() => setShowNewPw((v) => !v)} />
               }
             />
             {/* 訊息位置（DESIGN.md）：輸入框與按鈕之間 */}

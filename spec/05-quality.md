@@ -222,6 +222,7 @@ form-action 'self';
 - [ ] A7 登入後呼叫 `/auth/me`，回 200 且含 `hasRiskProfile` 布林欄位
 - [ ] A8 改密碼成功後，另一裝置的舊通行證呼叫 `/auth/me` 回 401
 - [ ] A9 改密碼時舊密碼錯誤，回 400，密碼未被更動
+- [ ] A9b 改密碼時新密碼與舊密碼相同，回 400「新密碼不可與舊密碼相同」，密碼未被更動（D-132）
 - [ ] A10 同一 IP 一分鐘內第 11 次登入嘗試，回 429 並帶 `Retry-After`
 - [ ] A11 以帳號甲的通行證存取帳號乙的 `portfolio_id`、`analysis_id`、`profile_id`，三者皆回 403 `FORBIDDEN_RESOURCE`（須自動化）
 
@@ -274,9 +275,9 @@ form-action 'self';
 ### D. 量化分析（FR-22 ~ FR-29、NFR-01、NFR-02、NFR-06、NFR-12）
 
 - [ ] D1 分析選項端點回傳 `maxYears`、`minYears = 2`、兩個利率選項與 Q7／Q8／Q13 的預設值；不帶參數送出分析時，採最大期間與 `zero`（須自動化）
-- [ ] D2 `profileInputs` 帶與問卷不同的 Q8，回應的 `profileInputs.changedFields` 含 `withdrawalNeed`，且 `risk_profiles` 原值**未被修改**（須自動化）
-- [ ] D3 `profileInputs` 帶未知的鍵、非選項原文，或 `lookbackYears` 為 1、超過 ⌊maxYears⌋、非整數時回 400（須自動化）
-- [ ] D4 （已移除，v1.9.0）原 `overrides` 鎖定檢查
+- [ ] D2 前端風險分析頁滑桿可調範圍受 `maxYears` 限制，且能提示期間不足
+- [ ] D3 `profileInputs` 帶入與問卷不同的 Q8 或其他設定，回傳的 `changedFields` 正確標記，且 `risk_profiles` 總表**未被修改**（須自動化）
+- [ ] D4 `profileInputs` 帶未知的鍵、非選項原文，或 `lookbackYears` 小於 2、超過 ⌊maxYears×12⌋ 個月換算成年、換算成月數後不是整數時回 400（D-129，須自動化）
 - [ ] D5 年化波動度以 `ddof=1` 計算，比對黃金向量，相對誤差 < 1e-6（須自動化）
 - [ ] D6 Sharpe／Sortino 採算術年化；以幾何年化分子計算的值與之不同，測試需明確區分兩者（須自動化）
 - [ ] D7 $R_{f,\text{daily}}$ 等於 $(1+R_f)^{1/252}-1$，**不等於** $R_f/252$；`zero` 時 $R_f = MAR = 0$（須自動化）

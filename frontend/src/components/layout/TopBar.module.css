@@ -12,9 +12,12 @@
   left: 0;
   width: 100%;
   height: calc(100% + 16px); /* 延伸到下方 16px 進行漸層消失 */
-  background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  /* 不透明度全透明：這只是讓固定頂端列下方捲動內容變柔和的模糊層，不是卡片，
+     不能套用卡片的 75% 玻璃（那樣會整條頂端列泛白，蓋掉背景暈染）；
+     只要模糊、不要白色色調，才會像融入背景一樣 */
+  background-color: transparent;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   mask-image: linear-gradient(
     to bottom,
     black 0%,
@@ -219,7 +222,7 @@
   }
   
   .tabText {
-    font-size: 11px;
+    font-size: var(--text-label-md-size); /* 手機 12px：中文字最小不低於 12px（DESIGN.md Typography） */
     font-weight: 600;
   }
 }

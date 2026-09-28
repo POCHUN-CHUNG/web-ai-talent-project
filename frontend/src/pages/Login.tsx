@@ -9,7 +9,7 @@ import IconButton from "../components/ui/IconButton";
 import Input from "../components/ui/Input";
 import EntryPage from "../components/layout/EntryPage";
 import styles from "./Login.module.css";
-import { enterToNextField } from "../formKeys";
+import { enterSubmitWhenFilled } from "../formKeys";
 
 // 【登入／註冊頁】同一個畫面，依 mode 切換。
 // 參數：mode="login" 顯示登入、"register" 顯示註冊
@@ -55,11 +55,11 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
       const u = await api<{ username: string }>(`/auth/${mode}`, { username: account, password });
       // 5. 成功：先確認這個帳號是否已有風險屬性，再同時記下帳號與換頁（兩者同一次更新，
       //    避免本頁先因「已登入」自己導回首頁，讓新帳號被當成「被擋下」而跳出提示視窗）
-      await refreshProfile();
+      const profile = await refreshProfile();
       setUsername(u.username);
-      // 註冊：新帳號一定還沒評估，直接到風險屬性頁看「開始填寫」引導（不跳提示視窗）；
-      // 登入：回首頁，有風險屬性就進投資組合，沒有則由守衛導回風險屬性頁並跳出提示
-      navigate(isRegister ? "/risk-profile" : "/", { replace: true });
+      // 依是否填過問卷決定去哪一頁：填過才進投資組合頁；沒填過（含剛註冊的新帳號）直接到風險屬性頁看「開始填寫」引導，
+      // 不經過守衛導回，所以不會跳出「請先完成評估」的提示視窗
+      navigate(profile === "ready" ? "/portfolios" : "/risk-profile", { replace: true });
     } catch (err) {
       // 6. 失敗：顯示後端說明，連不上則顯示通用訊息
       setError(err instanceof ApiError ? err.message : "無法連線，請稍後再試");
@@ -79,7 +79,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
           </div>
         </div>
         <h2 className={styles.formHeading}>{isRegister ? "註冊" : "登入"}</h2>
-        <form className={styles.form} onSubmit={submit} onKeyDown={enterToNextField} noValidate>
+        <form className={styles.form} onSubmit={submit} onKeyDown={enterSubmitWhenFilled} noValidate>
           <Input
             id="accountInput"
             label="帳號"
@@ -103,6 +103,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
             required
             endAdornment={
               <IconButton
+                compact
                 icon={showPassword ? "visibility_off" : "visibility"}
                 label="切換密碼顯示"
                 onClick={() => setShowPassword((v) => !v)}
@@ -123,6 +124,7 @@ export default function Login({ mode }: { mode: "login" | "register" }) {
               required
               endAdornment={
                 <IconButton
+                  compact
                   icon={showConfirmPassword ? "visibility_off" : "visibility"}
                   label="切換確認密碼顯示"
                   onClick={() => setShowConfirmPassword((v) => !v)}

@@ -204,8 +204,8 @@ Nivo 0.99.0 的 React peer range 為 `^16.14 || ^17.0 || ^18.0 || ^19.0`，與�
 ```
 使用者點「評估管理」
   → GET /risk-profiles/latest            取得 saved 風險屬性
-  → GET /portfolios/{id}/analysis/options  取得最大期間、利率選項、Q7／Q8／Q13 預設值
-  → 風險分析頁標題下方的分析條件列（期間滑桿 + 報酬比較基準 + Q7／Q8／Q13 三個下拉），不使用彈窗
+  → GET /portfolios/{id}/analysis/options  取得最大期間、利率選項、Q7／Q8／Q13 預設值；GET /portfolios/{id}/price-coverage 試算期間是否足夠
+  → 前端在風險分析頁（/analysis）標題下方顯示分析條件列：滑桿選年數 + 報酬比較基準 + Q7／Q8／Q13，免用彈窗
   → POST /portfolios/{id}/analysis       body: lookbackYears, rateOption, profileInputs
   → 前端進入 computing 狀態（不顯示圖表）
        ├─ 讀 holding_lots → 彙總部位與目前市值權重

@@ -1,0 +1,162 @@
+/* 【下拉選單】觸發按鈕外觀與輸入框同一套膠囊外框：預設 1px outline 邊，只有在聚焦／展開（等同「選取中」）時
+   才變成 2px focus-ring 邊（比照 DESIGN.md Input 的規則），背景永遠不會因為展開而改變。
+   展開時，清單直接接在按鈕下方（或上方）、兩者合成同一個連續方框：按鈕與清單相鄰的那一邊不畫邊框、
+   角也改成直角，只有外圍那一圈畫 focus-ring 邊框，看起來斷不開接縫（比照 DESIGN.md「Search box with attached results」）。
+   清單另外掛到 body（見 Select.tsx），才不會被其他卡片蓋住；預設往下展開，空間不足時自動往上展開。 */
+.wrap {
+  position: relative;
+}
+
+.trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: 48px;
+  padding: 12px calc(var(--space-sm) - 1px) 12px var(--space-lg); /* 右側：圖示框距外框右緣 8px（扣掉 1px 邊框） */
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-input);
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: var(--text-input-text-size);
+  line-height: var(--text-input-text-line-height);
+  color: var(--color-on-surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-width: 2px;
+  border-color: var(--color-focus-ring);
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+  color: var(--color-on-surface-variant);
+}
+
+/* 展開、往下接清單：按鈕變 2px focus-ring 邊（等同選取中），下緣不畫線、下方兩角改直角，與清單的上緣無縫相接。
+   用 .trigger.xxx 提高權重，鍵盤聚焦（:focus-visible 的 2px 邊框）時接縫那一邊也不會被補回邊線 */
+.trigger.triggerJoinDown {
+  border-width: 2px;
+  border-color: var(--color-focus-ring);
+  border-bottom-width: 0;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* 展開、往上接清單：按鈕上緣不畫線、上方兩角改直角 */
+.trigger.triggerJoinUp {
+  border-width: 2px;
+  border-color: var(--color-focus-ring);
+  border-top-width: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
+}
+
+.value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 與全站輸入框 placeholder 一致：on-surface-variant 60% */
+.placeholder {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-on-surface-variant);
+  opacity: 0.6;
+}
+
+.icon {
+  flex: none;
+  color: var(--color-on-surface-variant);
+}
+
+/* 右側箭頭：與輸入框內的圖示按鈕同一規格（32×32 框、圖示 20px、距右緣 8px）；
+   上下負外距讓 32px 的框不撐高 48px 的選單 */
+.iconBox {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-block: -8px; /* 只算 16px 高，比文字行高還矮，選單高度完全由文字決定 */
+}
+
+/* 浮動清單：掛在 body，position: fixed；與觸發按鈕同一圈 focus-ring 邊框、no gap，讀起來是同一個方框 */
+.floatingList {
+  position: fixed;
+  z-index: 1000;
+  border: 2px solid var(--color-focus-ring);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-level-3);
+  overflow-x: hidden;
+  overflow-y: auto; /* 上下都放不下完整清單時（max-height 由 JS 依可用空間設定），在清單內捲動 */
+}
+
+/* 往下展開：清單上緣不畫線、上方兩角直角，與按鈕的下緣無縫相接 */
+.floatingListDown {
+  border-top-width: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
+}
+
+/* 往上展開：清單下緣不畫線、下方兩角直角。
+   陰影本來往下偏，會落在下方的按鈕上變成一條灰帶；用 clip-path 切掉清單下緣以下的陰影（上、左、右保留） */
+.floatingListUp {
+  border-bottom-width: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  clip-path: inset(-40px -40px 0 -40px);
+}
+
+.options {
+  list-style: none;
+  margin: 0;
+  --option-row: calc(var(--text-body-sm-size) * 1.5 + 20px);
+  padding: var(--space-xs);
+  max-height: calc(6 * var(--option-row) + 2 * var(--space-xs));
+  overflow-y: auto;
+}
+
+.options button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 10px var(--space-md);
+  line-height: 1.5;
+  border-radius: var(--radius-lg);
+  scroll-margin-block: var(--space-xs);
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.options button:disabled {
+  color: var(--color-on-surface-variant);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.options button:focus-visible,
+.options .optionActive {
+  background-color: var(--color-surface-container);
+}

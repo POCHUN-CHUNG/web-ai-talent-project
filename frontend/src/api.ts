@@ -4,11 +4,20 @@ const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
 // 問卷作答衝突的一項：message=說明、questionIds=互相矛盾的題號
 export type AnswerConflict = { message: string; questionIds: string[] };
 
+// 分析資料不足的一項：symbol=代號、name=名稱、years=目前約有幾年價格資料
+export type InsufficientSymbol = { symbol: string; name: string; years: number };
+
 // 【API 錯誤】帶有 HTTP 狀態碼的錯誤，供畫面顯示訊息。
 // 參數：status=狀態碼（如 401）、message=錯誤說明、code=後端錯誤碼（如 NOT_FOUND，舊端點沒有）、
-//       conflicts=問卷作答衝突明細（只有作答衝突時才有）
+//       conflicts=問卷作答衝突明細（只有作答衝突時才有）、symbols=風險分析資料不足的持股明細（只有分析資料不足時才有）
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: string, public conflicts?: AnswerConflict[]) {
+  constructor(
+    public status: number,
+    message: string,
+    public code?: string,
+    public conflicts?: AnswerConflict[],
+    public symbols?: InsufficientSymbol[],
+  ) {
     super(message);
   }
 }
@@ -30,7 +39,7 @@ export async function api<T = unknown>(path: string, body?: unknown, method?: "G
   // 4. 失敗時丟出錯誤：新格式 {code, message}、舊格式為文字；都沒有就視為輸入格式不符
   if (!res.ok) {
     const d = data.detail;
-    if (d && typeof d === "object" && typeof d.message === "string") throw new ApiError(res.status, d.message, d.code, d.conflicts);
+    if (d && typeof d === "object" && typeof d.message === "string") throw new ApiError(res.status, d.message, d.code, d.conflicts, d.symbols);
     throw new ApiError(res.status, typeof d === "string" ? d : "輸入格式不正確（僅限英文與數字）");
   }
   return data as T;

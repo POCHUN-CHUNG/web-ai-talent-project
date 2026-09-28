@@ -103,10 +103,18 @@ def build_positions(lots: list, names: dict, prices: dict, today: date, prev_pri
         # 3. 市值與損益（無最新報價時標為不可用 None）
         value = qty * price if price is not None else None
         ret = (value - cost) / cost if value is not None else None
-        # 最新日損益 = (最新價 − 前一日收盤價) × 股數；兩個價格缺一個就不可用
-        day_pnl = qty * (price - prev_price) if price is not None and prev_price is not None else None
-        # 前一日市值 = 前一日收盤價 × 股數；用來當「最新日損益率」的分母（分母是前一天的市值，不是投入成本）
-        prev_value = qty * prev_price if prev_price is not None else None
+        # 最新日損益是「這個組合」當天的損益，不是股票本身的漲跌：只算最新價格日之前就已持有的股數，
+        # 最新價格日當天才買進的股數當天損益一律為 0（D-133）
+        # = (最新價 − 前一日收盤價) × 前一日已持有股數；前一日沒有持股時為 0；需要用到的價格缺一個就不可用
+        held_qty = sum((x.quantity for x in items if price_date is not None and x.trade_date < price_date), Decimal(0))
+        if price is None:
+            day_pnl = None
+        elif held_qty == 0:
+            day_pnl = Decimal(0)
+        else:
+            day_pnl = held_qty * (price - prev_price) if prev_price is not None else None
+        # 前一日市值 = 前一日收盤價 × 前一日已持有股數；用來當「最新日損益率」的分母（分母是前一天的市值，不是投入成本）
+        prev_value = Decimal(0) if held_qty == 0 else (held_qty * prev_price if prev_price is not None else None)
         day_items = [(x.quantity * x.unit_cost, max((today - x.trade_date).days, 0)) for x in items]
         days = weighted_days(day_items)
         positions.append({
@@ -157,7 +165,8 @@ def build_totals(positions: list[dict], today: date) -> dict:
     day_pnl = sum((p["_day_pnl"] for p in positions), Decimal(0)) if complete_day else None
     # 最新日損益率 = 最新日損益 ÷ 前一日總市值（分母是前一天的市值，不是投入成本，才能反映「今天比昨天漲跌了多少百分比」）
     prev_value = sum((p["_prev_value"] for p in positions), Decimal(0)) if complete_day else None
-    day_pnl_pct = day_pnl / prev_value if day_pnl is not None and prev_value else None
+    # 前一日完全沒有持股（全部都是最新價格日當天買進）時，最新日損益為 0，損益率也是 0
+    day_pnl_pct = (day_pnl / prev_value if prev_value else Decimal(0) if day_pnl == 0 else None) if day_pnl is not None else None
     return {
         "costAmount": money(cost),
         "marketValue": money(value) if value is not None else None,

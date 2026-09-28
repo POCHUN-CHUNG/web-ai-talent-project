@@ -79,9 +79,11 @@ function Wheel({ items, value, onChange, label }: {
 // 尚未選股票時停用。股票更換後若已選日期不在新股票的資料內，會自動清空；autoSelectLatest 開啟時，沒有日期就自動選「距今最近的有資料日期」，
 // 避免使用者在休市日新增到錯誤日期。
 // 參數：symbol=股票代號（空字串＝尚未選）、value=目前日期（YYYY-MM-DD 或空）、onChange=選好日期後通知、disabled=整個停用、
-//      ariaLabel=按鈕的無障礙說明、autoSelectLatest=沒有日期時自動帶入最新的資料日期
-export default function TradeDatePicker({ symbol, value, onChange, disabled, ariaLabel, autoSelectLatest }: {
+//      ariaLabel=按鈕的無障礙說明、autoSelectLatest=沒有日期時自動帶入最新的資料日期、
+//      requestOpen=要求「聚焦並打開月曆」的次數（每加 1 就要求一次；日期還在載入時會等載入完成才打開）
+export default function TradeDatePicker({ symbol, value, onChange, disabled, ariaLabel, autoSelectLatest, requestOpen = 0 }: {
   symbol: string; value: string; onChange: (v: string) => void; disabled?: boolean; ariaLabel?: string; autoSelectLatest?: boolean;
+  requestOpen?: number;
 }) {
   const [dates, setDates] = useState<Set<string> | null>(null); // null＝尚未取得
   const [range, setRange] = useState<{ first: string; last: string } | null>(null);
@@ -90,14 +92,21 @@ export default function TradeDatePicker({ symbol, value, onChange, disabled, ari
   const [month, setMonth] = useState<Date>(new Date()); // 月曆目前顯示的月份（每月 1 日）
   const [picking, setPicking] = useState(false); // true＝標題下方顯示年／月滾輪，false＝顯示月曆
   const box = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const [pendingOpen, setPendingOpen] = useState(false); // 收到「打開」要求、但日期還沒載入完，先記著
 
-  // 【開啟月曆】顯示已選日期所在的月份（沒選就顯示最新資料月份），並回到月曆畫面
-  function openCalendar() {
+  // 【開啟月曆】顯示已選日期所在的月份（沒選就顯示最新資料月份），並回到月曆畫面。參數：force=一定打開（否則切換開／關）
+  function openCalendar(force = false) {
     const base = parse(value || range?.last || ymd(new Date()));
     setMonth(new Date(base.getFullYear(), base.getMonth(), 1));
     setPicking(false);
-    setOpen((o) => !o);
+    setOpen((o) => force || !o);
   }
+
+  // 【外部要求打開】例如在「標的」用 Enter 選好股票後，游標移到日期並直接打開月曆
+  useEffect(() => {
+    if (requestOpen > 0) setPendingOpen(true);
+  }, [requestOpen]);
 
   // 【取得有資料的日期】換股票時向後端查（有快取）；查到後若目前日期不在其中就清空
   useEffect(() => {
@@ -132,9 +141,19 @@ export default function TradeDatePicker({ symbol, value, onChange, disabled, ari
   }, [open]);
 
   const ready = !!symbol && dates !== null && !!range;
+
+  // 日期載入完成（按鈕可按）後，才執行先前收到的「打開」要求：聚焦按鈕並打開月曆
+  useEffect(() => {
+    if (!pendingOpen || !ready || disabled) return;
+    setPendingOpen(false);
+    trigger.current?.focus();
+    openCalendar(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOpen, ready, disabled]);
+
   return (
     <div ref={box} className={styles.wrap}>
-      <button type="button" className={styles.trigger} onClick={openCalendar} disabled={disabled || !ready}
+      <button ref={trigger} type="button" className={styles.trigger} onClick={() => openCalendar()} disabled={disabled || !ready}
         aria-haspopup="dialog" aria-expanded={open} aria-label={ariaLabel}>
         <span className={value ? undefined : styles.placeholder}>
           {value || (!symbol ? "請先輸入標的" : error ? "無法選日期" : dates === null ? "載入中…" : range ? "選擇日期" : "無資料")}

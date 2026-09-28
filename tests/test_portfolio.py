@@ -148,6 +148,21 @@ def test_detail_latest_day_pnl():
     assert out["totals"]["latestDayPnl"] == "100.0000" and out["totals"]["latestDayPnlPercent"] == 0.1
 
 
+def test_detail_latest_day_pnl_bought_on_latest_day_is_zero():
+    # D-133：全部都在最新價格日當天買進，組合當天的損益為 0（等於歷史總損益），損益率也是 0
+    lots = [lot(1, "2330", TODAY, 10, 110)]
+    out = pf.build_detail(lots, {}, {"2330": (D("110"), TODAY)}, TODAY, prev_prices={"2330": D("100")})
+    assert out["totals"]["latestDayPnl"] == "0.0000" and out["totals"]["latestDayPnlPercent"] == 0.0
+    assert out["totals"]["latestDayPnl"] == out["totals"]["unrealizedPnl"]
+
+
+def test_detail_latest_day_pnl_counts_only_shares_held_before():
+    # D-133：之前持有 10 股、當天再買 5 股 → 只算之前的 10 股：10 ×（110 − 100）＝ 100，分母為前一日這 10 股的市值 1000
+    lots = [lot(1, "2330", date(2026, 8, 3), 10, 100), lot(2, "2330", TODAY, 5, 110)]
+    out = pf.build_detail(lots, {}, {"2330": (D("110"), TODAY)}, TODAY, prev_prices={"2330": D("100")})
+    assert out["totals"]["latestDayPnl"] == "100.0000" and out["totals"]["latestDayPnlPercent"] == 0.1
+
+
 def test_history_value_and_cost_by_day():
     # 8/3 買 2330、8/5 再買 0050；8/4 0050 沒報價不影響，8/6 2330 停牌沿用前價
     lots = [lot(1, "2330", date(2026, 8, 3), 10, 100), lot(2, "0050", date(2026, 8, 5), 10, 50)]

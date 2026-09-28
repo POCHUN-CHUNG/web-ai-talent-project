@@ -13,6 +13,7 @@ import modalStyles from "../components/ui/Modal.module.css";
 import styles from "./Portfolios.module.css";
 import { enterToNextField } from "../formKeys";
 import Chip from "../components/ui/Chip";
+import PageSpinner from "../components/ui/PageSpinner";
 
 type Summary = {
   id: number;
@@ -103,6 +104,20 @@ export default function Portfolios() {
     return styles.neutral;
   }
 
+  // 載入中：只顯示頁面標題與畫面中間的轉圈圈（DESIGN.md〈Page loading〉）
+  if (items === null && !error) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <h1 className={styles.title}>我的投資組合</h1>
+          </div>
+        </div>
+        <PageSpinner />
+      </main>
+    );
+  }
+
   return (
       <main className={styles.page}>
         <div className={styles.header}>
@@ -181,9 +196,7 @@ export default function Portfolios() {
             <div role="alert" style={{ border: "1px solid var(--color-error)", padding: "1rem", color: "var(--color-error)" }}>
               {error}　<Button onClick={load} variant="outlined">重試</Button>
             </div>
-          ) : items === null ? (
-            <p>載入中…</p>
-          ) : items.length === 0 ? (
+          ) : items === null ? null : items.length === 0 ? (
             <div style={{ padding: "2rem", textAlign: "center", border: "1px dashed var(--color-outline)", borderRadius: "var(--radius-card)", lineHeight: 1.5 }}>
               請點擊右上角「新增組合」，<br className={styles.mobileBreak} />建立您的第一個投資組合
             </div>
@@ -195,7 +208,8 @@ export default function Portfolios() {
                 { label: "編輯", onSelect: () => setAction({ kind: "rename", p }) },
                 { label: "刪除", danger: true, onSelect: () => setAction({ kind: "delete", p }) },
               ]} />
-              <Link to={`/portfolios/${p.id}`} className={styles.card}>
+              {/* 帶上組合名稱，明細頁載入中時就能先顯示標題 */}
+              <Link to={`/portfolios/${p.id}`} state={{ name: p.name }} className={styles.card}>
                 <div className={styles.cardHeader}>
                   <h2 className={styles.cardTitle}>{p.name}</h2>
                 </div>

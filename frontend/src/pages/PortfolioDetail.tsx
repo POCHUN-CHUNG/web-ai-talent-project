@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api";
 import LotForm, { EditingLot } from "../components/LotForm";
 import { HistoryPoint, HistoryTrend, HoldingsHeatmap, IndustryTreemap, ShareDonut, SparkPoint, Sparkline } from "../components/PortfolioCharts";
@@ -11,6 +11,7 @@ import IconButton from "../components/ui/IconButton";
 import InfoPopover from "../components/ui/InfoPopover";
 import Modal from "../components/ui/Modal";
 import Notice from "../components/ui/Notice";
+import PageSpinner from "../components/ui/PageSpinner";
 import { ConfirmDialog, RenameDialog } from "../components/PortfolioDialogs";
 import { decimal, formatDateTime, money, NA, pct, pnlColor, signedMoney, todayTaipei } from "../format";
 import styles from "./PortfolioDetail.module.css";
@@ -56,6 +57,7 @@ function annualText(v: number | null, _days: number, _hasPrice: boolean): string
 export default function PortfolioDetail() {
   const { portfolioId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [data, setData] = useState<Detail | null>(null); // null＝載入中
   const [error, setError] = useState("");
   const [history, setHistory] = useState<HistoryPoint[] | null>(null); // null＝走勢載入中
@@ -112,13 +114,22 @@ export default function PortfolioDetail() {
       </main>
     );
   }
+  // 載入中：只顯示標題（組合名稱）與畫面中間的轉圈圈（DESIGN.md〈Page loading〉）；
+  // 名稱由總覽頁的卡片連結帶過來，直接輸入網址進來時還不知道名稱，就只顯示轉圈圈
   if (!data) {
+    const pendingName = (location.state as { name?: string } | null)?.name;
     return (
       <main className={styles.page}>
-        <BackLink />
-        <div className={styles.skeletonTitle} />
-        <Card className={`${styles.skeleton} ${styles.whiteCard}`} role="status" aria-label="載入中" />
-        <Card className={`${styles.skeleton} ${styles.whiteCard}`} />
+        {pendingName && (
+          <header className={styles.header}>
+            <div className={styles.headerLeft}>
+              <div className={styles.nameRow}>
+                <h1 className={styles.title}>{pendingName}</h1>
+              </div>
+            </div>
+          </header>
+        )}
+        <PageSpinner />
       </main>
     );
   }
@@ -143,12 +154,16 @@ export default function PortfolioDetail() {
   const mvSeries = series((p) => Number(p.marketValue));
   const costSeries = series((p) => Number(p.costAmount));
   const pnlSeries = series(pnlOf);
-  // 每日損益 = 今日損益 − 昨日損益（當天新買進的成本不算賺）；第一天沒有前一天，不畫
-  const dailySeries = series((p, i) => (i === 0 ? null : pnlOf(p) - pnlOf(hist[i - 1]))); // 第一天沒有前一天可比較，不推算、直接留空
+  // 每日損益 = 今日損益 − 昨日損益（當天新買進的成本不算賺）；第一筆買進當天一律為 0（與後端「最新日損益」規則一致），
+  // 所以累積 2 個交易日就畫得出線
+  const dailySeries = series((p, i) => (i === 0 ? 0 : pnlOf(p) - pnlOf(hist[i - 1])));
   const annualSeries = series((p) => p.annualizedReturn);
   // 圖表顏色跟著卡片上的數字顏色走（正紅、負綠）；市值與投入成本的數字不上色，圖表也用中性色
   const signOf = (v: string | number | null) => (v == null ? undefined : Number(v));
   const sparkLabel = "近 1 個月";
+  // 累積不到 2 個交易日的資料時畫不出線：總覽只留數字（不放任何圖表、區塊高度跟著縮小），歷史走勢整塊不顯示，也不顯示提示文字。
+  // 走勢還在載入中時先保留圖表位置，避免版面跳動
+  const showCharts = history === null || history.length >= 2;
   // 資料更新時間：沒有持股或沒有時間時整行不顯示（不顯示「-」或 N/A）
   const updated = !empty && data.dataUpdatedAt ? (
     <><Icon name="schedule" size={16} />資料更新時間：{formatDateTime(data.dataUpdatedAt)}</>
@@ -189,38 +204,40 @@ export default function PortfolioDetail() {
             <div className={styles.hero}>
               <span className={styles.heroLabel}>目前總市值</span>
               <span className={styles.heroValue}>{money(totals.marketValue)}{totals.marketValue != null && <span className={styles.unit}>元</span>}</span>
-              <div className={styles.heroChart}>
-                <Sparkline tall blue points={mvSeries} label={`${sparkLabel}市值走勢`} />
-              </div>
+              {showCharts && (
+                <div className={styles.heroChart}>
+                  <Sparkline tall blue points={mvSeries} label={`${sparkLabel}市值走勢`} />
+                </div>
+              )}
             </div>
             <div className={styles.miniGrid}>
               <MetricCard label="總投入成本" value={money(totals.costAmount)} unit="元"
-                chart={<Sparkline blue points={costSeries} label={`${sparkLabel}投入成本走勢`} />} />
+                chart={showCharts && <Sparkline blue points={costSeries} label={`${sparkLabel}投入成本走勢`} />} />
               <MetricCard label="年化報酬率" value={annualText(totals.annualizedReturn, totals.holdingDays, totals.marketValue != null).replace(/%$/, "")}
                 unit={totals.annualizedReturn != null ? "%" : undefined}
                 color={pnlColor(totals.annualizedReturn)} small={totals.annualizedReturn == null}
-                chart={<Sparkline points={annualSeries} direction={signOf(totals.annualizedReturn)} label={`${sparkLabel}年化報酬率走勢`} />} />
+                chart={showCharts && <Sparkline points={annualSeries} direction={signOf(totals.annualizedReturn)} label={`${sparkLabel}年化報酬率走勢`} />} />
               <MetricCard label="最新日損益" value={signedMoney(totals.latestDayPnl)} unit="元" color={pnlColor(totals.latestDayPnl)}
                 change={totals.latestDayPnlPercent}
-                chart={<Sparkline points={dailySeries} direction={signOf(totals.latestDayPnl)} label={`${sparkLabel}每日損益`} />} />
+                chart={showCharts && <Sparkline points={dailySeries} direction={signOf(totals.latestDayPnl)} label={`${sparkLabel}每日損益`} />} />
               <MetricCard label="歷史總損益" value={signedMoney(totals.unrealizedPnl)} unit="元" color={pnlColor(totals.unrealizedPnl)}
                 change={totals.unrealizedReturn}
-                chart={<Sparkline points={pnlSeries} direction={signOf(totals.unrealizedPnl)} label={`${sparkLabel}累計損益走勢`} />} />
+                chart={showCharts && <Sparkline points={pnlSeries} direction={signOf(totals.unrealizedPnl)} label={`${sparkLabel}累計損益走勢`} />} />
             </div>
           </Card>
 
-          {/* 2. 歷史走勢：最上方區間切換，下面市值變化與損益變化兩張圖（不另放區塊標題） */}
-          <Card className={styles.whiteCard}>
-            {historyError ? (
-              <div className={styles.inlineState}><Chip variant="error">{historyError}</Chip><Button variant="outlined" onClick={loadHistory}>重試</Button></div>
-            ) : history === null ? (
-              <div className={styles.chartSkeleton} role="status" aria-label="走勢載入中" />
-            ) : history.length < 2 ? (
-              <p className={styles.muted}>買進後累積兩個交易日以上的資料，才會顯示走勢。</p>
-            ) : (
-              <HistoryTrend points={history} />
-            )}
-          </Card>
+          {/* 2. 歷史走勢：最上方區間切換，下面市值變化與損益變化兩張圖（不另放區塊標題）；不足 2 個交易日時整塊不顯示 */}
+          {showCharts && (
+            <Card className={styles.whiteCard}>
+              {historyError ? (
+                <div className={styles.inlineState}><Chip variant="error">{historyError}</Chip><Button variant="outlined" onClick={loadHistory}>重試</Button></div>
+              ) : history === null ? (
+                <div className={styles.chartSkeleton} role="status" aria-label="走勢載入中" />
+              ) : (
+                <HistoryTrend points={history} />
+              )}
+            </Card>
+          )}
 
           {/* 3. 資產與產業配置：上排兩張環形圖、下排兩張方塊圖 */}
           <section className={styles.allocGrid} aria-label="資產與產業配置">
@@ -236,11 +253,8 @@ export default function PortfolioDetail() {
               {/* 標題右側接單價說明（比照問卷頁標題旁「共 14 題」的樣式；提示語前加 info 圖示） */}
               <div className={styles.titleWithNote}>
                 <h2 className={styles.tableTitle}>庫存明細</h2>
-                {/* 桌機：標題旁直接顯示說明；手機：只顯示 info 圖示，點一下（或滑鼠移上去）跳出說明框 */}
-                <div className={`${styles.metaText} ${styles.noteDesktop}`}>
-                  <Icon name="info" size={16} />{PRICE_NOTE}
-                </div>
-                <InfoPopover label="每股價格說明" className={styles.noteMobile}>{PRICE_NOTE}。</InfoPopover>
+                {/* 說明收在 info 圖示的提示框內，桌機與手機都一樣，版面更乾淨 */}
+                <InfoPopover label="每股價格說明">{PRICE_NOTE}。</InfoPopover>
               </div>
               <Button onClick={() => openAdd()}>新增持股</Button>
             </div>
@@ -348,17 +362,27 @@ export default function PortfolioDetail() {
   );
 }
 
-// 【返回連結】回投資組合清單（載入中與錯誤畫面使用）。無參數。
+// 【返回連結】回投資組合清單（錯誤畫面使用）。無參數。
 function BackLink() {
   return <Link to="/portfolios" className={styles.back}><Icon name="arrow_back" size={18} />我的投資組合</Link>;
 }
 
 // 【指標卡片】總覽區右側的一張數值小卡：粗體標題、數字、下方迷你趨勢圖。
 // 參數：label=標題、value=數字、unit=單位（可省略）、color=數字顏色（可省略）、small=數字用較小字級（文字較長時）、
-//      change=漲跌幅（比例，如 -0.0807；可省略，給了就在金額下方顯示 ▲／▼ 與百分比）、chart=下方趨勢圖
+//      change=漲跌幅（比例，如 -0.0807；可省略，給了就在金額下方顯示 ▲／▼ 與百分比）、
+//      chart=下方趨勢圖（false＝資料不足、整張卡不放圖表，高度跟著縮小）
 function MetricCard({ label, value, unit, color, small, change, chart }: {
   label: string; value: string; unit?: string; color?: string; small?: boolean; change?: number | null; chart: React.ReactNode;
 }) {
+  // 資料不足、不放圖表時的 N/A：放在數字那一行，與同一列其他卡片的數字水平對齊
+  if (value === NA && chart === false) {
+    return (
+      <div className={styles.smallCard}>
+        <span className={styles.metricLabel}>{label}</span>
+        <span className={`${styles.metricValue} ${styles.metricNAInline}`}>N/A</span>
+      </div>
+    );
+  }
   // 無法計算（N/A）：不顯示空白的趨勢圖，「N/A」置中於標題下方的整塊區域（數字＋圖表的位置）
   if (value === NA) {
     return (
@@ -380,7 +404,7 @@ function MetricCard({ label, value, unit, color, small, change, chart }: {
           {change !== 0 && <span className={styles.changeArrow}>{change > 0 ? "▲" : "▼"}</span>}{pct(Math.abs(change)).replace("%", "")}<span className={styles.unit}>%</span>
         </span>
       )}
-      <div className={styles.metricChart}>{chart}</div>
+      {chart !== false && <div className={styles.metricChart}>{chart}</div>}
     </div>
   );
 }

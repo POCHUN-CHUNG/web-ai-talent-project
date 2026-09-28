@@ -117,11 +117,12 @@
 
 | 工作 | 檔案 |
 | --- | --- |
-| `analysis_results` 表 | `models.py` |
-| 共同交易日、最大期間與 2 年下限、權重、利率選項、`profileInputs` 驗證 | `services/analysis.py` |
-| `GET /portfolios/{id}/analysis/options`、`POST /portfolios/{id}/analysis`、`GET /analysis/{id}`、歷史清單 | `routers/analysis.py` |
-| 三張圖的資料結構組裝 | `services/risk_metrics.py` |
-| 風險分析頁的分析條件列（組合 ＋ 期間滑桿 ＋ 報酬比較基準 ＋ Q7／Q8／Q13 三個下拉，不用彈窗） | `frontend/src/`（第三段） |
+| `analysis_results` 表與 migration | `models.py`、`migrations/` |
+| 資料交集試算、最大期間限制、參數與 `profileInputs` 驗證 | `services/analysis.py` |
+| 計算 14 項指標、IR0001 對照與風險診斷規則 | `services/risk_metrics.py` |
+| `GET /portfolios/{id}/analysis/options`、`POST /portfolios/{id}/analysis`、`GET /analysis/{id}` 與歷史紀錄 | `routers/analysis.py` |
+| 報表前端資料結構組裝 | `services/risk_metrics.py` |
+| 前端風險分析頁標題下方分析條件列（組合、期間滑桿、報酬基準、Q7/Q8/Q13，不用彈窗） | `frontend/src/pages/RiskAnalysis.*` |
 
 **出場條件**：D1–D3、D16–D24 通過。
 

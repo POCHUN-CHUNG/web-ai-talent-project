@@ -17,12 +17,21 @@ logger = logging.getLogger(__name__)
 # ── 抓取設定 ──
 # 證交所 ISIN 分類表的四組條件（市場代碼, 證券類別）：上市普通股（含 KY）、上櫃普通股、上市 ETF、上櫃 ETF
 ISIN_TARGETS = [(1, 1), (2, 4), (1, "I"), (2, 3)]
-ISIN_URL = "https://isin.twse.com.tw/isin/class_main.jsp?market={market}&issuetype={issuetype}"
+ISIN_URL = (
+    "https://isin.twse.com.tw/isin/class_main.jsp?market={market}&issuetype={issuetype}"
+)
 # 代號白名單：4 碼普通股（1000～9999）或 00 開頭的 ETF（含 00981A 這類帶字尾者），排除特別股與權證
 SYMBOL_PATTERN = re.compile(r"^([1-9]\d{3}|00\d{2,3}[A-Za-z]?)$")
 # 大盤指數（市場基準）也收錄在股票基本資料表，讓日收盤價能對應到代號
-BENCHMARK_ROW = {"symbol": "IR0001", "name": "加權報酬指數", "market": "指數", "industry": "大盤"}
-ETF_INDUSTRY = "ETF"  # ETF 在證交所表格沒有產業別，統一補上這個值（規格要求 ETF 也要有產業別）
+BENCHMARK_ROW = {
+    "symbol": "IR0001",
+    "name": "加權股價報酬指數",
+    "market": "指數",
+    "industry": "大盤",
+}
+ETF_INDUSTRY = (
+    "ETF"  # ETF 在證交所表格沒有產業別，統一補上這個值（規格要求 ETF 也要有產業別）
+)
 UPSERT_CHUNK = 1000  # 每次寫入資料庫的最大筆數
 
 
@@ -33,12 +42,16 @@ def _fetch_one_table(market: int, issuetype: int | str) -> pd.DataFrame:
     res = requests.get(url, timeout=15)
     res.raise_for_status()
     # 代號欄強制當文字讀，避免 0050 被讀成數字 50 而掉了開頭的 0
-    tables = pd.read_html(io.StringIO(res.text), header=[0], converters={"有價證券代號": str})
+    tables = pd.read_html(
+        io.StringIO(res.text), header=[0], converters={"有價證券代號": str}
+    )
     df = tables[0]
     # 欄位不齊代表網頁改版或被擋（回傳的不是表格），視為失敗而不是空資料
     required = {"有價證券代號", "有價證券名稱", "市場別", "產業別"}
     if not required.issubset(df.columns) or df.empty:
-        raise ValueError(f"證交所表格格式異常（market={market}, issuetype={issuetype}）")
+        raise ValueError(
+            f"證交所表格格式異常（market={market}, issuetype={issuetype}）"
+        )
     return df
 
 
@@ -93,7 +106,10 @@ def save_stock_info(db: Session, rows: list[dict]) -> int:
     now = datetime.now(timezone.utc)
     try:
         for i in range(0, len(rows), UPSERT_CHUNK):
-            chunk = [{**r, "created": now, "updated": now} for r in rows[i : i + UPSERT_CHUNK]]
+            chunk = [
+                {**r, "created": now, "updated": now}
+                for r in rows[i : i + UPSERT_CHUNK]
+            ]
             stmt = insert(StockInfo).values(chunk)
             # 2. 代號重複時覆寫內容；created 不放進 set_，永遠維持第一次寫入的值
             stmt = stmt.on_conflict_do_update(

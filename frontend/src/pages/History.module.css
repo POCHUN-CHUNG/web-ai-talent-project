@@ -9,8 +9,10 @@
 }
 
 @media (max-width: 734px) {
+  /* 手機：區塊與卡片之間一律 16px（DESIGN.md Spacing：桌機 24px、手機 16px） */
   .page {
     padding: 96px var(--space-md) 0;
+    gap: var(--space-md);
   }
 }
 

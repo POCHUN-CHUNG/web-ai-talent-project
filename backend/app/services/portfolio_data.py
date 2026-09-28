@@ -208,6 +208,19 @@ def close_on_date(db: Session, symbol: str, d: date) -> Decimal:
     return px
 
 
+def load_price_ranges(db: Session, symbols: set) -> dict:
+    # 【查價格資料期間】為這批代號各查資料庫中最早與最新一筆收盤價的日期（完全沒有資料的代號不會出現在結果中）。
+    # 參數：db=資料庫連線、symbols=代號集合；回傳 代號→(最早日期, 最新日期)
+    if not symbols:
+        return {}
+    rows = db.execute(
+        select(DailyQuote.symbol, func.min(DailyQuote.trade_date), func.max(DailyQuote.trade_date))
+        .where(DailyQuote.symbol.in_(symbols))
+        .group_by(DailyQuote.symbol)
+    ).all()
+    return {sym: (first, last) for sym, first, last in rows}
+
+
 def trading_dates(db: Session, symbol: str) -> list[date]:
     # 【有資料的日期】該檔股票所有有收盤價的日期，由舊到新；供買進日期選擇器只開放這些日期。參數：db=資料庫連線、symbol=代號
     return list(db.scalars(select(DailyQuote.trade_date).where(DailyQuote.symbol == symbol).order_by(DailyQuote.trade_date)).all())

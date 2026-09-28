@@ -11,7 +11,7 @@ type AuthState = {
   loading: boolean;
   setUsername: (u: string | null) => void;
   profile: ProfileState;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<ProfileState>;
 };
 const Ctx = createContext<AuthState>(null!);
 // 【取得登入資訊】任何頁面呼叫後即可讀到目前帳號
@@ -24,14 +24,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileState>("none");
 
-  // 【重新確認風險屬性狀態】有最新一份風險屬性就是 ready，查無（404）視為 none；資料表只存通過檢查的作答，有就代表可用
-  const refreshProfile = useCallback(async () => {
+  // 【重新確認風險屬性狀態】有最新一份風險屬性就是 ready，查無（404）視為 none；資料表只存通過檢查的作答，有就代表可用。
+  // 同時回傳結果，讓呼叫端（例如登入後）不必等狀態更新就能決定要去哪一頁
+  const refreshProfile = useCallback(async (): Promise<ProfileState> => {
+    let next: ProfileState = "none";
     try {
       await api("/risk-profiles/latest");
-      setProfile("ready");
+      next = "ready";
     } catch {
-      setProfile("none");
+      next = "none";
     }
+    setProfile(next);
+    return next;
   }, []);
 
   // 每次載入頁面（含輸入網址、書籤）都向後端確認登入狀態
