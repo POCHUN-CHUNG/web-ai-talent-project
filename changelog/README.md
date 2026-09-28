@@ -40,6 +40,7 @@
 | 024  | 2026-09-27 | `286cd0f` | 投資組合明細頁改版與全站 UI 規範 | [024-286cd0f-portfolio-detail-redesign.md](024-286cd0f-portfolio-detail-redesign.md) |
 | 025  | 2026-09-27 | `e0fc067` | 投資組合風險指標計算的參考程式 | [025-e0fc067-risk-metric-reference-scripts.md](025-e0fc067-risk-metric-reference-scripts.md) |
 | 026  | 2026-09-27 | `e55c209` | 風險分析後端與規格書 v1.10.0 | [026-e55c209-risk-analysis-backend.md](026-e55c209-risk-analysis-backend.md) |
+| 027  | 2026-09-28 | `d08fe9d` | 風險分析頁前端改版與全站 UI 修正 | [027-d08fe9d-risk-analysis-ui.md](027-d08fe9d-risk-analysis-ui.md) |
 
 ## 維護規則
 

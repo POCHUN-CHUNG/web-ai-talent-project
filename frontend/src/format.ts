@@ -69,3 +69,15 @@ export function checkLotFields(date: string, qty: string): string {
   if (!/^[1-9]\d*$/.test(qty.trim())) return "數量須為大於 0 的整數";
   return "";
 }
+
+// 【往前推 N 個月】回傳 N 個月前的同一天（該月沒有這一天時取月底，例如 3/31 往前 1 個月是 2/28）；
+// 風險分析的分析期間與歷史走勢的區間都用這個算起點，再取範圍內最早一個有資料的交易日。
+// 直接對月數做整數運算，沒有浮點誤差。參數：day=YYYY-MM-DD、months=月數
+export function monthsBefore(day: string, months: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const targetIndex = y * 12 + (m - 1) - months; // 0-based 月索引（可能為負或超過 11，下面再正規化）
+  const ty = Math.floor(targetIndex / 12);
+  const tm = targetIndex - ty * 12 + 1; // 1-based 月份
+  const last = new Date(Date.UTC(ty, tm, 0)).getUTCDate(); // 該月最後一天
+  return `${ty}-${String(tm).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}

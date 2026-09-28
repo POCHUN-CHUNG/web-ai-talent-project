@@ -2,7 +2,7 @@ import { createContext, memo, useContext, useEffect, useId, useLayoutEffect, use
 import { ResponsiveLine } from "@nivo/line";
 import { ResponsivePie } from "@nivo/pie";
 import { NodeComponent, ResponsiveTreeMap } from "@nivo/treemap";
-import { compactMoney, money, pct, signedMoney } from "../format";
+import { money, monthsBefore, pct, signedMoney } from "../format";
 import Icon from "./ui/Icon";
 import styles from "./PortfolioCharts.module.css";
 
@@ -113,9 +113,9 @@ export function Sparkline({ points, direction, blue, label, tall }: { points: Sp
   if (points.length === 0) return <div className={box} aria-hidden="true" />;
   // 1. 時間範圍：最近 1 個月內「有數值」的點；橫軸從第一個有數值的點開始（不足 1 個月時等於顯示全部）
   const end = toDate(points[points.length - 1].date);
-  const monthAgo = new Date(end.getFullYear(), end.getMonth() - 1, end.getDate());
+  const monthAgo = monthsBefore(points[points.length - 1].date, 1); // 與歷史走勢、分析期間同一種「往回推 1 個月」算法
   const pts = points
-    .filter((p) => p.value != null && toDate(p.date) >= monthAgo)
+    .filter((p) => p.value != null && p.date >= monthAgo)
     .map((p) => ({ x: toDate(p.date), y: p.value as number }));
   if (pts.length < 2) return <div className={box} aria-hidden="true" />;
   const start = pts[0].x;
@@ -404,20 +404,24 @@ export function HoldingsHeatmap({ positions }: { positions: ChartPosition[] }) {
 
 // ─────────────────────────── 2. 歷史走勢 ───────────────────────────
 
-// 走勢圖可選的區間（依資料長度動態顯示）；天數為 null 代表全部
+// 走勢圖可選的區間（依資料長度動態顯示）；以「月數」往回推，與風險分析的分析期間同一種算法（見 format.ts 的 monthsBefore），
+// months 為 null 代表全部
 const RANGES = [
-  { key: "1M", label: "1 個月", days: 31 },
-  { key: "3M", label: "3 個月", days: 92 },
-  { key: "6M", label: "6 個月", days: 183 },
-  { key: "1Y", label: "1 年", days: 366 },
-  { key: "3Y", label: "3 年", days: 366 * 3 },
-  { key: "5Y", label: "5 年", days: 366 * 5 },
-  { key: "10Y", label: "10 年", days: 366 * 10 },
-  { key: "ALL", label: "全部", days: null },
+  { key: "1M", label: "1 個月", months: 1 },
+  { key: "3M", label: "3 個月", months: 3 },
+  { key: "6M", label: "6 個月", months: 6 },
+  { key: "1Y", label: "1 年", months: 12 },
+  { key: "3Y", label: "3 年", months: 36 },
+  { key: "5Y", label: "5 年", months: 60 },
+  { key: "10Y", label: "10 年", months: 120 },
+  { key: "ALL", label: "全部", months: null },
 ] as const;
 const TREND_MARGIN = { top: 12, right: 12, bottom: 32, left: 64 }; // 兩張走勢圖同一組邊距，時間軸與十字線才會上下對齊
 const TICK_STEPS = [1, 3, 12, 24, 60]; // 月刻度的間隔（月）：每月、每季、每年、每 2 年、每 5 年，挑第一個放得下的
 const WEEK_DAYS = 7; // 一個月以內的區間，時間軸刻度的間隔（天）
+const NICE_STEPS = [1, 2, 2.5, 5]; // 縱軸刻度間隔可用的整齊數字（再乘上 10 的次方）
+const MIN_Y_STEPS = 3; // 縱軸最少分幾格
+const MAX_Y_STEPS = 5; // 縱軸最多分幾格（再多刻度文字會擠在一起）
 const PILL_H = 20; // 十字線座標標籤的高度（px）
 const DATE_PILL_W = 84; // 十字線日期標籤的寬度（px，放得下 YYYY-MM-DD）
 
@@ -476,9 +480,9 @@ function useMaxTicks(): number {
 export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
   const t = useChartTokens();
   const maxTicks = useMaxTicks();
-  const spanDays = (toDate(points[points.length - 1].date).getTime() - toDate(points[0].date).getTime()) / DAY_MS;
-  // 只提供比資料長度短的區間（加上「全部」），按了才看得到差別
-  const ranges = RANGES.filter((r) => r.days == null || r.days < spanDays);
+  const lastDate = points[points.length - 1].date;
+  // 只提供比資料長度短的區間（往回推算出的起點晚於第一筆資料，加上「全部」），按了才看得到差別
+  const ranges = RANGES.filter((r) => r.months == null || monthsBefore(lastDate, r.months) > points[0].date);
   const [range, setRange] = useState<string>("ALL");
   const cur = ranges.find((r) => r.key === range) ?? ranges[ranges.length - 1];
   const [hover, setHover] = useState<TrendHover>(null);
@@ -489,18 +493,18 @@ export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
     return () => window.removeEventListener("resize", clear);
   }, []);
 
-  // 1. 依區間截取，並算好每天的損益與報酬率；刻度只在區間或寬度改變時重算
+  // 1. 依區間截取，並算好每天的損益與報酬率；刻度只在區間或寬度改變時重算。
+  //    起點＝最後一天往回推 N 個月的同一天；那天不一定有資料，所以取範圍內最早一個有資料的日期（與風險分析的分析期間相同）
   const rows: TrendRow[] = useMemo(() => {
-    const end = toDate(points[points.length - 1].date);
-    const start = cur.days == null ? null : new Date(end.getTime() - cur.days * DAY_MS);
+    const start = cur.months == null ? null : monthsBefore(points[points.length - 1].date, cur.months);
     return points
-      .filter((p) => !start || toDate(p.date) >= start)
+      .filter((p) => !start || p.date >= start)
       .map((p) => {
         const value = Number(p.marketValue);
         const cost = Number(p.costAmount);
         return { date: p.date, x: toDate(p.date), value, cost, pnl: value - cost, ret: cost > 0 ? (value - cost) / cost : null };
       });
-  }, [points, cur.days]);
+  }, [points, cur.months]);
   const axis = useMemo(() => {
     const { ticks, step } = trendTicks(rows, maxTicks);
     const crossYear = rows[0].x.getFullYear() !== rows[rows.length - 1].x.getFullYear();
@@ -604,17 +608,40 @@ function RangeTabs({ ranges, value, onChange }: {
   );
 }
 
-// 【縱軸整數刻度】把資料範圍擴大到「整齊的刻度」（1、2、2.5、5 × 10 的次方），大約分 4 格，
-// 上下限剛好落在刻度上，0 也一定是刻度之一。參數：lo=範圍下限（≤ 0）、hi=範圍上限（≥ 0）
-function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks: number[] } {
-  const raw = (hi - lo || Math.abs(hi) || 1) / 4;
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((v) => v >= raw) ?? 10 * mag;
-  const yMin = Math.floor(lo / step) * step;
-  const yMax = Math.max(Math.ceil(hi / step) * step, yMin + step);
+// 【縱軸整數刻度】範圍一定包含 0；刻度間隔只用整齊的數字（1、2、2.5、5 × 10 的次方），
+// 在「分成 3～5 格」的所有候選裡，挑上下限最貼近資料最大／最小值的一組，圖表才不會因為上限刻度抓得太大而被壓扁
+// （例：最大值約 11.2 萬 → 間隔 2.5 萬、上限 12.5 萬，而不是間隔 5 萬、上限 15 萬）。上下限與 0 都會是刻度之一。
+// 參數：lo=範圍下限（≤ 0）、hi=範圍上限（≥ 0）
+function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks: number[]; step: number } {
+  const span = hi - lo || Math.abs(hi) || 1;
+  const mag = Math.floor(Math.log10(span));
+  let best: { yMin: number; yMax: number; step: number; n: number } | null = null;
+  for (let k = mag - 2; k <= mag; k++) {
+    for (const m of NICE_STEPS) {
+      const step = m * 10 ** k;
+      const yMin = Math.floor(lo / step) * step;
+      const yMax = Math.max(Math.ceil(hi / step) * step, yMin + step);
+      const n = Math.round((yMax - yMin) / step);
+      if (n < MIN_Y_STEPS || n > MAX_Y_STEPS) continue;
+      // 範圍越小越貼近資料；一樣小時取格數少的，刻度比較不擠
+      if (!best || yMax - yMin < best.yMax - best.yMin - 1e-9 || (Math.abs(yMax - yMin - (best.yMax - best.yMin)) < 1e-9 && n < best.n)) {
+        best = { yMin, yMax, step, n };
+      }
+    }
+  }
+  const { yMin, yMax, step } = best ?? { yMin: lo, yMax: hi, step: span };
   const ticks: number[] = [];
   for (let v = yMin; v <= yMax + step / 2; v += step) ticks.push(Math.round(v / step) * step);
-  return { yMin, yMax, ticks };
+  return { yMin, yMax, ticks, step };
+}
+
+// 【縱軸金額文字】與 compactMoney 相同的「萬／億」簡寫，但小數位數依刻度間隔決定（最多 2 位），
+// 刻度間隔是 2.5 萬這類數字時，「12.5萬」才不會被四捨五入成「13萬」。參數：v=金額、step=刻度間隔
+function axisMoney(v: number, step: number): string {
+  const unit = Math.abs(v) >= 1e8 ? 1e8 : Math.abs(v) >= 1e4 ? 1e4 : 1;
+  if (unit === 1) return Math.round(v).toLocaleString("zh-TW");
+  const digits = (String(Number((step / unit).toFixed(2))).split(".")[1] ?? "").length; // 刻度間隔本身有幾位小數（2.5 萬 → 1 位），最多 2 位
+  return `${Number((v / unit).toFixed(digits))}${unit === 1e8 ? "億" : "萬"}`; // Number() 去掉多餘的尾數 0（11.00 → 11），整數不受影響
 }
 
 // 【單張走勢圖】底層是只在資料改變時才重畫的 Nivo 折線圖（TrendBase），上層是負責互動的十字線（TrendCross）。
@@ -639,9 +666,10 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
   const t = useChartTokens();
   const uid = useId().replace(/:/g, ""); // 每張圖自己的 SVG id（裁切區不互相衝突）
 
-  // 1. 縱軸範圍：兩張圖都一定包含 0（市值圖從 0 開始）；上下限取整數刻度，上下限線與 0 基準線都會落在刻度上
+  // 1. 縱軸範圍：兩張圖都一定包含 0（市值圖從 0 開始）；上下限取整數刻度且貼近資料的最大／最小值（見 niceRange），
+  //    上下限線與 0 基準線都會落在刻度上
   const vals = kind === "value" ? rows.flatMap((r) => [r.value, r.cost]) : rows.map((r) => r.pnl);
-  const { yMin, yMax, ticks: yTicks } = niceRange(Math.min(0, ...vals), Math.max(0, ...vals));
+  const { yMin, yMax, ticks: yTicks, step: yStep } = niceRange(Math.min(0, ...vals), Math.max(0, ...vals));
 
   const data = kind === "value"
     ? [{ id: "市值", data: rows.map((r) => ({ x: r.x, y: r.value })) }, { id: "成本", data: rows.map((r) => ({ x: r.x, y: r.cost })) }]
@@ -668,7 +696,7 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
             {yTicks.map((v) => (
               <text key={v} x={-TREND_MARGIN.left} y={(yScale as (n: number) => number)(v)} textAnchor="start" dominantBaseline="central"
                 fill={t.theme.text.fill} fontSize={t.theme.text.fontSize} fontFamily={t.theme.text.fontFamily}>
-                {compactMoney(v)}
+                {axisMoney(v, yStep)}
               </text>
             ))}
           </g>
