@@ -58,12 +58,12 @@ class AiOutputInvalid(Exception):
 RETRYABLE_ERRORS = (AiOutputInvalid, APIConnectionError, RateLimitError, InternalServerError)
 
 
-def _max_attempts() -> int:
+def max_attempts() -> int:
     # 【總呼叫次數】含第一次，預設 3 次。無參數。
     return int(os.getenv("OPENAI_MAX_ATTEMPTS", "3"))
 
 
-def _timeout_seconds() -> int:
+def timeout_seconds() -> int:
     # 【單次逾時秒數】預設 60 秒。無參數。
     return int(os.getenv("OPENAI_TIMEOUT_SECONDS", "60"))
 
@@ -136,7 +136,7 @@ def _call_openai(user_prompt: str) -> list[dict]:
     if not api_key:
         raise AiNotConfigured()
     # 1. 關掉套件自己的重試，統一由 generate_sections 控制次數與間隔
-    client = OpenAI(api_key=api_key, timeout=_timeout_seconds(), max_retries=0)
+    client = OpenAI(api_key=api_key, timeout=timeout_seconds(), max_retries=0)
     try:
         # 2. 固定的系統指令放 instructions、變動資料放 input，開頭相同的部分會被自動快取
         resp = client.responses.parse(
@@ -165,7 +165,7 @@ def generate_sections(payload: dict, call=_call_openai, sleep=time.sleep) -> lis
     # 【產生解析】呼叫 AI 並檢查內容；值得重試的失敗最多共呼叫 OPENAI_MAX_ATTEMPTS 次，間隔 2、5 秒。
     # 參數：payload=送出的資料、call=呼叫函式（測試時可替換）、sleep=等待函式（測試時可替換）
     user_prompt = render_user_prompt(payload)
-    attempts = _max_attempts()
+    attempts = max_attempts()
     for attempt in range(1, attempts + 1):
         try:
             return validate_sections(call(user_prompt), payload)
@@ -196,8 +196,8 @@ def _pending_key(profile_id: int) -> str:
 
 def pending_ttl_seconds() -> int:
     # 【產生中標記有效秒數】所有嘗試都跑到逾時、加上重試間隔，再多 60 秒緩衝（預設 3×60+2+5+60=247 秒）。無參數。
-    attempts = _max_attempts()
-    return attempts * _timeout_seconds() + sum(RETRY_WAIT_SECONDS[:max(attempts - 1, 0)]) + 60
+    attempts = max_attempts()
+    return attempts * timeout_seconds() + sum(RETRY_WAIT_SECONDS[:max(attempts - 1, 0)]) + 60
 
 
 def mark_pending(profile_id: int) -> None:

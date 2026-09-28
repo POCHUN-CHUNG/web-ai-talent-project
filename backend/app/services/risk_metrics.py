@@ -332,19 +332,23 @@ def _num(x) -> str:
     return "N/A" if x is None else f"{x:.2f}"
 
 
+VS_WORD = {HI: "高", LO: "低", DEEP: "深", SHALLOW: "淺"}  # 規則報告中「比大盤…」句型的形容詞
+
+
 def _vs(signal: str, market_text: str) -> str:
-    # 【與大盤比較的句子】例「高於台股加權報酬指數的 17.97%」。參數：signal=訊號、market_text=大盤數值文字
+    # 【與大盤比較的句子】例「比台股加權報酬指數的 17.97% 高」。刻意不用「高於／低於」：AI 會沿用規則報告的句型，
+    # 而給使用者看的文字不可寫「高於大盤」（spec/04-behavior.md §4.4.11）。參數：signal=訊號、market_text=大盤數值文字
     if signal == UNKNOWN:
         return "無法與台股加權報酬指數比較"
     if signal == EQ:
         return f"與{BENCHMARK_NAME}的 {market_text} 大致相當"
-    return f"{signal.replace('市場', '')}{BENCHMARK_NAME}的 {market_text}"
+    return f"比{BENCHMARK_NAME}的 {market_text} {VS_WORD[signal]}"
 
 
 def _group(key: str, raw: dict, signals: dict, label_id, label, report: str) -> dict:
     # 【組一組分析結果】參數：key=組別代號、raw=原始數值、signals=必要訊號、label_id／label=典型標籤（可為 None）、report=規則報告
-    return {"key": key, "title": GROUP_TITLES[key], "rawValues": raw, "signals": signals,
-            "typicalRuleId": label_id, "typicalLabel": label, "ruleReport": report}
+    return {"key": key, "title": GROUP_TITLES[key], "raw_values": raw, "signals": signals,
+            "typical_rule_id": label_id, "typical_label": label, "rule_report": report}
 
 
 def _conclusion(label, parts: list[str], suffix: str) -> str:
@@ -412,17 +416,17 @@ def concentration_facts(symbols: list, weights, pcr, corr: list) -> dict:
     hhi = float(np.sum(w ** 2))
     k = min(3, n - 1)
     facts = {
-        "holdingCount": n, "hhi": hhi, "equalWeightHhi": 1.0 / n, "effectiveHoldings": 1.0 / hhi,
-        "effectiveRatio": (1.0 / hhi) / n, "topK": k, "topKSymbols": [], "topKWeight": None, "topKPcr": None, "rcGap": None,
-        "negativeRcPresent": bool(pcr is not None and (pcr < 0).any()),
-        "averageCorrelation": None, "highPairShare": None, "negativeCorrelationPresent": False,
-        "topPairs": [], "topWeightPairs": [], "clusterSymbols": [], "clusterWeight": 0.0, "clusterPcr": None,
+        "holding_count": n, "hhi": hhi, "equal_weight_hhi": 1.0 / n, "effective_holdings": 1.0 / hhi,
+        "effective_ratio": (1.0 / hhi) / n, "top_k": k, "top_k_symbols": [], "top_k_weight": None, "top_k_pcr": None, "rc_gap": None,
+        "negative_rc_present": bool(pcr is not None and (pcr < 0).any()),
+        "average_correlation": None, "high_pair_share": None, "negative_correlation_present": False,
+        "top_pairs": [], "top_weight_pairs": [], "cluster_symbols": [], "cluster_weight": 0.0, "cluster_pcr": None,
     }
     # 1. 前 k 大風險來源（風險貢獻比例由大到小，同值時權重大者優先）
     if pcr is not None and k > 0:
         top = np.lexsort((-w, -pcr))[:k]
-        facts.update(topKSymbols=[symbols[i] for i in top], topKWeight=float(w[top].sum()), topKPcr=float(pcr[top].sum()))
-        facts["rcGap"] = facts["topKPcr"] - facts["topKWeight"]
+        facts.update(top_k_symbols=[symbols[i] for i in top], top_k_weight=float(w[top].sum()), top_k_pcr=float(pcr[top].sum()))
+        facts["rc_gap"] = facts["top_k_pcr"] - facts["top_k_weight"]
     # 2. 相關結構：只看兩兩配對，無法計算（None）的配對不計
     pairs = [(corr[i][j], i, j) for i in range(n) for j in range(i + 1, n) if corr[i][j] is not None]
     if pairs:
@@ -430,14 +434,14 @@ def concentration_facts(symbols: list, weights, pcr, corr: list) -> dict:
         members = sorted({x for v, i, j in pairs if v >= HIGH_CORR for x in (i, j)})
         heavy = set(np.argsort(-w, kind="stable")[:3].tolist())  # 權重前 3 大持股
         facts.update(
-            averageCorrelation=float(vals.mean()),
-            highPairShare=float((vals >= HIGH_CORR).mean()),
-            negativeCorrelationPresent=bool((vals < 0).any()),
-            topPairs=[{"symbols": [symbols[i], symbols[j]], "correlation": v} for v, i, j in sorted(pairs, key=lambda x: -x[0])[:5]],
-            topWeightPairs=[{"symbols": [symbols[i], symbols[j]], "correlation": v} for v, i, j in pairs if i in heavy and j in heavy],
-            clusterSymbols=[symbols[i] for i in members],
-            clusterWeight=float(w[members].sum()) if members else 0.0,
-            clusterPcr=None if pcr is None else (float(pcr[members].sum()) if members else 0.0),
+            average_correlation=float(vals.mean()),
+            high_pair_share=float((vals >= HIGH_CORR).mean()),
+            negative_correlation_present=bool((vals < 0).any()),
+            top_pairs=[{"symbols": [symbols[i], symbols[j]], "correlation": v} for v, i, j in sorted(pairs, key=lambda x: -x[0])[:5]],
+            top_weight_pairs=[{"symbols": [symbols[i], symbols[j]], "correlation": v} for v, i, j in pairs if i in heavy and j in heavy],
+            cluster_symbols=[symbols[i] for i in members],
+            cluster_weight=float(w[members].sum()) if members else 0.0,
+            cluster_pcr=None if pcr is None else (float(pcr[members].sum()) if members else 0.0),
         )
     return facts
 
@@ -445,7 +449,7 @@ def concentration_facts(symbols: list, weights, pcr, corr: list) -> dict:
 def rc_signal(facts: dict) -> str:
     # 【風險貢獻訊號】前 k 大風險貢獻 − 同批權重：≥ 10 個百分點為集中、≤ −10 為低於配置、其餘為大致相稱。
     # 兩個合計相減帶有浮點誤差（0.6−0.5 得 0.0999…），比較時容許 ZERO_TOL。參數：facts=集中度事實
-    gap = facts["rcGap"]
+    gap = facts["rc_gap"]
     if gap is None:
         return UNKNOWN
     if gap >= RC_GAP - ZERO_TOL:
@@ -456,7 +460,7 @@ def rc_signal(facts: dict) -> str:
 def correlation_signal(facts: dict) -> str:
     # 【相關結構訊號】高相關配對占 25% 以上（或平均 ≥ 0.6）為高正相關群聚；平均 < 0.3 且沒有高相關配對為低相關結構；其餘為混合。
     # 參數：facts=集中度事實
-    avg, share = facts["averageCorrelation"], facts["highPairShare"]
+    avg, share = facts["average_correlation"], facts["high_pair_share"]
     if avg is None:
         return UNKNOWN
     if share >= CLUSTER_SHARE - ZERO_TOL or avg >= HIGH_CORR:
@@ -466,21 +470,21 @@ def correlation_signal(facts: dict) -> str:
 
 def analyze_concentration(facts: dict) -> dict:
     # 【第三組：集中與分散風險】資金集中嗎 → 主要持股是否一起動 → 實際風險是否集中，再比對典型標籤。參數：facts=集中度事實
-    single = facts["holdingCount"] == 1
+    single = facts["holding_count"] == 1
     s = {
-        "weight": W_CONC if facts["effectiveRatio"] < WEIGHT_CONCENTRATED else W_EVEN,
+        "weight": W_CONC if facts["effective_ratio"] < WEIGHT_CONCENTRATED else W_EVEN,
         "correlation": UNKNOWN if single else correlation_signal(facts),
-        "negativeCorrelation": facts["negativeCorrelationPresent"],
-        "riskContribution": UNKNOWN if single else rc_signal(facts),
-        "negativeRc": facts["negativeRcPresent"],
-        "clusterRiskMajority": (facts["clusterPcr"] or 0.0) >= CLUSTER_PCR - ZERO_TOL,
+        "negative_correlation": facts["negative_correlation_present"],
+        "risk_contribution": UNKNOWN if single else rc_signal(facts),
+        "negative_rc": facts["negative_rc_present"],
+        "cluster_risk_majority": (facts["cluster_pcr"] or 0.0) >= CLUSTER_PCR - ZERO_TOL,
     }
     if single:
         s["weight"] = W_CONC
     rid = label = None
     if not single:
         for rule_id, (weight, corrs, rc), name in CONCENTRATION_LABELS:
-            rc_ok = s["clusterRiskMajority"] if rc == "cluster_majority" else s["riskContribution"] in rc
+            rc_ok = s["cluster_risk_majority"] if rc == "cluster_majority" else s["risk_contribution"] in rc
             if s["weight"] in weight and s["correlation"] in corrs and rc_ok:
                 rid, label = rule_id, name
                 break
@@ -488,20 +492,20 @@ def analyze_concentration(facts: dict) -> dict:
     if single:
         report = "投資組合只有一檔持股，資金與風險完全集中於該檔，無法評估持股之間的相關結構與分散效果。" + _conclusion(None, ["單一持股"], "集中或分散特徵")
     else:
-        extra_corr = "；存在負相關持股" if s["negativeCorrelation"] else ""
-        extra_rc = "；存在風險抵銷持股（負風險貢獻）" if s["negativeRc"] else ""
-        top = "、".join(f["topKSymbols"]) or "N/A"
+        extra_corr = "；存在負相關持股" if s["negative_correlation"] else ""
+        extra_rc = "；存在風險抵銷持股（負風險貢獻）" if s["negative_rc"] else ""
+        top = "、".join(f["top_k_symbols"]) or "N/A"
         report = (
-            f"投資組合 HHI 為 {f['hhi']:.4f}（{f['holdingCount']} 檔等權配置的理論值為 {f['equalWeightHhi']:.4f}），權重配置呈現{s['weight']}；"
-            f"有效持股數為 {f['effectiveHoldings']:.2f} 檔，相較實際 {f['holdingCount']} 檔持股，約為等權分散的 {f['effectiveRatio'] * 100:.0f}%。"
-            f"主要持股的相關結構呈現{s['correlation']}（兩兩相關係數平均 {_num(f['averageCorrelation'])}，"
-            f"相關係數 ≥ {HIGH_CORR} 的配對占 {_pct(f['highPairShare'])}）{extra_corr}。"
-            f"前 {f['topK']} 大風險來源（{top}）占 {_pct(f['topKWeight'])} 資金配置，貢獻 {_pct(f['topKPcr'])} 總風險，"
-            f"{s['riskContribution']}{extra_rc}。"
-            + _conclusion(label, [s["weight"], s["correlation"], s["riskContribution"]], "集中或分散特徵")
+            f"投資組合 HHI 為 {f['hhi']:.4f}（{f['holding_count']} 檔等權配置的理論值為 {f['equal_weight_hhi']:.4f}），權重配置呈現{s['weight']}；"
+            f"有效持股數為 {f['effective_holdings']:.2f} 檔，相較實際 {f['holding_count']} 檔持股，約為等權分散的 {f['effective_ratio'] * 100:.0f}%。"
+            f"主要持股的相關結構呈現{s['correlation']}（兩兩相關係數平均 {_num(f['average_correlation'])}，"
+            f"相關係數 ≥ {HIGH_CORR} 的配對占 {_pct(f['high_pair_share'])}）{extra_corr}。"
+            f"前 {f['top_k']} 大風險來源（{top}）占 {_pct(f['top_k_weight'])} 資金配置，貢獻 {_pct(f['top_k_pcr'])} 總風險，"
+            f"{s['risk_contribution']}{extra_rc}。"
+            + _conclusion(label, [s["weight"], s["correlation"], s["risk_contribution"]], "集中或分散特徵")
         )
-    raw = {k: f[k] for k in ("hhi", "equalWeightHhi", "effectiveHoldings", "holdingCount", "averageCorrelation",
-                              "highPairShare", "topKWeight", "topKPcr", "rcGap", "clusterPcr")}
+    raw = {k: f[k] for k in ("hhi", "equal_weight_hhi", "effective_holdings", "holding_count", "average_correlation",
+                              "high_pair_share", "top_k_weight", "top_k_pcr", "rc_gap", "cluster_pcr")}
     return _group("concentration", raw, s, rid, label, report)
 
 
@@ -517,16 +521,16 @@ def beta_level(beta) -> str:
 def analyze_market(beta, r2, facts: dict) -> dict:
     # 【第四組：市場敏感與風險來源】先看 R² 的市場解釋力，再依 R² 強弱解讀 Beta，最後看風險是否集中於少數持股。
     # 參數：beta=Beta、r2=判定係數、facts=集中度事實（單一持股時風險貢獻視為未集中）
-    rc = UNKNOWN if facts["holdingCount"] == 1 else rc_signal(facts)
+    rc = UNKNOWN if facts["holding_count"] == 1 else rc_signal(facts)
     if beta is None or r2 is None:
-        s = {"rSquared": UNKNOWN, "beta": UNKNOWN, "betaRole": UNKNOWN, "riskContribution": rc, "negativeRc": facts["negativeRcPresent"]}
+        s = {"r_squared": UNKNOWN, "beta": UNKNOWN, "beta_role": UNKNOWN, "risk_contribution": rc, "negative_rc": facts["negative_rc_present"]}
         report = "R² 或 Beta 無法計算，無法判斷市場敏感程度。" + _conclusion(None, [f"風險貢獻{rc}"], "市場敏感與風險來源特徵")
         return _group("market_sensitivity", {"beta": beta, "r_squared": r2}, s, None, None, report)
     r2_level = "strong" if r2 >= R2_STRONG else ("moderate" if r2 >= R2_MODERATE else "weak")
     level = beta_level(beta)
     role = {"strong": "主要判斷", "moderate": "輔助解讀", "weak": "不作主要判斷"}[r2_level]
-    s = {"rSquared": R2_TEXT[r2_level], "beta": BETA_TEXT[level], "betaRole": role,
-         "riskContribution": rc, "negativeRc": facts["negativeRcPresent"]}
+    s = {"r_squared": R2_TEXT[r2_level], "beta": BETA_TEXT[level], "beta_role": role,
+         "risk_contribution": rc, "negative_rc": facts["negative_rc_present"]}
     rid, label = None, None
     for rule_id, (r2_want, beta_want, conc), name in MARKET_LABELS:
         if r2_level == r2_want and (beta_want is ANY or level in beta_want) and (rc == RC_CONC) == conc:
@@ -538,7 +542,7 @@ def analyze_market(beta, r2, facts: dict) -> dict:
     report = (
         f"投資組合 R² 為 {_pct(r2)}，顯示{BENCHMARK_NAME}對組合歷史報酬具有{R2_TEXT[r2_level][5:]}程度的解釋力。"
         f"Beta 為 {_num(beta)}，在目前 R² 條件下，其市場敏感度訊號{beta_text}。"
-        f"風險貢獻度顯示{rc}{'；存在風險抵銷持股（負風險貢獻）' if s['negativeRc'] else ''}。"
+        f"風險貢獻度顯示{rc}{'；存在風險抵銷持股（負風險貢獻）' if s['negative_rc'] else ''}。"
         + _conclusion(label, [R2_TEXT[r2_level], f"Beta {role}", rc], "市場敏感與風險來源特徵")
     )
     return _group("market_sensitivity", {"beta": beta, "r_squared": r2}, s, rid, label, report)
@@ -550,7 +554,7 @@ ADVERSE_RULES = [
     ("es_high", "loss_risk", "es", HI, "95% 預期短缺高於市場"),
     ("downside_high", "risk_return", "downside", HI, "下行波動度高於市場"),
     ("volatility_high", "risk_return", "volatility", HI, "年化波動度高於市場"),
-    ("rc_concentrated", "concentration", "riskContribution", RC_CONC, "風險貢獻集中於少數持股"),
+    ("rc_concentrated", "concentration", "risk_contribution", RC_CONC, "風險貢獻集中於少數持股"),
     ("correlation_cluster", "concentration", "correlation", C_CLUSTER, "持股存在高正相關群聚"),
     ("weight_concentrated", "concentration", "weight", W_CONC, "權重集中"),
     ("sharpe_low", "risk_return", "sharpe", LO, "夏普比率低於市場"),
@@ -568,8 +572,8 @@ def adverse_signals(groups: list[dict]) -> list[dict]:
     out = []
     for sid, key, field, trigger, text in ADVERSE_RULES:
         s = by_key[key]["signals"]
-        if s.get(field) == trigger and (sid != "beta_high" or s.get("betaRole") == "主要判斷"):
-            out.append({"id": sid, "groupKey": key, "text": text})
+        if s.get(field) == trigger and (sid != "beta_high" or s.get("beta_role") == "主要判斷"):
+            out.append({"id": sid, "group_key": key, "text": text})
     return out
 
 
@@ -580,7 +584,7 @@ def _metric(value, unit: str, reason: str | None = None, benchmark=None) -> dict
     # 【組一項指標】值為 None 時狀態為不可用並附原因（顯示給使用者）。參數：value=值、unit=單位、reason=不可用原因、benchmark=大盤對照值
     value = _finite(value)
     return {
-        "value": value, "benchmarkValue": _finite(benchmark), "unit": unit,
+        "value": value, "benchmark_value": _finite(benchmark), "unit": unit,
         "status": "available" if value is not None else "unavailable",
         "reason": None if value is not None else (reason or REASON_FEW),
     }
@@ -603,13 +607,13 @@ def _side(r, rate_d: float) -> dict:
 def _figure(ref: str, reason: str | None, data=None) -> dict:
     # 【組一張圖的描述】有 reason 代表該圖無法呈現。參數：ref=圖表代號、reason=不可用原因（顯示給使用者）、data=圖表資料
     title, legend = FIGURE_TEXT[ref]
-    return {"figureRef": ref, "title": title, "legendText": legend,
+    return {"figure_ref": ref, "title": title, "legend_text": legend,
             "status": "unavailable" if reason else "available", "reason": reason, "data": data if not reason else None}
 
 
 def compute_analysis(prices, benchmark, weights, symbols: list, names: list, dates: list, rate: float) -> dict:
     # 【計算一次風險分析】輸入同一組交易日的持股價格與大盤指數，輸出契約 AnalysisResult 中屬於計算結果的部分：
-    # metrics、positions、correlation、interpretation、diagnosis、figures、dataQuality。
+    # metrics、positions、correlation、interpretation、diagnosis、figures、data_quality。
     # 參數：prices=價格矩陣（列為日期、欄為持股，已排序且無缺值）、benchmark=IR0001 指數值（同日期）、weights=目前市值權重、
     #       symbols／names=持股代號與名稱、dates=日期字串（與價格同長）、rate=年利率（同時作為無風險利率與最低可接受報酬）
     # 1. 報酬序列：各檔、組合（固定目前權重）、大盤
@@ -651,9 +655,9 @@ def compute_analysis(prices, benchmark, weights, symbols: list, names: list, dat
     # 4. 偏態分類與索丁諾提示
     sc = skew_class(g1, n)
     interpretation = {
-        "skewClass": sc,
-        "sortinoPreferred": sc in ("positive_skew", "negative_skew") and p["sortino"] is not None,
-        "ruleSource": RULE_SOURCE,
+        "skew_class": sc,
+        "sortino_preferred": sc in ("positive_skew", "negative_skew") and p["sortino"] is not None,
+        "rule_source": RULE_SOURCE,
     }
     # 5. 四組分析與不利訊號清單
     facts = concentration_facts(list(symbols), w, pcr, corr)
@@ -668,7 +672,7 @@ def compute_analysis(prices, benchmark, weights, symbols: list, names: list, dat
     trough = int(np.argmin(dd))
     figures = [
         _figure("figure:drawdown_curve", None if n >= 2 else "資料天數太少，無法畫圖", {
-            "series": [{"date": d, "navIndex": float(v), "drawdown": float(x)} for d, v, x in zip(dates, nav, dd)],
+            "series": [{"date": d, "nav_index": float(v), "drawdown": float(x)} for d, v, x in zip(dates, nav, dd)],
             "trough": {"date": dates[trough], "drawdown": float(dd[trough])},
         }),
         _figure("figure:weight_vs_pcr", None if pcr is not None else "這段期間組合價格沒有變動，無法拆解風險來源"),
@@ -683,8 +687,8 @@ def compute_analysis(prices, benchmark, weights, symbols: list, names: list, dat
         "positions": positions,
         "correlation": {"symbols": list(symbols), "matrix": corr},
         "interpretation": interpretation,
-        "diagnosis": {"rulesVersion": DIAGNOSIS_RULES_VERSION, "groups": groups, "concentration": facts,
-                      "overall": {"adverseSignals": adverse_signals(groups)}},
+        "diagnosis": {"rules_version": DIAGNOSIS_RULES_VERSION, "groups": groups, "concentration": facts,
+                      "overall": {"adverse_signals": adverse_signals(groups)}},
         "figures": figures,
-        "dataQuality": {"notes": notes, "tailCount": p["tail"]},
+        "data_quality": {"notes": notes, "tail_count": p["tail"]},
     }

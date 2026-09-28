@@ -21,17 +21,17 @@ const BENCHMARK_SYMBOL = "IR0001";
 // 一個可調整欄位的預設值與選項原文
 type ProfileChoice = { value: string; choices: string[] };
 // 風險分析可調整的三項問卷參數（後端 GET /risk-profiles/latest/analysis-inputs，不需投資組合）
-type ProfileChoices = { investmentHorizon: ProfileChoice; withdrawalNeed: ProfileChoice; lossTolerance: ProfileChoice };
+type ProfileChoices = { investment_horizon: ProfileChoice; withdrawal_need: ProfileChoice; loss_tolerance: ProfileChoice };
 // 一個報酬比較基準選項：key=送出用的值、label=顯示文字、rate=年利率（null＝目前沒有資料，前端停用）
-type RateOption = { key: string; label: string; rate: number | null; asOf: string | null };
+type RateOption = { key: string; label: string; rate: number | null; as_of: string | null };
 // 分析前確認頁的期間與利率選項（後端 GET /portfolios/{id}/analysis/options，需先選投資組合）
 type AnalysisOptions = {
-  period: { maxYears: number; minYears: number; startDate: string; endDate: string; limitedBySymbols: string[]; dates: string[] };
-  rateOptions: RateOption[];
-  defaults: { lookbackYears: number | null; rateOption: string };
+  period: { max_years: number; min_years: number; start_date: string; end_date: string; limited_by_symbols: string[]; dates: string[] };
+  rate_options: RateOption[];
+  defaults: { lookback_years: number | null; rate_option: string };
 };
 // 本次採用的三項可調整問卷參數（Q7、Q8、Q13）
-type ProfileInputs = { investmentHorizon: string; withdrawalNeed: string; lossTolerance: string };
+type ProfileInputs = { investment_horizon: string; withdrawal_need: string; loss_tolerance: string };
 
 // 【月數顯示文字】整年顯示「N 年」，含零頭月份顯示「N 年 M 個月」，未滿一年只顯示「M 個月」。
 // 全部用整數月數運算（不對「年」做小數運算），避免除以 12 產生的浮點誤差。參數：totalMonths=總月數
@@ -113,7 +113,7 @@ const RATE_DESCRIPTIONS: Record<string, string> = {
 
 // 【換算成實際有資料的起始日】往回推算出的日期不一定是交易日，改成範圍內第一個「大於等於」該日期的實際交易日
 // （與後端 services/analysis.py 的 `[d for d in dates if d >= start]` 邏輯一致，確保前端顯示的起始日跟後端算出來的一樣）；
-// 找不到（理論上不會發生，滑桿範圍已經受 maxYears 限制）就以最舊的交易日作為保底。
+// 找不到（理論上不會發生，滑桿範圍已經受 max_years 限制）就以最舊的交易日作為保底。
 // 參數：dates=由舊到新排序的共同交易日、target=往回推算出的目標日期
 function actualStart(dates: string[], target: string): string {
   return dates.find((d) => d >= target) ?? dates[0];
@@ -194,7 +194,7 @@ export default function RiskAnalysis() {
     api<ProfileChoices>("/risk-profiles/latest/analysis-inputs")
       .then((c) => {
         setChoices(c);
-        setProfileInputs({ investmentHorizon: c.investmentHorizon.value, withdrawalNeed: c.withdrawalNeed.value, lossTolerance: c.lossTolerance.value });
+        setProfileInputs({ investment_horizon: c.investment_horizon.value, withdrawal_need: c.withdrawal_need.value, loss_tolerance: c.loss_tolerance.value });
       })
       .catch((e) => setChoicesError(e instanceof ApiError ? e.message : "載入風險屬性失敗"));
   }, []);
@@ -209,7 +209,7 @@ export default function RiskAnalysis() {
       .then((o) => {
         if (stale) return;
         setOptions(o);
-        setRateOption(o.defaults.rateOption);
+        setRateOption(o.defaults.rate_option);
       })
       .catch((e) => !stale && setOptionsError(e instanceof ApiError ? e : new ApiError(0, "無法查詢分析選項")));
     return () => {
@@ -219,11 +219,11 @@ export default function RiskAnalysis() {
 
   const current = items?.find((p) => String(p.id) === selected) ?? null;
 
-  // 滑桿的月數選項（minYears換算的月數～⌊maxYears×12⌋個月，每格 1 個月），最後再加一格代表「最大期間」（送出時 lookbackYears＝null）
+  // 滑桿的月數選項（min_years換算的月數～⌊max_years×12⌋個月，每格 1 個月），最後再加一格代表「最大期間」（送出時 lookback_years＝null）
   const monthsArray = useMemo(() => {
     if (!options) return [];
-    const minMonths = Math.round(options.period.minYears * 12);
-    const maxMonths = Math.floor(options.period.maxYears * 12);
+    const minMonths = Math.round(options.period.min_years * 12);
+    const maxMonths = Math.floor(options.period.max_years * 12);
     const count = Math.max(0, maxMonths - minMonths + 1);
     return Array.from({ length: count }, (_, i) => minMonths + i);
   }, [options]);
@@ -236,11 +236,11 @@ export default function RiskAnalysis() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options]);
 
-  const periodEnd = options?.period.endDate ?? null;
+  const periodEnd = options?.period.end_date ?? null;
   const periodStart =
     !options ? null
-    : lookbackMonths === null ? options.period.startDate
-    : actualStart(options.period.dates, monthsBefore(options.period.endDate, lookbackMonths));
+    : lookbackMonths === null ? options.period.start_date
+    : actualStart(options.period.dates, monthsBefore(options.period.end_date, lookbackMonths));
 
   // 分析期間／利率選項狀態：idle＝尚未選組合、loading＝查詢中、error＝這個組合目前無法分析、ready＝可以分析
   const optionsState: "idle" | "loading" | "error" | "ready" = !selected ? "idle" : optionsError ? "error" : !options ? "loading" : "ready";
@@ -258,10 +258,10 @@ export default function RiskAnalysis() {
   const empty = items !== null && !items.some((p) => p.symbolCount > 0); // 沒有任何可分析（有持股）的組合
   // 整頁載入中：組合清單或風險屬性欄位還沒回來（查詢失敗不算載入中，會顯示錯誤）
   const pageLoading = !loadError && (items === null || (!choicesError && (!choices || !profileInputs)));
-  const chosenRate = options?.rateOptions.find((r) => r.key === rateOption);
+  const chosenRate = options?.rate_options.find((r) => r.key === rateOption);
   const ready = optionsState === "ready" && !!options;
-  // 滑桿的最大格線月數（⌊maxYears×12⌋），選到「最大期間」時顯示的就是這個值
-  const flooredMaxMonths = ready ? Math.floor(options!.period.maxYears * 12) : null;
+  // 滑桿的最大格線月數（⌊max_years×12⌋），選到「最大期間」時顯示的就是這個值
+  const flooredMaxMonths = ready ? Math.floor(options!.period.max_years * 12) : null;
   // 滑桿浮動標籤的顯示文字：還沒選組合／查詢中時顯示狀態說明（取代原本卡片內另外一行的提示文字），
   // 可以分析時最大期間附上實際約略月數，避免使用者只看到「最大期間」不知道實際涵蓋多久
   const sliderValueText =
@@ -331,25 +331,25 @@ export default function RiskAnalysis() {
                   id="investmentHorizon"
                   label="投資期限"
                   hint="這筆資金預計多久不需動用"
-                  choice={choices.investmentHorizon}
-                  value={profileInputs.investmentHorizon}
-                  onChange={(v) => setProfileInputs({ ...profileInputs, investmentHorizon: v })}
+                  choice={choices.investment_horizon}
+                  value={profileInputs.investment_horizon}
+                  onChange={(v) => setProfileInputs({ ...profileInputs, investment_horizon: v })}
                 />
                 <ChoiceField
                   id="withdrawalNeed"
                   label="一年內提款可能性"
                   hint="未來 1 年內，提領這筆資金的機率"
-                  choice={choices.withdrawalNeed}
-                  value={profileInputs.withdrawalNeed}
-                  onChange={(v) => setProfileInputs({ ...profileInputs, withdrawalNeed: v })}
+                  choice={choices.withdrawal_need}
+                  value={profileInputs.withdrawal_need}
+                  onChange={(v) => setProfileInputs({ ...profileInputs, withdrawal_need: v })}
                 />
                 <ChoiceField
                   id="lossTolerance"
                   label="可接受損失區間"
                   hint="1 年內能承受的最大跌幅"
-                  choice={choices.lossTolerance}
-                  value={profileInputs.lossTolerance}
-                  onChange={(v) => setProfileInputs({ ...profileInputs, lossTolerance: v })}
+                  choice={choices.loss_tolerance}
+                  value={profileInputs.loss_tolerance}
+                  onChange={(v) => setProfileInputs({ ...profileInputs, loss_tolerance: v })}
                 />
               </div>
             )}
@@ -390,10 +390,10 @@ export default function RiskAnalysis() {
                     <h2 className={styles.sectionTitle}>分析期間</h2>
                     {/* 說明框一律有內容：還沒選組合（或查不到）時顯示通則，選好組合後指出是哪幾檔限制了最大期間 */}
                     <InfoPopover label="分析期間說明">
-                      {ready && options!.period.limitedBySymbols.length > 0 ? (
+                      {ready && options!.period.limited_by_symbols.length > 0 ? (
                         <>
                           最大期間受限於
-                          {options!.period.limitedBySymbols.map((s, i) => (
+                          {options!.period.limited_by_symbols.map((s, i) => (
                             <span key={s}>
                               {i > 0 && "、"}
                               <b>{holdingLabel(s, current)}</b>
@@ -455,7 +455,7 @@ export default function RiskAnalysis() {
                   onChange={setRateOption}
                   disabled={!ready}
                   placeholder={optionsState === "idle" ? "請先選擇投資組合" : optionsState === "loading" ? "查詢中…" : "請選擇報酬基準"}
-                  options={ready ? options!.rateOptions.map((r) => ({ value: r.key, label: rateOptionLabel(r), disabled: r.rate === null })) : []}
+                  options={ready ? options!.rate_options.map((r) => ({ value: r.key, label: rateOptionLabel(r), disabled: r.rate === null })) : []}
                 />
               </Card>
             </div>
@@ -473,8 +473,8 @@ export default function RiskAnalysis() {
         title="分析功能開發中"
         messages={[
           `已確認分析設定：${current?.name ?? NA}，回看${lookbackMonths === null ? "最大期間" : formatMonths(lookbackMonths)}，` +
-            `報酬比較基準 ${chosenRate?.label ?? NA}，可接受損失區間 ${profileInputs?.lossTolerance ?? NA}，` +
-            `投資期限 ${profileInputs?.investmentHorizon ?? NA}，一年內提款可能性 ${profileInputs?.withdrawalNeed ?? NA}。`,
+            `報酬比較基準 ${chosenRate?.label ?? NA}，可接受損失區間 ${profileInputs?.loss_tolerance ?? NA}，` +
+            `投資期限 ${profileInputs?.investment_horizon ?? NA}，一年內提款可能性 ${profileInputs?.withdrawal_need ?? NA}。`,
           "分析報告的計算與呈現將在後續版本提供。",
         ]}
         onConfirm={() => setConfirmed(false)}

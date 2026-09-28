@@ -1,7 +1,7 @@
 # 05 · 品質層
 
 > 本檔為 `SPEC.md` 的子文件。閱讀前必須先讀 `SPEC.md` 的 §0 協議層與 §0.3 詞彙表。
-> 文件版本：1.10.0 ｜ 最後更新：2026-09-27
+> 文件版本：1.12.0 ｜ 最後更新：2026-09-28
 
 本層定義資安、效能預算、可觀測性、測試策略、驗收清單與黃金測試向量。
 **資安與效能在實作前讀，§5.5 驗收清單在實作後逐項執行。**
@@ -110,7 +110,7 @@ form-action 'self';
 | `POST /auth/register`、`POST /auth/login` | 每 IP 每分鐘 10 次 | `rl:auth:{ip}` |
 | `POST /questionnaire/answers` | 每使用者每分鐘 1 次（D-69） | `rate:questionnaire:{user_id}` |
 | `POST /risk-profiles/{id}/regenerate-sections` | 每使用者每分鐘 1 次（D-73，與送出問卷獨立計時） | `rate:sections:{user_id}` |
-| `POST /analysis/{id}/report/retry` | 每分析每分鐘 2 次 | `rl:report:{analysis_id}` |
+| `POST /analysis/{id}/report/regenerate` | 每使用者每分鐘 1 次（D-135，與送出問卷獨立計時） | `rate:report:{user_id}` |
 | 其餘前端端點 | 每使用者每分鐘 120 次 | `rl:general:{user_id}` |
 | n8n 端點 | 不限流 | — |
 
@@ -314,16 +314,16 @@ form-action 'self';
 - [ ] E6 回撤走勢圖的 y 軸為 $[MDD, 0]$，最低點標示「最大回撤 −XX.XX%」
 - [ ] E7 （已移除，v1.9.0）原風險落差圖（D-116）
 - [ ] E8 每張圖旁存在視覺隱藏的 `<table>`，其內容與圖上資料一致（須自動化）
-- [ ] E9 AI 報告的結構符合第二階段定稿的 schema（四組報告＋綜合診斷，須自動化）
-- [ ] E10 `figureCaptions` 涵蓋全部 `status` 為 `available` 的圖，每則 25–60 字
-- [ ] E11 報告中出現的每個正式名詞都在 `glossary` 有對應說明（須自動化）
-- [ ] E12 50 組固定輸入 × 3 次，輸出 100% 通過 JSON schema 驗證（須自動化）
-- [ ] E13 報告中的 `evidenceRefs` 與 `figureRefs` 全部在當次白名單內（須自動化）
-- [ ] E14 AI 報告引用的必要訊號與典型標籤與後端 `diagnosis.groups[]` 完全相同，不得改判（須自動化）
+- [ ] E9 AI 報告的結構符合 `ReportContent`（綜合診斷＋固定五段，03 §3.1），由 `validate_report()` 自動檢查
+- [ ] E10 `figure_captions` 恰好涵蓋全部 `status` 為 `available` 的圖且順序一致（須自動化）
+- [ ] E11 報告文字不含後端指標名稱、典型標籤原文、規則編號、顏色描述與其他禁用字詞（`BANNED_TERMS`，須自動化）；名詞解釋由前端固定文字提供（D-137）
+- [ ] E12 輸出不合規時重試，共最多 `OPENAI_MAX_ATTEMPTS` 次，仍失敗則報告為 `failed`（須自動化）
+- [ ] E13 報告中的 `evidence_refs` 與 `figure_refs` 全部在當次白名單內，各段只綁定對應的圖（須自動化）
+- [ ] E14 送給 AI 的最大回撤與可接受損失區間比較由後端完成（`personal_alignment.mdd_vs_loss_tolerance`），payload 不含成本、損益、買進日期、組合名稱與回撤序列（須自動化）
 - [ ] E15 分析等待期間畫面顯示「正在計算量化指標」，接著顯示「正在產生分析解說」，**兩階段都看不到任何圖表**
 - [ ] E16 上述兩段文字在 `aria-live="polite"` 容器中
-- [ ] E17 模型連續失敗時進入 `partial`：三張圖與全部數字可見，解說區塊顯示重試按鈕；按下後重新呼叫並寫入新的 `analysis_reports` 列
-- [ ] E18 歷史分析清單可開啟舊報告，內容與當時一致
+- [ ] E17 報告為 `failed` 時進入 `partial`：三張圖與全部數字可見，解說區塊顯示「重新產生」按鈕；按下後報告改回 `pending`、`attempt` 加 1 並在背景重新產生
+- [ ] E18 歷史分析清單（全部或指定組合）可開啟舊報告，內容與當時一致；清單每筆附報告狀態與主要風險特徵
 - [ ] E19 報告頁可見持股的未實現損益
 - [ ] E20 送入模型的 payload 不含任何成本、損益、買進日期欄位（須自動化，欄位白名單檢查）
 - [ ] E21 送入 20 組已知的 prompt injection 樣本（置於股票名稱與問卷自由文字欄位），輸出仍通過 schema 且未出現偏離角色的內容（須自動化）

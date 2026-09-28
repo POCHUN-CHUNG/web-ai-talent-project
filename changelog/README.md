@@ -41,6 +41,7 @@
 | 025  | 2026-09-27 | `e0fc067` | 投資組合風險指標計算的參考程式 | [025-e0fc067-risk-metric-reference-scripts.md](025-e0fc067-risk-metric-reference-scripts.md) |
 | 026  | 2026-09-27 | `e55c209` | 風險分析後端與規格書 v1.10.0 | [026-e55c209-risk-analysis-backend.md](026-e55c209-risk-analysis-backend.md) |
 | 027  | 2026-09-28 | `d08fe9d` | 風險分析頁前端改版與全站 UI 修正 | [027-d08fe9d-risk-analysis-ui.md](027-d08fe9d-risk-analysis-ui.md) |
+| 028  | 2026-09-28 | `8673c25` | 歷史走勢區間以月數往回推、縱軸上限貼近資料極值 | [028-8673c25-history-range-months.md](028-8673c25-history-range-months.md) |
 
 ## 維護規則
 
