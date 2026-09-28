@@ -73,26 +73,6 @@ function mix(a: string, b: string, t: number): string {
   return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
 
-const FIT_MIN_SPAN = 0.1; // 市值圖縱軸依數值縮放時，顯示範圍至少為目前數值的 10%，避免極小的變動被放大成劇烈起伏
-
-// 【依目前數值的尺度決定範圍】市值類的圖不從 0 開始：以資料的最小～最大值為範圍，但範圍至少是數值大小的 10%
-// （不夠就以中間值為中心往兩邊撐開）；資料都不是負數時，下限不會低於 0。參數：lo、hi=資料的最小與最大值；回傳 [下限, 上限]
-function fitSpan(lo: number, hi: number): [number, number] {
-  const minSpan = Math.max(Math.abs(lo), Math.abs(hi)) * FIT_MIN_SPAN || 1;
-  let a = lo;
-  let b = hi;
-  if (b - a < minSpan) {
-    const mid = (a + b) / 2;
-    a = mid - minSpan / 2;
-    b = mid + minSpan / 2;
-  }
-  if (lo >= 0 && a < 0) {
-    b -= a;
-    a = 0;
-  }
-  return [a, b];
-}
-
 // 【漲跌色】台股慣例：正為紅、負為綠、零為中性。參數：v=數值、t=色票
 function toneOf(v: number, t: ReturnType<typeof useChartTokens>): string | undefined {
   return v > 0 ? t.up : v < 0 ? t.down : undefined;
@@ -124,12 +104,10 @@ export type SparkPoint = { date: string; value: number | null };
 // 1. 橫軸為「最新交易日往前 1 個月」；資料不足 1 個月時改為顯示全部。橫軸一律從「這張圖第一個有數值的日期」開始、撐滿整個寬度，
 //    不為了和其他圖對齊而補值或推算，所以各張圖的起點可能不同（例如每日損益第一天沒有數值，就從第二天開始）。
 // 2. 0 軸平常貼齊圖表最下緣；只有出現負值時才往上挪，留出 0 軸下方的負值區域（面積一律由折線填到 0 軸）。
-//    fit＝市值圖：縱軸改依目前數值的尺度縮放（不從 0 開始，見 fitSpan），面積填到圖表下緣、不畫 0 軸。
 // 3. 顏色由呼叫端決定（跟著卡片上數字的顏色）：direction > 0 紅、< 0 綠、= 0 或未給為中性灰（台股慣例）；
 //    blue＝不分漲跌的金額（目前總市值、總投入成本）用主色藍。
-// 參數：points=每日數值（由舊到新）、direction=決定顏色的數值（通常就是卡片上的數字；未給＝中性色）、blue=用主色藍、label=無障礙說明、tall=大尺寸（撐滿容器）、
-//      fit=縱軸依目前數值的尺度縮放（市值用）
-export function Sparkline({ points, direction, blue, label, tall, fit }: { points: SparkPoint[]; direction?: number; blue?: boolean; label: string; tall?: boolean; fit?: boolean }) {
+// 參數：points=每日數值（由舊到新）、direction=決定顏色的數值（通常就是卡片上的數字；未給＝中性色）、blue=用主色藍、label=無障礙說明、tall=大尺寸（撐滿容器）
+export function Sparkline({ points, direction, blue, label, tall }: { points: SparkPoint[]; direction?: number; blue?: boolean; label: string; tall?: boolean }) {
   const t = useChartTokens();
   const box = tall ? styles.sparkTall : styles.spark;
   if (points.length === 0) return <div className={box} aria-hidden="true" />;
@@ -141,12 +119,11 @@ export function Sparkline({ points, direction, blue, label, tall, fit }: { point
     .map((p) => ({ x: toDate(p.date), y: p.value as number }));
   if (pts.length < 2) return <div className={box} aria-hidden="true" />;
   const start = pts[0].x;
-  // 2. 縱軸：沒有負值時下限就是 0（0 軸在最下緣）；有負值時下限往下多留 10% 空間。上緣一律留 10%。
-  //    fit：依目前數值的尺度縮放，上下各留 10%
-  const ys = pts.map((p) => p.y);
-  const [lo, hi] = fit ? fitSpan(Math.min(...ys), Math.max(...ys)) : [Math.min(0, ...ys), Math.max(0, ...ys)];
+  // 2. 縱軸：沒有負值時下限就是 0（0 軸在最下緣）；有負值時下限往下多留 10% 空間。上緣一律留 10%
+  const lo = Math.min(0, ...pts.map((p) => p.y));
+  const hi = Math.max(0, ...pts.map((p) => p.y));
   const pad = (hi - lo || 1) * 0.1;
-  const yMin = fit ? Math.max(lo - pad, Math.min(...ys) >= 0 ? 0 : -Infinity) : lo < 0 ? lo - pad : 0;
+  const yMin = lo < 0 ? lo - pad : 0;
   // 3. 顏色
   const color = blue ? t.line : direction == null || direction === 0 ? t.cost : direction > 0 ? t.up : t.down;
   return (
@@ -167,14 +144,13 @@ export function Sparkline({ points, direction, blue, label, tall, fit }: { point
         isInteractive={false}
         animate={false}
         layers={[
-          ({ series, lineGenerator, yScale, innerWidth, innerHeight }) => {
+          ({ series, lineGenerator, yScale, innerWidth }) => {
             const p = series[0].data.map((d) => d.position);
             const zero = (yScale as (v: number) => number)(0);
-            const base = fit ? innerHeight : zero; // 面積填到哪裡：fit 填到圖表下緣，其他填到 0 軸
             return (
               <g key="a">
-                {!fit && <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} strokeOpacity={0.35} strokeDasharray="3 3" />}
-                <path d={`${lineGenerator(p)}L${p[p.length - 1].x},${base}L${p[0].x},${base}Z`} fill={color} fillOpacity={0.12} />
+                <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} strokeOpacity={0.35} strokeDasharray="3 3" />
+                <path d={`${lineGenerator(p)}L${p[p.length - 1].x},${zero}L${p[0].x},${zero}Z`} fill={color} fillOpacity={0.12} />
               </g>
             );
           },
@@ -443,6 +419,9 @@ const RANGES = [
 const TREND_MARGIN = { top: 12, right: 12, bottom: 32, left: 64 }; // 兩張走勢圖同一組邊距，時間軸與十字線才會上下對齊
 const TICK_STEPS = [1, 3, 12, 24, 60]; // 月刻度的間隔（月）：每月、每季、每年、每 2 年、每 5 年，挑第一個放得下的
 const WEEK_DAYS = 7; // 一個月以內的區間，時間軸刻度的間隔（天）
+const NICE_STEPS = [1, 2, 2.5, 5]; // 縱軸刻度間隔可用的整齊數字（再乘上 10 的次方）
+const MIN_Y_STEPS = 3; // 縱軸最少分幾格
+const MAX_Y_STEPS = 5; // 縱軸最多分幾格（再多刻度文字會擠在一起）
 const PILL_H = 20; // 十字線座標標籤的高度（px）
 const DATE_PILL_W = 84; // 十字線日期標籤的寬度（px，放得下 YYYY-MM-DD）
 
@@ -629,25 +608,39 @@ function RangeTabs({ ranges, value, onChange }: {
   );
 }
 
-// 【縱軸整數刻度】把資料範圍擴大到「整齊的刻度」（1、2、2.5、5 × 10 的次方），大約分 4 格，上下限剛好落在刻度上；
-// 範圍含 0 時（損益圖一定含 0），0 也一定是刻度之一。參數：lo=範圍下限、hi=範圍上限
+// 【縱軸整數刻度】範圍一定包含 0；刻度間隔只用整齊的數字（1、2、2.5、5 × 10 的次方），
+// 在「分成 3～5 格」的所有候選裡，挑上下限最貼近資料最大／最小值的一組，圖表才不會因為上限刻度抓得太大而被壓扁
+// （例：最大值約 11.2 萬 → 間隔 2.5 萬、上限 12.5 萬，而不是間隔 5 萬、上限 15 萬）。上下限與 0 都會是刻度之一。
+// 參數：lo=範圍下限（≤ 0）、hi=範圍上限（≥ 0）
 function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks: number[]; step: number } {
-  const raw = (hi - lo || Math.abs(hi) || 1) / 4;
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((v) => v >= raw) ?? 10 * mag;
-  const yMin = Math.floor(lo / step) * step;
-  const yMax = Math.max(Math.ceil(hi / step) * step, yMin + step);
+  const span = hi - lo || Math.abs(hi) || 1;
+  const mag = Math.floor(Math.log10(span));
+  let best: { yMin: number; yMax: number; step: number; n: number } | null = null;
+  for (let k = mag - 2; k <= mag; k++) {
+    for (const m of NICE_STEPS) {
+      const step = m * 10 ** k;
+      const yMin = Math.floor(lo / step) * step;
+      const yMax = Math.max(Math.ceil(hi / step) * step, yMin + step);
+      const n = Math.round((yMax - yMin) / step);
+      if (n < MIN_Y_STEPS || n > MAX_Y_STEPS) continue;
+      // 範圍越小越貼近資料；一樣小時取格數少的，刻度比較不擠
+      if (!best || yMax - yMin < best.yMax - best.yMin - 1e-9 || (Math.abs(yMax - yMin - (best.yMax - best.yMin)) < 1e-9 && n < best.n)) {
+        best = { yMin, yMax, step, n };
+      }
+    }
+  }
+  const { yMin, yMax, step } = best ?? { yMin: lo, yMax: hi, step: span };
   const ticks: number[] = [];
   for (let v = yMin; v <= yMax + step / 2; v += step) ticks.push(Math.round(v / step) * step);
   return { yMin, yMax, ticks, step };
 }
 
 // 【縱軸金額文字】與 compactMoney 相同的「萬／億」簡寫，但小數位數依刻度間隔決定（最多 2 位），
-// 市值圖依數值縮放後刻度間隔可能只有幾千元，這樣「10.75萬」才不會被四捨五入成「10.8萬」。參數：v=金額、step=刻度間隔
+// 刻度間隔是 2.5 萬這類數字時，「12.5萬」才不會被四捨五入成「13萬」。參數：v=金額、step=刻度間隔
 function axisMoney(v: number, step: number): string {
   const unit = Math.abs(v) >= 1e8 ? 1e8 : Math.abs(v) >= 1e4 ? 1e4 : 1;
   if (unit === 1) return Math.round(v).toLocaleString("zh-TW");
-  const digits = Math.min(2, Math.max(0, Math.ceil(-Math.log10(step / unit) - 1e-9)));
+  const digits = (String(Number((step / unit).toFixed(2))).split(".")[1] ?? "").length; // 刻度間隔本身有幾位小數（2.5 萬 → 1 位），最多 2 位
   return `${Number((v / unit).toFixed(digits))}${unit === 1e8 ? "億" : "萬"}`; // Number() 去掉多餘的尾數 0（11.00 → 11），整數不受影響
 }
 
@@ -673,12 +666,10 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
   const t = useChartTokens();
   const uid = useId().replace(/:/g, ""); // 每張圖自己的 SVG id（裁切區不互相衝突）
 
-  // 1. 縱軸範圍：損益圖一定包含 0（0 基準線分隔賺賠）；市值圖依目前數值的尺度縮放（見 fitSpan，不從 0 開始）。
-  //    上下限都取整數刻度，上下限線（與範圍內的 0 基準線）都會落在刻度上
+  // 1. 縱軸範圍：兩張圖都一定包含 0（市值圖從 0 開始）；上下限取整數刻度且貼近資料的最大／最小值（見 niceRange），
+  //    上下限線與 0 基準線都會落在刻度上
   const vals = kind === "value" ? rows.flatMap((r) => [r.value, r.cost]) : rows.map((r) => r.pnl);
-  const { yMin, yMax, ticks: yTicks, step: yStep } = kind === "value"
-    ? niceRange(...fitSpan(Math.min(...vals), Math.max(...vals)))
-    : niceRange(Math.min(0, ...vals), Math.max(0, ...vals));
+  const { yMin, yMax, ticks: yTicks, step: yStep } = niceRange(Math.min(0, ...vals), Math.max(0, ...vals));
 
   const data = kind === "value"
     ? [{ id: "市值", data: rows.map((r) => ({ x: r.x, y: r.value })) }, { id: "成本", data: rows.map((r) => ({ x: r.x, y: r.cost })) }]
@@ -717,7 +708,7 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
             <g key="rules">
               <line x1={0} x2={innerWidth} y1={0} y2={0} stroke={t.rule} strokeWidth={1} />
               <line x1={0} x2={innerWidth} y1={innerHeight} y2={innerHeight} stroke={t.rule} strokeWidth={1} />
-              {yMin <= 0 && yMax >= 0 && <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} />}
+              <line x1={0} x2={innerWidth} y1={zero} y2={zero} stroke={t.cost} strokeWidth={1} />
             </g>
           );
         },
