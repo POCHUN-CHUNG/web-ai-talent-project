@@ -210,22 +210,32 @@
 }
 
 
-/* AI 主要風險特徵：primary-container 膠囊（與「已調整」同一組顏色），依內容定寬、可換行 */
+/* AI 主要風險特徵：與投資組合總覽卡片的持有標的一覽相同——單列、不換行，超出時左右滑動，兩端淡出；
+   往左右延伸到卡片邊緣（--pad 為卡片內距），膠囊為 surface-container-high 底、label-md、左右內距 16px、間距 12px */
 .features {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
+  flex-wrap: nowrap;
+  gap: calc(var(--space-sm) + var(--space-xs));
+  margin: var(--space-xs) calc(var(--pad) * -1) 0;
+  padding: 0 var(--pad);
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, transparent 0%, black var(--pad), black calc(100% - var(--pad)), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black var(--pad), black calc(100% - var(--pad)), transparent 100%);
+}
+
+.features::-webkit-scrollbar {
+  display: none;
 }
 
 .feature {
-  padding: 4px 14px;
+  flex-shrink: 0;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-full);
-  background-color: var(--color-primary-container);
-  color: var(--color-on-primary-container);
-  font-size: var(--text-label-lg-size); /* 與報告頁綜合診斷的特徵膠囊相同 */
-  font-weight: 600;
-  line-height: 1.5;
+  background-color: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+  font-size: var(--text-label-md-size);
+  white-space: nowrap;
 }
 
 .status {
