@@ -43,7 +43,7 @@ AVAILABLE_FIGURE_REFS
 | 項目 | 處理 | 理由 |
 | --- | --- | --- |
 | `period.requested_years`、`period.max_years` | 移除，改為 `is_max_period`（`requested_years` 為 null 時為 true） | 年數是月數換算的小數（例 2.4167），模型容易寫成「2.42 年」；期間一律以起訖日描述 |
-| `personal_alignment` | 新增 | 最大回撤與可接受損失區間的比較由後端完成（見下方），模型不自行比大小 |
+| `personal_alignment` | 新增 | 最大回撤與可承受損失區間的比較由後端完成（見下方），模型不自行比大小 |
 | `figures[].data` | 移除；回撤圖改附 `facts`（高點日、最低點日、回復日與交易日數） | 回撤序列約 1,300 筆，原樣送出約多 2–3 萬 token |
 | `figures[].legend_text` | 移除 | 看圖說明由前端固定顯示，模型只寫本次資料的觀察；原文含顏色描述，避免模型照抄 |
 | `id`、`portfolio_id`、`risk_profile_id`、`created` | 移除 | 模型不需要 |
@@ -67,7 +67,7 @@ AVAILABLE_FIGURE_REFS
     "loss_tolerance": "10 - 19 %",
     "changed_fields": []
   },
-  "personal_alignment": {"mdd_vs_loss_tolerance": "超過可接受損失區間"},
+  "personal_alignment": {"mdd_vs_loss_tolerance": "超過可承受損失區間"},
   "metrics": {
     "annualized_volatility": {"value": 0.2497, "benchmark_value": 0.1797, "unit": "fraction", "status": "available", "reason": null}
   },
@@ -112,7 +112,7 @@ AVAILABLE_FIGURE_REFS
 | 20 - 29 % | [20%, 30%) |
 | 30 % 以上 | [30%, ∞) |
 
-|MDD| ≥ 區間上界為「超過可接受損失區間」，< 區間下界為「低於可接受損失區間」，其餘為「落在可接受損失區間內」；最大回撤不可用或選項不在表中為「無法判斷」。
+|MDD| ≥ 區間上界為「超過可承受損失區間」，< 區間下界為「低於可承受損失區間」，其餘為「落在可承受損失區間內」；最大回撤不可用或選項不在表中為「無法判斷」。
 
 ## 圖表 ref 清單
 
@@ -122,7 +122,7 @@ AVAILABLE_FIGURE_REFS
 | `figure:weight_vs_pcr` | 風險貢獻度（資金占比與風險貢獻比例對照） | `concentration` |
 | `figure:correlation_heatmap` | 相關係數熱圖 | `concentration` |
 
-`risk_return`、`market_sensitivity`、`personal_alignment` 三段沒有對應圖表，`figure_refs` 必須為空陣列（後端會檢查）。
+`return_market`、`personal_alignment` 兩段沒有對應圖表，`figure_refs` 必須為空陣列（後端會檢查）。
 
 ## 不得出現在 payload 的欄位
 
@@ -150,8 +150,7 @@ AVAILABLE_FIGURE_REFS
 
 Structured Outputs 只保證格式，後端另外檢查，任一不符即計為一次重試：
 
-1. `sections` 恰好五段，`key` 依序為 `risk_return`、`loss_risk`、`concentration`、`market_sensitivity`、`personal_alignment`。
-2. 字數在合理範圍（容許模型數字數的誤差，只擋太短或失控）：`overall.text` 120–450 字、`features` 2–3 句且每句 4–30 字、`focus` 20–180 字、每段 60–320 字、caption 15–100 字、`review_directions` 最多 3 項且每項 15–100 字、`limitations` 最多 3 項且每項最多 150 字。
+1. `sections` 恰好四段，`key` 依序為 `return_market`、`loss_risk`、`concentration`、`personal_alignment`。
+2. 字數在合理範圍（容許模型數字數的誤差，只擋太短或失控）：`overall.text` 120–450 字、`features` 2–3 句且每句 4–30 字、`focus` 20–180 字、每段 60–380 字、`review_directions` 恰好 3 項且每項 15–100 字。
 3. `evidence_refs`、`figure_refs` 的每一項都在白名單內；`overall` 與每段至少一項 evidence ref；各段的 `figure_refs` 只能是該段綁定的圖。
-4. `figure_captions` 恰好涵蓋全部可用圖表，順序一致。
-5. 文字不得含驚嘆號、以引號包住的典型標籤原文（如「假性分散」）、規則編號（E1、T3…）、顏色描述（紅色、藍色等），或 System Prompt〈rules〉列出的禁用字詞（後端指標名稱、「高於／低於大盤」、「後端」「典型標籤」等內部用語），清單即 `analysis_ai.py` 的 `BANNED_TERMS`。
+4. 文字不得含驚嘆號、以引號包住的典型標籤原文（如「假性分散」）、規則編號（E1、T3…）、顏色描述（紅色、藍色等），或 System Prompt〈rules〉列出的禁用字詞（後端指標名稱、「高於／低於大盤」、「後端」「典型標籤」等內部用語），清單即 `analysis_ai.py` 的 `BANNED_TERMS`。

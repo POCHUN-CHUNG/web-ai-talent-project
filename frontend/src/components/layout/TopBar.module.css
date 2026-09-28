@@ -196,9 +196,9 @@
   .tabsWrap {
     position: fixed;
     top: auto;
-    bottom: calc(env(safe-area-inset-bottom, 16px) + var(--space-md));
-    left: var(--space-md);
-    right: var(--space-md);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-sm)); /* 與畫面左、右、下邊緣各留 8px */
+    left: var(--space-sm);
+    right: var(--space-sm);
     width: auto;
     transform: none;
     border-radius: var(--radius-full);
@@ -213,8 +213,8 @@
   .tab {
     flex-direction: column;
     height: auto;
-    padding: 12px 0 8px 0;
-    gap: 4px;
+    padding: 8px 0 6px 0;
+    gap: 2px;
   }
   
   .tabIcon {
@@ -222,8 +222,12 @@
   }
   
   .tabText {
-    font-size: var(--text-label-md-size); /* 手機 12px：中文字最小不低於 12px（DESIGN.md Typography） */
+    font-size: calc(var(--text-label-md-size) - 1px); /* 手機 11px：導覽列唯一低於 12px 的中文字（使用者指定，DESIGN.md Small text） */
     font-weight: 600;
+  }
+
+  .tabIcon {
+    font-size: 24px !important; /* 蓋過 Icon 元件寫在 style 的 28px，導覽列整體矮一點 */
   }
 }
 

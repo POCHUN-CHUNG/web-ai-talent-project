@@ -416,26 +416,26 @@ const RANGES = [
   { key: "10Y", label: "10 年", months: 120 },
   { key: "ALL", label: "全部", months: null },
 ] as const;
-const TREND_MARGIN = { top: 12, right: 12, bottom: 32, left: 64 }; // 兩張走勢圖同一組邊距，時間軸與十字線才會上下對齊
+export const TREND_MARGIN = { top: 12, right: 12, bottom: 32, left: 64 }; // 兩張走勢圖同一組邊距，時間軸與十字線才會上下對齊
 const TICK_STEPS = [1, 3, 12, 24, 60]; // 月刻度的間隔（月）：每月、每季、每年、每 2 年、每 5 年，挑第一個放得下的
 const WEEK_DAYS = 7; // 一個月以內的區間，時間軸刻度的間隔（天）
 const NICE_STEPS = [1, 2, 2.5, 5]; // 縱軸刻度間隔可用的整齊數字（再乘上 10 的次方）
 const MIN_Y_STEPS = 3; // 縱軸最少分幾格
 const MAX_Y_STEPS = 5; // 縱軸最多分幾格（再多刻度文字會擠在一起）
-const PILL_H = 20; // 十字線座標標籤的高度（px）
-const DATE_PILL_W = 84; // 十字線日期標籤的寬度（px，放得下 YYYY-MM-DD）
+export const PILL_H = 20; // 十字線座標標籤的高度（px）
+export const DATE_PILL_W = 84; // 十字線日期標籤的寬度（px，放得下 YYYY-MM-DD）
 
 type TrendKind = "value" | "pnl";
 type TrendRow = { date: string; x: Date; value: number; cost: number; pnl: number; ret: number | null };
 type TrendHover = { i: number; kind: TrendKind } | null; // i=滑到第幾天、kind=游標所在的圖
 type TrendScales = { x: (d: Date) => number; y: (v: number) => number; w: number; h: number };
 
-// 【時間軸刻度】
+// 【時間軸刻度】（風險分析報告的回撤走勢也共用）
 // 1. 一個月以內：從區間第一天起每 7 天一個刻度（M/D），間隔固定為一星期。
 // 2. 超過一個月：標在月份的 1 號，間隔依序試「每月 → 每季（1、4、7、10 月）→ 每年 → 每 2 年 → 每 5 年」，
 //    挑第一個刻度數不超過 maxTicks 的（例如 3、6 個月每月一個、1 年每季一個、全部視長度為每季或每年）。
 // 參數：rows=區間內的每日資料、maxTicks=最多幾個刻度（依圖表寬度）
-function trendTicks(rows: TrendRow[], maxTicks: number): { ticks: Date[]; step: number } {
+export function trendTicks(rows: { x: Date }[], maxTicks: number): { ticks: Date[]; step: number } {
   const first = rows[0].x;
   const last = rows[rows.length - 1].x;
   if ((last.getTime() - first.getTime()) / DAY_MS <= 31) {
@@ -455,13 +455,13 @@ function trendTicks(rows: TrendRow[], maxTicks: number): { ticks: Date[]; step: 
 
 // 【刻度文字】「M/D」；區間跨年時第一個刻度加上年份（YYYY/M/D）；每年以上的刻度每個都寫年份（YYYY/1/1）。
 // 參數：d=日期、i=第幾個刻度、step=月刻度間隔（0＝一個月以內）、crossYear=區間是否跨年
-function tickText(d: Date, i: number, step: number, crossYear: boolean): string {
+export function tickText(d: Date, i: number, step: number, crossYear: boolean): string {
   const md = `${d.getMonth() + 1}/${d.getDate()}`;
   return step >= 12 || (crossYear && i === 0) ? `${d.getFullYear()}/${md}` : md;
 }
 
 // 【圖表寬度對應的刻度上限】手機（≤734px）最多 4 個，桌機最多 8 個，避免日期文字擠在一起。無參數。
-function useMaxTicks(): number {
+export function useMaxTicks(): number {
   const q = "(max-width: 734px)";
   const [narrow, setNarrow] = useState(() => window.matchMedia(q).matches);
   useEffect(() => {
@@ -612,7 +612,7 @@ function RangeTabs({ ranges, value, onChange }: {
 // 在「分成 3～5 格」的所有候選裡，挑上下限最貼近資料最大／最小值的一組，圖表才不會因為上限刻度抓得太大而被壓扁
 // （例：最大值約 11.2 萬 → 間隔 2.5 萬、上限 12.5 萬，而不是間隔 5 萬、上限 15 萬）。上下限與 0 都會是刻度之一。
 // 參數：lo=範圍下限（≤ 0）、hi=範圍上限（≥ 0）
-function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks: number[]; step: number } {
+export function niceRange(lo: number, hi: number): { yMin: number; yMax: number; ticks: number[]; step: number } {
   const span = hi - lo || Math.abs(hi) || 1;
   const mag = Math.floor(Math.log10(span));
   let best: { yMin: number; yMax: number; step: number; n: number } | null = null;
@@ -814,7 +814,7 @@ function TrendCross({ kind, rows, hover, setHover, scales }: {
   return (
     <svg className={styles.crossLayer}>
       {/* 感應區蓋住整個圖表框（圖表尺寸量好之前也能接收游標） */}
-      <rect width="100%" height="100%" fill="transparent" style={{ cursor: "crosshair", touchAction: "pan-y" }}
+      <rect width="100%" height="100%" fill="transparent" className={styles.crossHit}
         onPointerMove={track} onPointerDown={track} onPointerLeave={leave} />
       <g transform={`translate(${TREND_MARGIN.left},${TREND_MARGIN.top})`}>{cross}</g>
     </svg>

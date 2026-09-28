@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AuthProvider, RequireAuth, RequireProfile } from "./auth";
 import Login from "./pages/Login";
 import Portfolios from "./pages/Portfolios";
@@ -7,9 +7,16 @@ import Settings from "./pages/Settings";
 import Questionnaire from "./pages/Questionnaire";
 import RiskProfile from "./pages/RiskProfile";
 import RiskAnalysis from "./pages/RiskAnalysis";
+import AnalysisReport from "./pages/AnalysisReport";
 import History from "./pages/History";
 import TabsLayout from "./components/layout/TabsLayout";
 import ScrollbarOverlay from "./components/layout/ScrollbarOverlay";
+
+// 【舊報告網址轉址】/analysis/編號 → /history/編號。無參數。
+function LegacyReportRedirect() {
+  const { analysisId } = useParams();
+  return <Navigate to={`/history/${analysisId}`} replace />;
+}
 
 // 【App 根元件】決定「哪個網址顯示哪個頁面」。
 export default function App() {
@@ -39,6 +46,10 @@ export default function App() {
                 <Route path="/portfolios/:portfolioId" element={<PortfolioDetail />} />
                 <Route path="/analysis" element={<RiskAnalysis />} />
                 <Route path="/history" element={<History />} />
+                {/* 風險分析報告：放在「歷史紀錄」底下；開始分析後、從投資組合詳情頁點進來也是同一頁 */}
+                <Route path="/history/:analysisId" element={<AnalysisReport />} />
+                {/* 舊網址（/analysis/編號）導到新位置，避免已存的連結失效 */}
+                <Route path="/analysis/:analysisId" element={<LegacyReportRedirect />} />
                 <Route path="/" element={<Navigate to="/portfolios" replace />} />
               </Route>
             </Route>

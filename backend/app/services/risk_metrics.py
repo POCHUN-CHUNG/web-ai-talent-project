@@ -94,7 +94,7 @@ FIGURE_TEXT = {  # 三張圖的標題與圖說（顯示給使用者，白話）
                               "回撤代表投資組合從先前高點下跌的幅度。曲線越往下，代表距離先前高點越遠；最低點就是這段期間的最大回撤。"),
     "figure:weight_vs_pcr": ("風險貢獻度",
                              "風險貢獻度表示每檔股票對整個組合漲跌起伏的影響有多大。長條越長，代表這檔股票帶來的風險越大，不一定是你放最多錢的那一檔。"),
-    "figure:correlation_heatmap": ("相關係數熱圖",
+    "figure:correlation_heatmap": ("相關係數",
                                    "這張圖顯示各持股過去是否常常一起漲跌。紅色越深代表越常一起漲跌，藍色代表常常一漲一跌。"
                                    "如果主要持股大多常常一起漲跌，就算持有很多檔，分散風險的效果也可能有限。"),
 }
@@ -630,7 +630,7 @@ def compute_analysis(prices, benchmark, weights, symbols: list, names: list, dat
     metrics = {
         "annualized_volatility": _metric(p["volatility"], "fraction", REASON_FEW, m["volatility"]),
         "annualized_downside_deviation": _metric(p["downside"], "fraction", None, m["downside"]),
-        "beta": _metric(beta, "ratio", beta_reason),
+        "beta": _metric(beta, "ratio", beta_reason, 1.0 if beta is not None else None),  # 大盤對自己的 Beta 恆為 1
         "r_squared": _metric(r2, "ratio", beta_reason),
         "max_drawdown": _metric(p["mdd"], "fraction", None, m["mdd"]),
         "expected_shortfall_95": _metric(p["es"], "fraction", None, m["es"]),

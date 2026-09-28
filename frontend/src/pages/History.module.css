@@ -1,3 +1,5 @@
+/* 【歷史紀錄頁樣式】標題列（右側投資組合篩選）→ 分析卡片清單 → 頁碼。版面寬度、上方留白與其他分頁一致 */
+
 .page {
   width: 100%;
   max-width: 1080px;
@@ -16,19 +18,72 @@
   }
 }
 
+/* 標題列：左標題、右篩選選單；手機時選單移到標題下方撐滿寬度 */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
 .title {
   margin: 0;
   font-family: var(--font-family);
   font-size: var(--text-headline-lg-size);
   font-weight: var(--text-headline-lg-weight);
+  letter-spacing: 0;
   color: var(--color-on-background);
 }
 
-.placeholder {
+.filter {
+  width: 280px;
+  flex: none;
+  margin-block: -100px; /* 選單比標題高：不撐高標題列，標題與下方內容的距離和其他頁面一致（DESIGN.md Page header） */
+}
+
+@media (max-width: 734px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter {
+    width: 100%;
+    margin-block: 0; /* 手機：選單在標題下方，照常佔高度 */
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* 沒有任何紀錄：虛線空狀態（DESIGN.md Empty state） */
+.empty {
   padding: 2rem;
   text-align: center;
   border: 1px dashed var(--color-outline);
   border-radius: var(--radius-card);
-  line-height: 1.5;
+  line-height: 1.5; /* 與投資組合頁、組合詳情頁、風險屬性頁的虛線空狀態相同（內距 32px、一般文字色） */
+}
+
+.stateCard.stateCard {
+  padding: var(--space-lg);
+  align-items: flex-start;
+}
+
+/* 頁碼：上一頁、第 N / M 頁、下一頁，置中 */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.pageText {
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
   color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
 }

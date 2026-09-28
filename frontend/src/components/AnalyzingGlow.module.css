@@ -34,6 +34,15 @@
   }
 }
 
+/* 手機：畫面窄，光暈往內延伸的寬度減半（約 10px），不壓到內容 */
+@media (max-width: 734px) {
+  .glow::before {
+    inset: -30px;
+    border-width: 40px;
+    filter: blur(20px);
+  }
+}
+
 /* 使用者設定「減少動態效果」時不閃爍，只保留靜態光暈 */
 @media (prefers-reduced-motion: reduce) {
   .glow {

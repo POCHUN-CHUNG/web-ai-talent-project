@@ -1,0 +1,553 @@
+/* 【風險分析報告頁樣式】標題列（右側分析時間）→ 使用限制提示語 → 分析條件 → 綜合診斷 → 風險指標 → 五段說明與圖 → 檢視方向 → 庫存明細。
+   版面寬度、上方留白與其他分頁一致；區塊卡片 24px 內距、手機 16px 間距（DESIGN.md Layout & Spacing） */
+
+.page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 112px var(--space-margin) 0;
+  flex: 1 0 auto; /* 撐滿版面剩下的高度：分析中的轉圈圈才能在剩餘空間置中，而不把頁面撐高 */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+@media (max-width: 734px) {
+  .page {
+    padding: 96px var(--space-md) 0;
+    gap: var(--space-md);
+  }
+}
+
+/* 標題列：左標題；右側分析時間（手機移到標題下方，DESIGN.md Iconography 的時間規則） */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-lg-size);
+  font-weight: var(--text-headline-lg-weight);
+  letter-spacing: 0;
+  color: var(--color-on-background);
+}
+
+.metaText {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.metaMobile {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .metaDesktop {
+    display: none;
+  }
+
+  .metaMobile {
+    display: inline-flex;
+  }
+}
+
+/* ── 區塊卡片 ── */
+.section.section {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* 手機也維持 24px 內距（與投資組合頁、風險屬性頁的卡片相同） */
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 40px; /* 與有說明圖示的標題同高（DESIGN.md Section header alignment） */
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  margin: 0;
+  font-size: var(--text-headline-sm-size);
+  font-weight: 700;
+  line-height: var(--text-headline-sm-line-height);
+  color: var(--color-on-surface);
+}
+
+.sectionHead > .sectionTitle {
+  min-height: 0;
+}
+
+/* AI 的說明段落：body-md、行高 1.6、左右對齊（DESIGN.md Justified text blocks） */
+.paragraph {
+  margin: 0;
+  font-size: var(--text-body-md-size);
+  line-height: 1.6;
+  text-align: justify;
+  color: var(--color-on-surface);
+}
+
+.helper {
+  margin: 0;
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface-variant);
+}
+
+/* ── 分析條件：名稱在上、值在下，桌機三欄、手機兩欄，一律等寬；較長的值可換行（日期不從中間斷開） ── */
+.conditions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md) var(--space-gutter);
+  margin: 0;
+}
+
+@media (max-width: 734px) {
+  .conditions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.condition {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.condition dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-body-md-size); /* 與投資組合頁、風險屬性頁的欄位名稱同級 */
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
+}
+
+.condition dd {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: var(--text-body-md-size);
+  font-weight: 600;
+  color: var(--color-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 日期不從中間斷開；起訖兩個日期之間可以換行 */
+.nowrap {
+  white-space: nowrap;
+}
+
+.sub {
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
+}
+
+/* 「已調整」膠囊（DESIGN.md Adjustable default） */
+.adjusted {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  font-size: var(--text-label-md-size);
+  font-weight: var(--text-label-md-weight);
+}
+
+/* ── 綜合診斷：主要風險特徵膠囊（primary-container）、說明段落、最需要關注（warning 狀態框） ── */
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.feature {
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  font-size: var(--text-label-lg-size);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* 卡片內的狀態框（DESIGN.md Status panel inside a card）：*-container 底、巢狀卡圓角、圖示與整段文字垂直置中 */
+.statusPanel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) 20px;
+  border-radius: var(--radius-nested);
+  font-size: var(--text-body-md-size);
+  line-height: 1.6;
+}
+
+.statusPanel > :global(.material-symbols-rounded) {
+  flex: none;
+}
+
+.statusPanel > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.statusPanel p {
+  margin: 0;
+  text-align: justify;
+}
+
+.panelTitle.panelTitle {
+  font-weight: 600;
+}
+
+.focusPanel,
+.warnPanel {
+  background-color: var(--color-warning-container);
+  color: var(--color-on-warning-container);
+}
+
+.focusPanel > :global(.material-symbols-rounded),
+.warnPanel > :global(.material-symbols-rounded) {
+  color: var(--color-warning);
+}
+
+/* 提示（例如索丁諾比率的提醒）：藍色資訊框（info-container 底、info 色圖示） */
+.infoPanel {
+  background-color: var(--color-info-container);
+  color: var(--color-on-info-container);
+}
+
+.infoPanel > :global(.material-symbols-rounded) {
+  color: var(--color-info);
+}
+
+/* 指標區下方的提示框（索丁諾提示）：撐滿指標格線的整列 */
+.hintPanel.hintPanel {
+  grid-column: 1 / -1;
+}
+
+/* 圖無法呈現時的說明：中性灰底 */
+.neutralPanel {
+  background-color: var(--color-surface-container);
+  color: var(--color-on-surface);
+}
+
+.neutralPanel > :global(.material-symbols-rounded) {
+  color: var(--color-on-surface-variant);
+}
+
+/* 解說失敗：狀態框與「重新產生」同一列，手機時按鈕換到下一行 */
+.failedRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.failedRow > :first-child {
+  flex: 1;
+}
+
+.failedRow > button {
+  flex: none;
+}
+
+@media (max-width: 734px) {
+  .failedRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ── 風險指標：細框小卡（DESIGN.md Outline stat tile），桌機三欄、平板與手機兩欄 ── */
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+@media (max-width: 1068px) {
+  .metricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.metricTile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-md) 20px 20px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-nested);
+  min-width: 0;
+}
+
+@media (max-width: 734px) {
+  .metricTile {
+    padding: var(--space-md);
+  }
+}
+
+/* 指標名稱與說明圖示：圖示緊接在名稱右側（與區塊標題旁的說明圖示同樣的 8px 間距）；與大盤比較的標籤推到最右側 */
+.metricHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.compareDesktop {
+  margin-left: auto;
+}
+
+.compareMobile {
+  display: none;
+  margin-top: var(--space-xs);
+}
+
+@media (max-width: 734px) {
+  .compareDesktop {
+    display: none;
+  }
+
+  .compareMobile {
+    display: inline-block;
+  }
+}
+
+.metricLabel {
+  font-size: var(--text-label-lg-size);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.metricValue {
+  font-size: var(--text-headline-md-size);
+  font-weight: var(--text-headline-md-weight); /* 與投資組合詳情頁的指標小卡相同，只是顏色改主色藍 */
+  line-height: 1.2;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary); /* 指標數字用主色藍 */
+}
+
+/* 指標數值的單位（%）：與投資組合詳情頁小卡的單位相同（左距 4px、body-sm、一般粗細、次要文字色） */
+.unit {
+  margin-left: 4px;
+  font-size: var(--text-body-sm-size);
+  font-weight: 400;
+  color: var(--color-on-surface-variant);
+}
+
+.metricSub {
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 與大盤比較的白話標示：中性膠囊（不以顏色表達好壞，文字本身就說清楚）。
+   桌機放在小卡右上角（名稱列的最右側）；手機放在大盤數值下方 */
+.compare {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container-high);
+  font-size: var(--text-label-md-size);
+  font-weight: var(--text-label-md-weight);
+  line-height: 1.6;
+  color: var(--color-on-surface);
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  font-size: var(--text-body-sm-size);
+  line-height: 1.55;
+  color: var(--color-on-surface-variant);
+  text-align: justify;
+}
+
+.note > :global(.material-symbols-rounded) {
+  flex: none;
+}
+
+/* 說明彈出框內的段落 */
+.popPara {
+  margin: 0;
+}
+
+/* 指標說明框的標題（中文名稱加英文原名） */
+.popTitle {
+  margin: 0 0 var(--space-sm);
+  font-weight: 700;
+}
+
+.popPara + .popPara {
+  margin-top: var(--space-sm);
+}
+
+/* ── 圖表區塊：標題（附說明圖示）→ 圖，圖的下方不放文字。集中與分散的兩張圖上下排列 ── */
+.chartStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.chartBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin-top: var(--space-sm);
+}
+
+.chartHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.chartTitle {
+  margin: 0;
+  font-size: var(--text-body-lg-size); /* 比區塊標題小一點的圖表標題（與投資組合頁圖表標題相近） */
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+/* ── 建議檢視重點：編號膠囊（藍底白字：primary／on-primary）＋一行說明 ── */
+.directions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.directions li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.directions p {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-body-md-size);
+  line-height: 1.6;
+  text-align: justify;
+}
+
+.numberPill {
+  flex: none;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 使用限制提示語（共用元件 Notice）：與標題列的距離只用頁面的區塊間距，和其他頁面一致 */
+.noticeGap {
+  margin-top: 0;
+}
+
+/* 展開／收合其餘持股：置中的連結色文字按鈕，箭頭展開時轉 180° */
+/* ── 庫存明細 ── */
+.expandToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  padding: var(--space-xs) var(--space-md); /* 左右 16px，文字不擠 */
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  font: inherit;
+  font-size: var(--text-label-lg-size);
+  font-weight: var(--text-label-lg-weight);
+  color: var(--color-primary); /* 主色藍（不用連結色） */
+  cursor: pointer;
+}
+
+.expandToggle:hover {
+  background-color: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.expandToggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.expandToggle > :global(.material-symbols-rounded) {
+  transition: transform 0.2s ease;
+}
+
+.flip {
+  transform: rotate(180deg);
+}
+
+/* 手機：指標卡的說明圖示縮小為 28px 按鈕、18px 圖示（名稱「95% 預期短缺」才放得下一行，名稱也不換行）；
+   數值改用 headline-sm；名稱與數值的距離和數值到下方比較標籤的距離一樣（8px） */
+@media (max-width: 734px) {
+  .metricHead {
+    gap: var(--space-xs);
+  }
+
+  .metricLabel {
+    white-space: nowrap;
+  }
+
+  .metricInfo {
+    margin-block: -4px;
+  }
+
+  .metricInfo button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .metricInfo button > :global(.material-symbols-rounded) {
+    font-size: 18px !important; /* 蓋過 Icon 元件寫在 style 的 22px */
+  }
+
+  .metricValue {
+    margin-top: var(--space-xs);
+    font-size: var(--text-headline-sm-size);
+  }
+
+}
+
+/* 庫存明細沒有展開按鈕時（表格是最後一項）：桌機與手機都比照投資組合頁的庫存明細卡，下內距 8px，
+   最後一列到卡片下緣的距離＝表格到卡片左右邊緣的距離 */
+.section.section.tableLast {
+  padding-bottom: var(--space-sm);
+}

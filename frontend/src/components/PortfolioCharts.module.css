@@ -333,6 +333,13 @@
   overflow: visible;
 }
 
+/* 走勢圖的感應區（投資組合頁歷史走勢、報告頁回撤走勢共用）：游標一律是黑色細十字（外圍一圈白邊，在深淺底色上都看得清楚）；
+   系統內建的 crosshair 游標在 Windows 上會顯示成白色，所以改用自訂圖示，讀不到時才退回內建樣式。手機上仍可上下捲動頁面 */
+.crossHit {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='23' height='23'%3E%3Cpath d='M11.5 0v23M0 11.5h23' stroke='white' stroke-width='3'/%3E%3Cpath d='M11.5 0v23M0 11.5h23' stroke='black' stroke-width='1'/%3E%3C/svg%3E") 11 11, crosshair;
+  touch-action: pan-y;
+}
+
 /* 兩張走勢圖：市值圖較高、損益圖較矮 */
 .valueBox {
   height: 280px;

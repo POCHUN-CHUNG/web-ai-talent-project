@@ -24,7 +24,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  margin-bottom: var(--space-md);
 }
 
 .title {
@@ -41,7 +40,7 @@
 }
 
 .noticeGap {
-  margin-top: calc(-1 * var(--space-md));
+  margin-top: 0; /* 與標題列的距離只用頁面的區塊間距 */
 }
 
 /* 沒有任何可分析的組合：虛線空狀態 */
@@ -50,8 +49,7 @@
   text-align: center;
   border: 1px dashed var(--color-outline);
   border-radius: var(--radius-card);
-  line-height: 1.6;
-  color: var(--color-on-surface-variant);
+  line-height: 1.5; /* 與投資組合頁、組合詳情頁、風險屬性頁的虛線空狀態相同（內距 32px、一般文字色） */
 }
 
 /* ── 區塊卡片：與組合詳情頁的區塊卡同樣 24px 內距。
@@ -315,3 +313,9 @@
   color: var(--color-on-surface);
 }
 
+/* 標題列與下方內容的距離全站一致（DESIGN.md Page header）：標題列不另加下外距、提示語不往上拉，
+   一律只用頁面的區塊間距（桌機 24px、手機 16px）；標題列裡的按鈕與圖示按鈕比標題高，
+   用負的上下外距讓它們不撐高標題列（仍與標題垂直置中） */
+.header button {
+  margin-block: -100px;
+}

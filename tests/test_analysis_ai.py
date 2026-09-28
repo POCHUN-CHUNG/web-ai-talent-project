@@ -55,15 +55,12 @@ def good_report(payload: dict) -> dict:
                     "evidence_refs": ["metric:max_drawdown", "signal:" + payload["diagnosis"]["overall"]["adverse_signals"][0]["id"]]
                     if payload["diagnosis"]["overall"]["adverse_signals"] else ["metric:max_drawdown"]},
         "sections": [
-            {"key": k, "text": text, "evidence_refs": [f"diagnosis:{k}"] if k != "personal_alignment" else ["profile:loss_tolerance"],
+            {"key": k, "text": text, "evidence_refs": [f"diagnosis:{k if k != 'return_market' else 'risk_return'}"] if k != "personal_alignment" else ["profile:loss_tolerance"],
              "figure_refs": sorted(ai.SECTION_FIGURES.get(k, set()) & set(figs))}
             for k in ai.SECTION_KEYS
         ],
-        "figure_captions": [{"figure_ref": f, "caption": "這段期間的最大回撤發生在分析期間的前半段，之後已回到前高。",
-                             "evidence_refs": ["metric:max_drawdown"]} for f in figs],
         "review_directions": [{"text": "先確認風險貢獻度最高的兩檔持股，是否符合您原本的資金安排。",
-                               "evidence_refs": ["risk_contribution:2330"], "figure_refs": ["figure:weight_vs_pcr"]}],
-        "limitations": [],
+                               "evidence_refs": ["risk_contribution:2330"], "figure_refs": ["figure:weight_vs_pcr"]}] * 3,
     }
 
 
@@ -164,14 +161,14 @@ def test_single_holding_has_no_heatmap_ref():
 # ── 後端的個人條件比對 ──
 
 @pytest.mark.parametrize("mdd, q13, exp", [
-    (-0.049, "未滿 5 %", "落在可接受損失區間內"),
-    (-0.05, "未滿 5 %", "超過可接受損失區間"),
-    (-0.15, "10 - 19 %", "落在可接受損失區間內"),
-    (-0.199, "10 - 19 %", "落在可接受損失區間內"),
-    (-0.20, "10 - 19 %", "超過可接受損失區間"),
-    (-0.08, "10 - 19 %", "低於可接受損失區間"),
-    (-0.90, "30 % 以上", "落在可接受損失區間內"),
-    (-0.10, "30 % 以上", "低於可接受損失區間"),
+    (-0.049, "未滿 5 %", "落在可承受損失區間內"),
+    (-0.05, "未滿 5 %", "超過可承受損失區間"),
+    (-0.15, "10 - 19 %", "落在可承受損失區間內"),
+    (-0.199, "10 - 19 %", "落在可承受損失區間內"),
+    (-0.20, "10 - 19 %", "超過可承受損失區間"),
+    (-0.08, "10 - 19 %", "低於可承受損失區間"),
+    (-0.90, "30 % 以上", "落在可承受損失區間內"),
+    (-0.10, "30 % 以上", "低於可承受損失區間"),
     (None, "10 - 19 %", "無法判斷"),
     (-0.10, "不存在的選項", "無法判斷"),
 ])
@@ -215,17 +212,15 @@ def _label_break(r, payload):
     lambda r, p: r["sections"][0].update(evidence_refs=["metric:not_exist"]),
     lambda r, p: r["sections"][0].update(figure_refs=["figure:drawdown_curve"]),
     lambda r, p: r["sections"][1].update(figure_refs=["figure:weight_vs_pcr"]),
-    lambda r, p: r["figure_captions"].pop(),
-    lambda r, p: r["figure_captions"].reverse(),
-    lambda r, p: r["review_directions"].extend([r["review_directions"][0]] * 3),
-    lambda r, p: r["limitations"].extend(["限制"] * 4),
+    lambda r, p: r["review_directions"].pop(),
+    lambda r, p: r["review_directions"].append(r["review_directions"][0]),
     lambda r, p: r["sections"][2].update(text=r["sections"][2]["text"][:100] + "！"),
     lambda r, p: r["sections"][2].update(text=r["sections"][2]["text"][:100] + "熱圖中紅色的格子較多。"),
     lambda r, p: r["sections"][2].update(text=r["sections"][2]["text"][:100] + "依典型標籤判斷。"),
     lambda r, p: r["sections"][2].update(text=r["sections"][2]["text"][:100] + "符合規則 C2。"),
     lambda r, p: r["sections"][3].update(text=r["sections"][3]["text"][:100] + "R² 為 64.36%。"),
     lambda r, p: r["sections"][0].update(text=r["sections"][0]["text"][:100] + "年化波動度高於大盤。"),
-    lambda r, p: r["sections"][4].update(text=r["sections"][4]["text"][:100] + "後端比對結果顯示超過區間。"),
+    lambda r, p: r["sections"][3].update(text=r["sections"][3]["text"][:100] + "後端比對結果顯示超過區間。"),
     _label_break,
 ])
 def test_broken_report_rejected(break_it):
@@ -244,7 +239,7 @@ def test_generate_retries_then_succeeds():
     prompts = []
     assert ai.generate_report(payload, call=lambda up, rp: prompts.append(rp) or next(outs), sleep=sleeps.append)
     assert sleeps == [2]
-    assert prompts[0] is None and "段落不是依序的五段" in prompts[1] and "{{" not in prompts[1]
+    assert prompts[0] is None and "段落不是依序的四段" in prompts[1] and "{{" not in prompts[1]
 
 
 def test_generate_gives_up_after_max_attempts():
@@ -277,4 +272,4 @@ def test_all_text_problems_reported_together():
     with pytest.raises(ai.AiOutputInvalid) as e:
         ai.validate_report(r, payload)
     msg = str(e.value)
-    assert "sections.market_sensitivity 含禁用字詞：R²、HHI" in msg and "overall.focus 描述了圖表顏色：紅色" in msg
+    assert "sections.personal_alignment 含禁用字詞：R²、HHI" in msg and "overall.focus 描述了圖表顏色：紅色" in msg

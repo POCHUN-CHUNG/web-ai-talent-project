@@ -60,8 +60,9 @@ def test_golden_metrics_match(key):
         assert close(res["metrics"][k]["value"], g[k]), (key, k, res["metrics"][k], g[k])
     for k in BENCHMARK_KEYS:
         assert close(res["metrics"][k]["benchmark_value"], g["benchmark_" + k]), (key, k)
-    # 沒有大盤對照的指標，對照值一律為 null
-    for k in set(METRIC_KEYS) - set(BENCHMARK_KEYS):
+    # Beta 的大盤對照值恆為 1（大盤對自己）；其他沒有大盤對照的指標，對照值一律為 null
+    assert res["metrics"]["beta"]["benchmark_value"] == (1.0 if res["metrics"]["beta"]["value"] is not None else None)
+    for k in set(METRIC_KEYS) - set(BENCHMARK_KEYS) - {"beta"}:
         assert res["metrics"][k]["benchmark_value"] is None
 
 

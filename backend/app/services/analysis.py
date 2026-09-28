@@ -26,6 +26,7 @@ DEFAULT_RATE_OPTION = "zero"  # 利率選項預設值
 REQUEST_KEYS = {"lookback_years", "rate_option", "profile_inputs"}  # 開始分析時允許的欄位
 PROFILE_QUESTIONS = {"investment_horizon": "Q7", "withdrawal_need": "Q8", "loss_tolerance": "Q13"}  # 分析前可調整的問卷參數與對應題號
 HISTORY_PAGE_SIZE_MAX = 50  # 歷史清單每頁最多筆數
+HISTORY_METRICS = ("max_drawdown", "annualized_volatility", "expected_shortfall_95", "beta", "sharpe_ratio", "sortino_ratio")  # 歷史卡片的六項摘要指標
 
 
 def invalid(message: str) -> ApiError:
@@ -247,7 +248,7 @@ def _metric_brief(metrics: dict, key: str) -> dict:
 
 
 def history(db: Session, user: User, portfolio_id: int | None, page: int, page_size: int) -> dict:
-    # 【歷史分析清單】使用者全部（或指定組合）的分析，依建立時間由新到舊分頁；每筆附組合名稱、分析條件、三項摘要指標與報告狀態。
+    # 【歷史分析清單】使用者全部（或指定組合）的分析，依建立時間由新到舊分頁；每筆附組合名稱、分析條件、六項摘要指標與報告狀態。
     # 參數：db=資料庫連線、user=目前登入者、portfolio_id=只看這個組合（None＝全部）、page=頁碼（從 1 起）、page_size=每頁筆數
     if page < 1 or not 1 <= page_size <= HISTORY_PAGE_SIZE_MAX:
         raise invalid(f"頁碼須從 1 起，每頁 1～{HISTORY_PAGE_SIZE_MAX} 筆")
@@ -272,7 +273,7 @@ def history(db: Session, user: User, portfolio_id: int | None, page: int, page_s
                    "start_date": r.start_date.isoformat(), "end_date": r.end_date.isoformat(), "trading_days": r.trading_days},
         "settings": {"rate_option": r.rate_option, "risk_free_rate": float(r.risk_free_rate)},
         "profile_inputs": r.profile_inputs,
-        "metrics": {k: _metric_brief(r.metrics, k) for k in ("annualized_volatility", "max_drawdown", "sharpe_ratio")},
+        "metrics": {k: _metric_brief(r.metrics, k) for k in HISTORY_METRICS},
         "report_status": rep.status if rep else None,
         "report_features": rep.content["overall"]["features"] if rep and rep.status == "ready" else None,
     } for r, name, rep in rows]

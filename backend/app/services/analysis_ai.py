@@ -17,7 +17,7 @@ from app.services.profile_ai import RETRY_WAIT_SECONDS, RETRYABLE_ERRORS, AiNotC
     max_attempts, pending_ttl_seconds, timeout_seconds
 from app.services.risk_metrics import DIAGNOSIS_RULES_VERSION
 
-# 【風險分析報告（AI）】把一次分析快照的計算結果交給 OpenAI，產生綜合診斷與五段白話報告。
+# 【風險分析報告（AI）】把一次分析快照的計算結果交給 OpenAI，產生綜合診斷、四段白話說明與三項建議檢視重點。
 # 只解釋、不計算；Prompt 為規格檔（spec/prompts/risk_analysis_*.md），程式只讀取、不改寫。
 # 產生流程與風險屬性解析相同：建立分析後在背景產生，狀態 pending → ready／failed，失敗可重新產生。
 log = logging.getLogger("analysis_ai")
@@ -27,7 +27,7 @@ SYSTEM_PROMPT_FILE = "risk_analysis_system.txt"  # 系統指令（固定不變�
 USER_PROMPT_FILE = "risk_analysis_user.txt"  # 使用者指令模板
 RETRY_PROMPT_FILE = "risk_analysis_retry.txt"  # 內容檢查不通過時，下一次呼叫附上的重試提示模板
 PROMPT_CACHE_KEY = "risk_analysis"  # 固定的快取分組名稱
-SECTION_KEYS = ["risk_return", "loss_risk", "concentration", "market_sensitivity", "personal_alignment"]  # 五段固定順序
+SECTION_KEYS = ["return_market", "loss_risk", "concentration", "personal_alignment"]  # 四段固定順序（報酬效率與市場連動合併為 return_market）
 SECTION_FIGURES = {  # 各段可綁定的圖表；未列出的段落不可綁圖
     "loss_risk": {"figure:drawdown_curve"},
     "concentration": {"figure:weight_vs_pcr", "figure:correlation_heatmap"},
@@ -42,10 +42,8 @@ METRIC_ORDER = [  # evidence ref 的指標順序（與契約 MetricId 相同）
 OVERALL_TEXT_LEN = (120, 450)  # 綜合診斷
 FEATURE_LEN, FEATURE_COUNT = (4, 30), (2, 3)  # 主要風險特徵：每句字數、句數
 FOCUS_LEN = (20, 180)  # 最需要關注的風險來源
-SECTION_LEN = (60, 320)  # 每段
-CAPTION_LEN = (15, 100)  # 圖說
-REVIEW_LEN, REVIEW_MAX = (15, 100), 3  # 檢視方向：每項字數、最多項數
-LIMITATION_MAX_LEN, LIMITATION_MAX = 150, 3  # 限制說明：每項最多字數、最多項數
+SECTION_LEN = (60, 380)  # 每段（return_market 合併兩組，較長）
+REVIEW_LEN, REVIEW_COUNT = (15, 100), 3  # 建議檢視重點：每項字數、固定項數
 FAILURE_REASON_MAX = 2000  # 失敗原因最多保留字數（僅供除錯）
 # 最大回撤對照 Q13 的區間：[下界, 上界)，上界 None 代表沒有上限（「5 - 9 %」視為 5% 以上、未滿 10%）
 LOSS_RANGES = {"未滿 5 %": (0.0, 0.05), "5 - 9 %": (0.05, 0.10), "10 - 19 %": (0.10, 0.20),
@@ -56,8 +54,9 @@ FORBIDDEN_KEYS = {"user_id", "username", "password", "portfolio_id", "portfolio_
                   "quantity", "price", "buy_date", "lots", "q11_other"} | {f"q{i}" for i in range(1, 15)}  # 任何層級都不得出現
 BANNED_TERMS = [  # 使用者看得到的文字中不可出現的字詞（與 Prompt <rules> 的禁用字詞一致）
     "R²", "R2", "HHI", "偏態", "峰度", "下行波動度", "有效持股檔數",  # 後端指標名稱：畫面上看不到，須改用白話描述
-    "高於大盤", "低於大盤", "高於市場", "低於市場",  # 與大盤比較須用「比大盤起伏大／划算…」的說法（spec/04 §4.4.11）
+    "高於大盤", "低於大盤", "高於市場", "低於市場",  # 與大盤比較須用「比大盤起伏大／風報比優於大盤…」的說法（spec/04 §4.4.11）
     "後端", "典型標籤", "規則報告", "必要訊號", "混合型",  # 內部用語
+    "划算", "性價比",  # 口語化的比較，改用「風報比優於大盤／風報比不如大盤」
 ]
 COLOR_WORDS = ["紅色", "藍色", "綠色", "黃色", "橘色", "紫色", "灰色", "暖色", "冷色", "深紅", "深藍", "淺藍", "淺紅"]  # 不可描述圖表顏色
 RULE_ID = re.compile(r"(?<![A-Za-z0-9])[ETCM][1-8](?![A-Za-z0-9])")  # 典型標籤的規則編號（E1、T3、C2、M5…）
@@ -76,22 +75,14 @@ class Overall(BaseModel):
 class Section(BaseModel):
     # 【一段報告】key=段落代號、text=內文、evidence_refs=依據、figure_refs=綁定的圖表
     model_config = ConfigDict(extra="forbid")
-    key: Literal["risk_return", "loss_risk", "concentration", "market_sensitivity", "personal_alignment"]
+    key: Literal["return_market", "loss_risk", "concentration", "personal_alignment"]
     text: str
     evidence_refs: list[str]
     figure_refs: list[str]
 
 
-class FigureCaption(BaseModel):
-    # 【圖說】figure_ref=圖表代號、caption=本次資料的具體觀察、evidence_refs=依據
-    model_config = ConfigDict(extra="forbid")
-    figure_ref: str
-    caption: str
-    evidence_refs: list[str]
-
-
 class ReviewDirection(BaseModel):
-    # 【檢視方向】text=可以先檢視的方向、evidence_refs=依據、figure_refs=相關圖表
+    # 【建議檢視重點】text=一項建議檢視的重點、evidence_refs=依據、figure_refs=相關圖表
     model_config = ConfigDict(extra="forbid")
     text: str
     evidence_refs: list[str]
@@ -103,9 +94,7 @@ class ReportOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     overall: Overall
     sections: list[Section]
-    figure_captions: list[FigureCaption]
     review_directions: list[ReviewDirection]
-    limitations: list[str]
 
 
 def _load_prompt(name: str) -> str:
@@ -128,17 +117,17 @@ def model_name() -> str:
 
 
 def mdd_vs_loss_tolerance(mdd, loss_tolerance: str) -> str:
-    # 【最大回撤 vs 可接受損失區間】|MDD| 達區間上界為超過、低於下界為低於、其餘為落在區間內；無法比較時為無法判斷。
+    # 【最大回撤 vs 可承受損失區間】|MDD| 達區間上界為超過、低於下界為低於、其餘為落在區間內；無法比較時為無法判斷。
     # 由後端比對，避免模型自己比大小。參數：mdd=最大回撤（負數或 0）、loss_tolerance=Q13 選項原文
     if mdd is None or loss_tolerance not in LOSS_RANGES:
         return "無法判斷"
     low, high = LOSS_RANGES[loss_tolerance]
     depth = abs(mdd)
     if high is not None and depth >= high:
-        return "超過可接受損失區間"
+        return "超過可承受損失區間"
     if depth < low:
-        return "低於可接受損失區間"
-    return "落在可接受損失區間內"
+        return "低於可承受損失區間"
+    return "落在可承受損失區間內"
 
 
 def drawdown_facts(data: dict | None) -> dict | None:
@@ -268,9 +257,7 @@ def all_texts(content: dict) -> list[tuple[str, str]]:
     o = content["overall"]
     return ([("overall.features", f) for f in o["features"]] + [("overall.text", o["text"]), ("overall.focus", o["focus"])]
             + [(f"sections.{s['key']}", s["text"]) for s in content["sections"]]
-            + [(f"figure_captions.{c['figure_ref']}", c["caption"]) for c in content["figure_captions"]]
-            + [("review_directions", r["text"]) for r in content["review_directions"]]
-            + [("limitations", x) for x in content["limitations"]])
+            + [("review_directions", r["text"]) for r in content["review_directions"]])
 
 
 def text_problems(where: str, text: str, labels: list[str]) -> list[str]:
@@ -305,29 +292,21 @@ def validate_report(content: dict, payload: dict) -> dict:
     _check_len(o["text"], OVERALL_TEXT_LEN, "綜合診斷")
     _check_len(o["focus"], FOCUS_LEN, "最需要關注的風險來源")
     _check_refs(o["evidence_refs"], refs, "綜合診斷", required=True)
-    # 2. 五段齊全、順序正確，圖表只綁到對應段落
+    # 2. 四段齊全、順序正確，圖表只綁到對應段落
     if [s["key"] for s in content["sections"]] != SECTION_KEYS:
-        raise AiOutputInvalid("段落不是依序的五段")
+        raise AiOutputInvalid("段落不是依序的四段")
     for s in content["sections"]:
         _check_len(s["text"], SECTION_LEN, s["key"])
         _check_refs(s["evidence_refs"], refs, s["key"], required=True)
         _check_refs(s["figure_refs"], SECTION_FIGURES.get(s["key"], set()) & set(figs), f"{s['key']} 的圖表")
-    # 3. 每張可用的圖恰好一則圖說，順序一致
-    if [c["figure_ref"] for c in content["figure_captions"]] != figs:
-        raise AiOutputInvalid("圖說與可用圖表不一致")
-    for c in content["figure_captions"]:
-        _check_len(c["caption"], CAPTION_LEN, f"{c['figure_ref']} 圖說")
-        _check_refs(c["evidence_refs"], refs, f"{c['figure_ref']} 圖說")
-    # 4. 檢視方向與限制說明
-    if len(content["review_directions"]) > REVIEW_MAX:
-        raise AiOutputInvalid(f"檢視方向最多 {REVIEW_MAX} 項")
+    # 3. 建議檢視重點：固定三項
+    if len(content["review_directions"]) != REVIEW_COUNT:
+        raise AiOutputInvalid(f"建議檢視重點需為 {REVIEW_COUNT} 項")
     for r in content["review_directions"]:
-        _check_len(r["text"], REVIEW_LEN, "檢視方向")
-        _check_refs(r["evidence_refs"], refs, "檢視方向")
-        _check_refs(r["figure_refs"], set(figs), "檢視方向的圖表")
-    if len(content["limitations"]) > LIMITATION_MAX or any(len(x.strip()) > LIMITATION_MAX_LEN for x in content["limitations"]):
-        raise AiOutputInvalid(f"限制說明最多 {LIMITATION_MAX} 項、每項最多 {LIMITATION_MAX_LEN} 字")
-    # 5. 使用者看得到的文字：不可有驚嘆號、禁用字詞、典型標籤原文、規則編號或顏色描述
+        _check_len(r["text"], REVIEW_LEN, "建議檢視重點")
+        _check_refs(r["evidence_refs"], refs, "建議檢視重點")
+        _check_refs(r["figure_refs"], set(figs), "建議檢視重點的圖表")
+    # 4. 使用者看得到的文字：不可有驚嘆號、禁用字詞、典型標籤原文、規則編號或顏色描述
     # 一次列出全部違規，重試時 AI 才能一次改完
     labels = [f"「{g['typical_label']}」" for g in payload["diagnosis"]["groups"] if g.get("typical_label")]
     problems = [p for where, text in all_texts(content) for p in text_problems(where, text, labels)]
@@ -413,6 +392,11 @@ def _pending_key(analysis_id: int) -> str:
 def mark_pending(analysis_id: int) -> None:
     # 【登記「產生中」】標記過期仍是 pending，代表工作已中斷（例如後端重啟），讀取時會改判 failed。參數：analysis_id=分析編號
     redis_client.set(_pending_key(analysis_id), 1, ex=pending_ttl_seconds())
+
+
+def clear_pending(analysis_id: int) -> None:
+    # 【清除「產生中」標記】分析被刪除時一併清掉，不留下無用的鍵。參數：analysis_id=分析編號
+    redis_client.delete(_pending_key(analysis_id))
 
 
 def get_report(db, analysis_id: int) -> AnalysisReport | None:

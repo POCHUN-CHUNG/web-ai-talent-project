@@ -1,6 +1,9 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api";
+import { HistoryPage } from "../analysis";
+import AnalysisCard from "../components/AnalysisCard";
+import HoldingsTable, { ChangePct } from "../components/HoldingsTable";
 import LotForm, { EditingLot } from "../components/LotForm";
 import { HistoryPoint, HistoryTrend, HoldingsHeatmap, IndustryTreemap, ShareDonut, SparkPoint, Sparkline } from "../components/PortfolioCharts";
 import Button from "../components/ui/Button";
@@ -17,6 +20,8 @@ import { decimal, formatDateTime, money, NA, pct, pnlColor, signedMoney, todayTa
 import styles from "./PortfolioDetail.module.css";
 
 const PRICE_NOTE = "每股價格為系統依買進日期自動帶入，可能與實際成交價略有不同"; // 庫存明細標題旁的說明
+const RECENT_ANALYSES = 3; // 「歷史分析報告」區塊顯示最近幾筆，其餘到歷史紀錄頁查看
+const PENDING_POLL_MS = 5000; // 有報告產生中時，每 5 秒重取一次
 
 // 單筆買進紀錄（含該筆損益與持有天數）
 type Lot = {
@@ -52,7 +57,7 @@ function annualText(v: number | null, _days: number, _hasPrice: boolean): string
 // 2. 歷史走勢（市值變化、損益變化兩張圖，共用區間切換）
 // 3. 資產與產業配置（市場別、證券別環形圖；產業別、個股別方塊圖）
 // 4. 庫存明細（每檔一列總覽，預設收合，可展開看每筆買進紀錄；右上角也有「新增持股」）
-// 5. 歷史分析報告（右上角「進行分析」）
+// 5. 歷史分析報告（右上角「進行分析」；列出最近 3 次分析，更多時可到歷史紀錄頁查看全部）
 // 組合不存在或不是自己的，導回投資組合頁。無參數。
 export default function PortfolioDetail() {
   const { portfolioId } = useParams();
@@ -258,81 +263,26 @@ export default function PortfolioDetail() {
               </div>
               <Button onClick={() => openAdd()}>新增持股</Button>
             </div>
-            <div className={styles.tableScroll}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th className={styles.left}>代號/名稱<span className={styles.thUnit}>(市場別/產業別)</span></th>
-                    <th>平均單價<span className={styles.thUnit}>(元)</span></th>
-                    <th>持有數量<span className={styles.thUnit}>(股)</span></th>
-                    <th>持有成本<span className={styles.thUnit}>(元)</span></th>
-                    <th>最新價格<span className={styles.thUnit}>(元)</span></th>
-                    <th>未實現損益<span className={styles.thUnit}>(元)</span></th>
-                    <th>年化報酬率<span className={styles.thUnit}>(%)</span></th>
-                    <th>市值權重<span className={styles.thUnit}>(元)</span></th>
-                    <th aria-label="展開明細" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {positions.map((p, i) => {
-                    const isOpen = open.has(p.symbol);
-                    return (
-                      <Fragment key={p.symbol}>
-                        {/* 每檔之間的間隔列（不用 border-spacing，才不會把展開的列與下方明細面板拆開） */}
-                        {i > 0 && <tr className={styles.gapRow} aria-hidden="true"><td colSpan={9} /></tr>}
-                        <tr className={`${styles.row} ${isOpen ? styles.rowOpen : ""}`} onClick={() => toggle(p.symbol)}>
-                          {/* 代號/名稱：代號＋名稱，下方小字為產業 */}
-                          <td className={styles.left}>
-                            <div className={styles.stock}><span className={styles.code}>{p.symbol}</span><span>{p.name}</span></div>
-                            <div className={styles.industry}><span>{p.market}</span><span>{p.industry}</span></div>
-                          </td>
-                          <td>{decimal(p.averageCost)}</td>
-                          <td>{decimal(p.quantity)}</td>
-                          <td>{money(p.costAmount)}</td>
-                          <td>{p.latestPrice == null ? <span className={styles.subCell}>無報價</span> : decimal(p.latestPrice)}</td>
-                          <td style={{ color: pnlColor(p.unrealizedPnl) }}>
-                            {signedMoney(p.unrealizedPnl)}<div className={styles.subCell} style={{ color: "inherit" }}><ChangePct v={p.unrealizedReturn} /></div>
-                          </td>
-                          <td style={{ color: pnlColor(p.annualizedReturn) }}>{annualText(p.annualizedReturn, p.holdingDays, p.marketValue != null).replace(/%$/, "")}</td>
-                          {/* 市值權重：上方為目前市值，下方橫條長度代表占組合的權重 */}
-                          <td>
-                            {money(p.marketValue)}
-                            {p.weight != null && <div className={styles.weightBar} title={`權重 ${pct(p.weight)}`}><span style={{ width: `${Math.min(100, p.weight * 100)}%` }} /></div>}
-                          </td>
-                          <td>
-                            <button type="button" className={styles.expand} aria-expanded={isOpen}
-                              aria-label={`${isOpen ? "收合" : "展開"} ${p.symbol} 的買進紀錄`}
-                              onClick={(e) => { e.stopPropagation(); toggle(p.symbol); }}>
-                              <Icon name="expand_more" size={22} />
-                            </button>
-                          </td>
-                        </tr>
-                        {isOpen && (
-                          <tr className={styles.lotsRow}>
-                            <td colSpan={9}>
-                              <LotTable position={p}
-                                onEdit={(lot) => setDialog({ kind: "editLot", lot: { id: lot.id, symbol: p.symbol, name: p.name, tradeDate: lot.tradeDate, quantity: lot.quantity } })}
-                                onRemove={(lot) => setDialog({ kind: "deleteLot", lot })} />
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <HoldingsTable
+              positions={positions}
+              isOpen={(p) => open.has(p.symbol)}
+              onToggle={(p) => toggle(p.symbol)}
+              renderDetail={(p) => (
+                <LotTable position={p}
+                  onEdit={(lot) => setDialog({ kind: "editLot", lot: { id: lot.id, symbol: p.symbol, name: p.name, tradeDate: lot.tradeDate, quantity: lot.quantity } })}
+                  onRemove={(lot) => setDialog({ kind: "deleteLot", lot })} />
+              )}
+            />
           </Card>
 
-          {/* 5. 歷史分析報告：右上角「進行分析」；尚無報告時以虛線空白狀態引導 */}
+          {/* 5. 歷史分析報告：右上角「進行分析」（一律帶這個組合到風險分析頁，能不能分析由該頁說明）；
+              列出最近 3 次分析，更多時底部「查看全部」到歷史紀錄頁；尚無分析時以虛線空白狀態引導 */}
           <Card className={styles.whiteCard}>
             <div className={styles.cardHead}>
               <h2 className={styles.tableTitle}>歷史分析報告</h2>
               <Button onClick={() => navigate(`/analysis?portfolio=${data.id}`)}>進行分析</Button>
             </div>
-            <div className={styles.emptyCard}>
-              <p className={styles.emptyText}>請點擊右上角「進行分析」，<br className={styles.mobileBreak} />產生第一份分析報告</p>
-            </div>
+            <RecentAnalyses portfolioId={data.id} />
           </Card>
         </div>
       )}
@@ -359,6 +309,50 @@ export default function PortfolioDetail() {
           onConfirm={async () => { await api(`/portfolios/${portfolioId}/holding-lots/${dialog.lot.id}`, undefined, "DELETE"); setDialog(null); load(); }} />
       )}
     </main>
+  );
+}
+
+// 【最近的分析】這個組合最近 3 次風險分析的卡片（與歷史紀錄頁同一種卡片，改用細框避免玻璃疊玻璃，不重複顯示組合名稱）；
+// 超過 3 筆時底部顯示「查看全部」連到已篩選這個組合的歷史紀錄頁。有報告產生中時定時重取。參數：portfolioId=組合編號
+function RecentAnalyses({ portfolioId }: { portfolioId: number }) {
+  const [data, setData] = useState<HistoryPage | null>(null);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0); // 刪除一筆後加 1，重新載入
+  useEffect(() => {
+    let timer: number | undefined;
+    let stopped = false;
+    async function load() {
+      try {
+        const r = await api<HistoryPage>(`/analysis/history?portfolio_id=${portfolioId}&page_size=${RECENT_ANALYSES}`);
+        if (stopped) return;
+        setData(r);
+        if (r.items.some((i) => i.report_status === "pending")) timer = window.setTimeout(load, PENDING_POLL_MS);
+      } catch (e) {
+        if (!stopped) setError(e instanceof ApiError ? e.message : "無法載入歷史分析");
+      }
+    }
+    load();
+    return () => { stopped = true; window.clearTimeout(timer); };
+  }, [portfolioId, reloadKey]);
+
+  if (error) return <Chip variant="error">{error}</Chip>;
+  if (!data) return <p className={styles.helperText}>查詢中…</p>;
+  if (data.total === 0) {
+    return (
+      <div className={styles.emptyCard}>
+        <p className={styles.emptyText}>請點擊右上角「進行分析」，<br className={styles.mobileBreak} />產生第一份分析報告</p>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.analysisList}>
+      {data.items.map((item) => <AnalysisCard key={item.id} item={item} nested showPortfolio={false} onDeleted={() => setReloadKey((k) => k + 1)} />)}
+      {data.total > RECENT_ANALYSES && (
+        <Link to={`/history?portfolio=${portfolioId}`} className={styles.viewAll}>
+          查看全部<Icon name="chevron_right" size={20} />
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -494,17 +488,5 @@ function LotTable({ position, onEdit, onRemove }: {
         ))}
       </div>
     </div>
-  );
-}
-
-// 【漲跌幅文字】表格內的報酬率：實心三角箭頭（▲漲、▼跌，較小）＋不帶正負號的數字＋小字 %；箭頭、數字與 % 的顏色都跟著外層的漲跌色。參數：v=報酬率（比例）
-function ChangePct({ v }: { v: number | null }) {
-  if (v == null) return <>-</>;
-  return (
-    <>
-      {v !== 0 && <span className={styles.changeArrow}>{v > 0 ? "▲" : "▼"}</span>}
-      {pct(Math.abs(v)).replace("%", "")}
-      <span className={`${styles.unit} ${styles.unitTone}`}>%</span>
-    </>
   );
 }

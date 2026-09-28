@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { monthsBefore, NA } from "../format";
+import { RATE_DESCRIPTIONS, rateLabel } from "../analysis";
 import AlertDialog from "../components/ui/AlertDialog";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -105,11 +106,6 @@ function packRows<T extends { width: number }>(items: T[], capacity: number, gap
   return rows;
 }
 
-// 報酬基準選項的詳細解釋（後端 label 只是簡短名稱，這裡補上白話說明，僅供前端顯示用）
-const RATE_DESCRIPTIONS: Record<string, string> = {
-  zero: "本金不虧損",
-  bank_average: "五大公股銀行的一年期定期存款機動利率",
-};
 
 // 【換算成實際有資料的起始日】往回推算出的日期不一定是交易日，改成範圍內第一個「大於等於」該日期的實際交易日
 // （與後端 services/analysis.py 的 `[d for d in dates if d >= start]` 邏輯一致，確保前端顯示的起始日跟後端算出來的一樣）；
@@ -127,12 +123,11 @@ function holdingLabel(symbol: string, current: PortfolioOption | null): string {
   return found ? `${found.name}（${found.symbol}）` : symbol;
 }
 
-// 【報酬基準選項文字】格式「利率（詳細解釋）」，例如「1.692 %（五大公股銀行的一年期定期存款機動利率）」。
+// 【報酬基準選項文字】格式「利率（詳細解釋）」，例如「1.692 %（五大公股銀行一年期定存利率）」。
 // 參數：r=一個報酬基準選項
 function rateOptionLabel(r: RateOption): string {
-  const pct = r.rate === null ? NA : r.rate === 0 ? "0 %" : `${(r.rate * 100).toFixed(3)} %`;
-  const desc = RATE_DESCRIPTIONS[r.key] ?? r.label;
-  return `${pct}（${desc}）${r.rate === null ? "（目前無資料）" : ""}`;
+  if (r.rate === null) return `${NA}（${RATE_DESCRIPTIONS[r.key] ?? r.label}）（目前無資料）`;
+  return rateLabel(r.key, r.rate); // 與報告頁、歷史卡片共用同一套文字
 }
 
 // 【風險分析頁】分析前的確認頁：選擇投資組合、用滑桿選分析期間（2 年至資料可分析的最大年數，最右端為「最大期間」且為預設）、
@@ -140,18 +135,29 @@ function rateOptionLabel(r: RateOption): string {
 //（預設為問卷作答，只存入這次分析的快照，不寫回問卷）。財務風險承受能力不在此頁調整或顯示。
 // 風險屬性只依賴問卷資料，選投資組合前就會顯示；分析期間與報酬比較基準則要選好組合才查得到（依賴該組合的價格資料）。
 // 從組合詳情頁按「進行分析」進來時，網址帶 ?portfolio=編號，會自動選好。無參數。
-// 【是否為重新整理】用瀏覽器 Navigation Timing API 判斷這次載入是「重新整理」還是「導覽過來」（含分享網址開新分頁）。
-// 無參數；判斷不出來時當作不是重新整理（維持原本從投資組合詳情頁帶入預選組合的行為）
+let reloadHandled = false; // 本頁（這份網頁文件）是否已處理過「重新整理」；只有第一次顯示本頁時才可能是重新整理
+let firstMountIsReload: boolean | null = null; // 第一次判斷的結果（開發模式 React 會重複呼叫初始化函式，兩次要得到同一個答案）
+
+// 【是否為在本頁按重新整理】用瀏覽器 Navigation Timing API 判斷。注意這筆紀錄屬於整份網頁文件：
+// 在其他頁（例如投資組合詳情頁）重新整理後，再從那頁按「進行分析」切過來，紀錄仍是 reload，
+// 若只看 reload 就會把帶過來的組合清掉。所以另外要求「重新整理時的網址就是本頁」，而且只在第一次顯示本頁時判斷。
+// 無參數；判斷不出來時當作不是重新整理（維持從投資組合詳情頁帶入預選組合的行為）
 function isPageReload(): boolean {
-  try {
-    return performance.getEntriesByType("navigation").some((e) => (e as PerformanceNavigationTiming).type === "reload");
-  } catch {
-    return false;
+  if (reloadHandled) return false;
+  if (firstMountIsReload === null) {
+    try {
+      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      firstMountIsReload = nav?.type === "reload" && new URL(nav.name).pathname === window.location.pathname;
+    } catch {
+      firstMountIsReload = false;
+    }
   }
+  return firstMountIsReload;
 }
 
 export default function RiskAnalysis() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   // 重新整理要重置成未選組合（不保留網址參數帶入的組合）；直接導覽或分享網址開啟時仍維持網址上的組合
   // （只忽略載入當下網址上的參數；清掉參數後就恢復正常，之後使用者自己選的組合照常生效）
   const [reloaded, setReloaded] = useState(isPageReload);
@@ -165,13 +171,15 @@ export default function RiskAnalysis() {
   const [yearIndex, setYearIndex] = useState(0); // 滑桿位置（索引，非月數本身，見下方 monthsArray／maxIndex）
   const [rateOption, setRateOption] = useState(""); // 本次採用的報酬比較基準
   const [profileInputs, setProfileInputs] = useState<ProfileInputs | null>(null); // 本次採用的 Q7／Q8／Q13
-  const [confirmed, setConfirmed] = useState(false); // 通過檢查：顯示確認視窗
+  const [running, setRunning] = useState(false); // 已送出分析、等待後端計算完成
+  const [runError, setRunError] = useState(""); // 分析送出失敗的原因（以只有「關閉」按鈕的提示視窗顯示，比照風險屬性頁的重新填寫冷卻提示）
   const sliderWrapRef = useRef<HTMLDivElement>(null); // 滑桿外層，用來量測寬度、算浮動標籤的位置
   const badgeRef = useRef<HTMLSpanElement>(null); // 浮動標籤本身，用來量測寬度
   const [badgeLeft, setBadgeLeft] = useState(0); // 浮動標籤置中點的 px 座標（已夾在邊界內）
 
   // 重新整理時把網址上殘留的組合參數清掉，讓網址與畫面（未選組合）一致
   useEffect(() => {
+    reloadHandled = true; // 之後再切回本頁（網頁文件沒有重新載入）都不算重新整理
     if (!reloaded) return;
     if (params.has("portfolio")) setParams({}, { replace: true });
     setReloaded(false);
@@ -250,9 +258,24 @@ export default function RiskAnalysis() {
     setParams(id ? { portfolio: id } : {}, { replace: true });
   }
 
-  // 【開始分析】按鈕只在「選好組合且確定可以分析」時才出現，按下直接顯示確認視窗（不需要再檢查、也沒有錯誤提示）
-  function start() {
-    setConfirmed(true);
+  // 【開始分析】按鈕只在「選好組合且確定可以分析」時才出現，按下直接送出（不另跳確認視窗）：
+  // 後端計算量化指標並存成快照（約數秒，期間按鈕轉圈），成功後前往報告頁；AI 解說在背景產生，報告頁會顯示「產生中」。
+  // 失敗（例如資料在這段時間內變動）時跳出提示視窗說明原因，按「關閉」後留在本頁。無參數。
+  async function run() {
+    if (!profileInputs || running) return;
+    setRunning(true);
+    setRunError("");
+    try {
+      const r = await api<{ id: number }>(`/portfolios/${selected}/analysis`, {
+        lookback_years: lookbackMonths === null ? null : lookbackMonths / 12,
+        rate_option: rateOption,
+        profile_inputs: profileInputs,
+      });
+      navigate(`/history/${r.id}`);
+    } catch (e) {
+      setRunError(e instanceof ApiError ? e.message : "無法連線，請稍後再試");
+      setRunning(false);
+    }
   }
 
   const empty = items !== null && !items.some((p) => p.symbolCount > 0); // 沒有任何可分析（有持股）的組合
@@ -304,11 +327,11 @@ export default function RiskAnalysis() {
       <div className={styles.header}>
         <h1 className={styles.title}>風險分析</h1>
         {/* 可以分析時才出現；手機版改放在報酬基準下方（見下方 startMobile），這裡只在桌機顯示 */}
-        {!empty && ready && <Button onClick={start} className={styles.startDesktop}>開始分析</Button>}
+        {!empty && ready && <Button onClick={run} busy={running} className={styles.startDesktop}>開始分析</Button>}
       </div>
 
       {empty ? (
-        <div className={styles.empty}>請先到「投資組合」頁建立投資組合並加入持股，再回來進行分析</div>
+        <div className={styles.empty}>請先建立投資組合並新增持股，即可開始分析</div>
       ) : (
         <>
           <Notice className={styles.noticeGap}>所有調整僅適用於當次分析。</Notice>
@@ -463,22 +486,13 @@ export default function RiskAnalysis() {
 
           {/* 手機版的「開始分析」：放在報酬基準下方、撐滿寬度，填完設定順手就能按（桌機版在標題列右側） */}
           {ready && (
-            <Button onClick={start} fullWidth className={styles.startMobile}>開始分析</Button>
+            <Button onClick={run} busy={running} fullWidth className={styles.startMobile}>開始分析</Button>
           )}
         </>
       )}
 
-      <AlertDialog
-        open={confirmed}
-        title="分析功能開發中"
-        messages={[
-          `已確認分析設定：${current?.name ?? NA}，回看${lookbackMonths === null ? "最大期間" : formatMonths(lookbackMonths)}，` +
-            `報酬比較基準 ${chosenRate?.label ?? NA}，可接受損失區間 ${profileInputs?.loss_tolerance ?? NA}，` +
-            `投資期限 ${profileInputs?.investment_horizon ?? NA}，一年內提款可能性 ${profileInputs?.withdrawal_need ?? NA}。`,
-          "分析報告的計算與呈現將在後續版本提供。",
-        ]}
-        onConfirm={() => setConfirmed(false)}
-      />
+      {/* 送出失敗：提示視窗說明原因，只有「關閉」按鈕（比照風險屬性頁的重新填寫冷卻提示） */}
+      <AlertDialog open={!!runError} title="無法開始分析" messages={[runError]} confirmLabel="關閉" onConfirm={() => setRunError("")} />
     </main>
   );
 }
