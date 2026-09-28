@@ -18,6 +18,7 @@ from app.services.stock_info import BENCHMARK_ROW
 
 BENCHMARK_SYMBOL = BENCHMARK_ROW["symbol"]  # 市場基準：發行量加權股價報酬指數 IR0001（含息，不是價格指數 IX0001）
 MIN_YEARS = 2  # 分析期間下限（年）
+MONTH_STEP = 1  # 分析期間的調整單位（1 個月，D-129）
 DAYS_PER_YEAR = 365.25  # 計算「可分析年數」時一年的平均日曆天數（含閏年）
 RATE_OPTIONS = {"zero": "0%", "bank_average": "五大公股銀行平均定存利率"}  # 利率選項與顯示名稱
 DEFAULT_RATE_OPTION = "zero"  # 利率選項預設值
@@ -79,31 +80,26 @@ def _names(db: Session, symbols: list[str]) -> dict:
 
 def common_period(series: dict, symbols: list[str], names: dict) -> dict:
     # 【可分析的最大期間】全部持股與市場基準都有價格的交易日（交集）。
-    # 1. 基準沒有資料回 BENCHMARK_UNAVAILABLE；有持股完全沒有價格回 INSUFFICIENT_PRICE_DATA
-    # 2. 決定起點的代號＝資料起點最晚者；最大期間不足 2 年回 INSUFFICIENT_PRICE_DATA，並列出資料不足 2 年的持股供前端提醒
+    # 1. 基準沒有資料回 BENCHMARK_UNAVAILABLE
+    # 2. 決定起點的代號＝資料起點最晚者；最大期間不足 2 年回 INSUFFICIENT_PRICE_DATA，並列出歷史股價未滿 2 年的持股。
+    #    持股在加入組合時就已確認有股價，理論上不會完全沒有資料；萬一沒有，視為 0 年、一併列入未滿 2 年（不另外報錯）
     # 參數：series=代號→{日期: 價格}、symbols=持股代號、names=代號→名稱
     if not series.get(BENCHMARK_SYMBOL):
         raise ApiError(422, "BENCHMARK_UNAVAILABLE", "大盤資料目前無法取得，暫時無法分析，請稍後再試")
-    missing = [s for s in symbols if not series.get(s)]
-    if missing:
-        raise ApiError(422, "INSUFFICIENT_PRICE_DATA",
-                       f"{_label(missing, names)}目前沒有股價資料，無法分析。請先把這檔從組合移除後再分析",
-                       symbols=[{"symbol": s, "name": names.get(s, s), "years": 0.0} for s in missing])
+    end = max(series[BENCHMARK_SYMBOL])
+    first = {s: min(series[s]) for s in [*symbols, BENCHMARK_SYMBOL] if series.get(s)}
     common = set(series[BENCHMARK_SYMBOL])
     for s in symbols:
-        common &= set(series[s])
+        common &= set(series.get(s, {}))
     dates = sorted(common)
-    first = {s: min(series[s]) for s in [*symbols, BENCHMARK_SYMBOL]}
     latest_start = max(first.values())
     limited_by = [s for s, d in first.items() if d == latest_start]
     max_years = 0.0 if len(dates) < 2 else _years(dates[0], dates[-1])
     if max_years < MIN_YEARS:
-        end = max(series[BENCHMARK_SYMBOL])
-        short = [{"symbol": s, "name": names.get(s, s), "years": _years(first[s], end)}
-                 for s in symbols if _years(first[s], end) < MIN_YEARS]
+        short = [{"symbol": s, "name": names.get(s, s), "years": _years(first[s], end) if s in first else 0.0}
+                 for s in symbols if s not in first or _years(first[s], end) < MIN_YEARS]
         if short:
-            who = "、".join(f"{x['name']}（{x['symbol']}）目前只有約 {x['years']:.1f} 年的股價資料" for x in short)
-            message = f"{who}，風險分析至少需要 {MIN_YEARS} 年。請先把這檔從組合移除，或等資料滿 {MIN_YEARS} 年後再分析"
+            message = f"因{_label([x['symbol'] for x in short], names)}歷史股價未滿 {MIN_YEARS} 年，無法進行風險分析計算，請將其移除後重新嘗試。"
         else:  # 每檔各自都滿 2 年，但彼此都有股價的日子湊不滿 2 年（例如長期停牌）
             message = f"這些持股同時都有股價的期間只有約 {max_years:.1f} 年，風險分析至少需要 {MIN_YEARS} 年"
         raise ApiError(422, "INSUFFICIENT_PRICE_DATA", message, symbols=short)
@@ -137,8 +133,13 @@ def parse_request(body, choices_default: dict) -> dict:
     if not isinstance(body, dict) or set(body) - REQUEST_KEYS:
         raise invalid("只接受 lookbackYears、rateOption、profileInputs 三個欄位")
     years = body.get("lookbackYears")
-    if years is not None and (isinstance(years, bool) or not isinstance(years, int)):
-        raise invalid("分析期間須為整數年，或留空代表採最大期間")
+    if years is not None:
+        if isinstance(years, bool) or not isinstance(years, (int, float)):
+            raise invalid("分析期間須為 1 個月的倍數，或留空代表採最大期間")
+        months = round(years * 12)
+        if abs(years * 12 - months) > 1e-6:
+            raise invalid("分析期間須為 1 個月的倍數，或留空代表採最大期間")
+        years = months / 12
     rate_option = body.get("rateOption", DEFAULT_RATE_OPTION)
     if rate_option not in RATE_OPTIONS:
         raise invalid("利率選項只能是 zero（0%）或 bank_average（五大公股銀行平均定存利率）")
@@ -154,6 +155,13 @@ def parse_request(body, choices_default: dict) -> dict:
     return {"lookbackYears": years, "rateOption": rate_option, "profileInputs": inputs}
 
 
+def profile_choices(db: Session, user: User) -> dict:
+    # 【風險分析可調整的問卷欄位】Q7／Q8／Q13 的預設值與選項，只依賴使用者的最新風險屬性，不需要投資組合，
+    # 所以選組合前就能顯示。參數：db=資料庫連線、user=目前登入者
+    defaults = profile_defaults(latest_profile(db, user))
+    return {k: {"value": defaults[k], "choices": _choices(q)} for k, q in PROFILE_QUESTIONS.items()}
+
+
 def analysis_options(db: Session, user: User, portfolio: Portfolio) -> dict:
     # 【分析選項】確認彈窗需要的最大期間、利率選項與 Q7／Q8／Q13 預設值。參數：db=資料庫連線、user=目前登入者、portfolio=投資組合
     profile = latest_profile(db, user)
@@ -165,7 +173,8 @@ def analysis_options(db: Session, user: User, portfolio: Portfolio) -> dict:
     defaults = profile_defaults(profile)
     return {
         "period": {"maxYears": period["maxYears"], "minYears": MIN_YEARS, "startDate": period["dates"][0].isoformat(),
-                   "endDate": period["dates"][-1].isoformat(), "limitedBySymbols": period["limitedBy"]},
+                   "endDate": period["dates"][-1].isoformat(), "limitedBySymbols": period["limitedBy"],
+                   "dates": [d.isoformat() for d in period["dates"]]},
         "rateOptions": [
             {"key": "zero", "label": RATE_OPTIONS["zero"], "rate": 0.0, "asOf": None},
             {"key": "bank_average", "label": RATE_OPTIONS["bank_average"], "rate": bank[0], "asOf": iso(bank[1]) if bank[1] else None},
@@ -185,13 +194,14 @@ def run_analysis(db: Session, user: User, portfolio: Portfolio, body) -> Analysi
     names = _names(db, [*symbols, BENCHMARK_SYMBOL])
     series = load_prices(db, symbols)
     period = common_period(series, symbols, names)
-    # 2. 分析期間：預設採最大期間；指定年數時取迄日往回推的整數年
+    # 2. 分析期間：預設採最大期間；指定年數時取迄日往回推的年數（1 個月為單位）
     dates, years = period["dates"], req["lookbackYears"]
     if years is not None:
-        top = math.floor(period["maxYears"])
+        top_months = math.floor(period["maxYears"] * 12)
+        top = top_months / 12
         if not MIN_YEARS <= years <= top:
-            raise invalid(f"分析期間須介於 {MIN_YEARS} 年至 {top} 年之間，或留空代表採最大期間")
-        start = dates[-1] - relativedelta(years=years)
+            raise invalid(f"分析期間須介於 {MIN_YEARS} 年至 {top} 年之間（1 個月為單位），或留空代表採最大期間")
+        start = dates[-1] - relativedelta(months=round(years * 12))  # 換算成整數月，避免 relativedelta 對小數年的處理不明確
         dates = [d for d in dates if d >= start]
     # 3. 利率：同一個值兼作無風險利率與最低可接受報酬
     rate, rate_as_of = bank_rate(db) if req["rateOption"] == "bank_average" else (0.0, None)
@@ -205,7 +215,7 @@ def run_analysis(db: Session, user: User, portfolio: Portfolio, body) -> Analysi
     # 5. 寫入唯讀快照
     row = AnalysisResult(
         user_id=user.id, portfolio_id=portfolio.id, risk_profile_id=profile.id,
-        requested_years=years, max_years=Decimal(str(period["maxYears"])),
+        requested_years=Decimal(str(round(years, 4))) if years is not None else None, max_years=Decimal(str(period["maxYears"])),
         start_date=dates[0], end_date=dates[-1], trading_days=len(dates), limited_by=period["limitedBy"],
         benchmark_symbol=BENCHMARK_SYMBOL, rate_option=req["rateOption"],
         risk_free_rate=Decimal(str(round(rate, 6))), rate_as_of=rate_as_of, mar=Decimal(str(round(rate, 6))),

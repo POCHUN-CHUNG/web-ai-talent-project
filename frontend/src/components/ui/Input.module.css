@@ -60,9 +60,10 @@
   padding-right: 48px;
 }
 
+/* 右側附加按鈕（32×32 的 compact 圖示按鈕）距右緣 8px：按鈕圓心剛好落在輸入框右端半圓的圓心上，上、下、右留白都是 8px */
 .endAdornment {
   position: absolute;
-  right: var(--space-md);
+  right: var(--space-sm);
   display: flex;
   align-items: center;
   justify-content: center;

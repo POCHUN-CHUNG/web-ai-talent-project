@@ -66,8 +66,9 @@
   background-color: var(--color-surface-container);
 }
 
+/* 平常（清單收起）與一般輸入框相同：透明、融入彈出視窗的背景；只有展開清單時上半部才是灰底 */
 .comboInput {
-  background-color: var(--color-surface-container);
+  background-color: transparent;
 }
 
 /* 修改紀錄時標的不可更改：與停用欄位相同的外觀（38% 不透明、不可點） */
@@ -85,7 +86,7 @@
   align-items: center;
   gap: var(--space-sm);
   min-height: 46px;
-  padding: 0 var(--space-xs) 0 var(--space-lg);
+  padding: 0 calc(var(--space-sm) - 1px) 0 var(--space-lg); /* 右側圖示（32×32）距外框右緣 8px（扣掉 1px 邊框） */
 }
 
 .comboInput input {
@@ -120,14 +121,19 @@
   gap: var(--space-sm);
   padding: 12px 0;
   font-size: var(--text-input-text-size);
+  line-height: var(--text-input-text-line-height); /* 與輸入中的文字同行高，選好股票後框的高度不會變 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* 右側搜尋圖示：與輸入框內的圖示按鈕同一規格（32×32 框、圖示 20px） */
 .comboIcon {
   display: inline-flex;
-  width: 40px;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  align-items: center;
   justify-content: center;
   color: var(--color-on-surface-variant);
 }

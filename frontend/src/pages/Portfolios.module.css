@@ -9,8 +9,10 @@
 }
 
 @media (max-width: 734px) {
+  /* 手機：區塊與卡片之間一律 16px（DESIGN.md Spacing：桌機 24px、手機 16px） */
   .page {
     padding: 96px var(--space-md) 0;
+    gap: var(--space-md);
   }
 }
 
@@ -159,7 +161,7 @@
 
 .metricValue {
   font-family: var(--font-family);
-  font-size: 28px;
+  font-size: calc(var(--text-headline-md-size) + 3px); /* 桌機 28px；跟著 token 在手機自動小 2px（26px） */
   font-weight: 700;
   color: var(--color-on-surface);
 }
@@ -176,7 +178,7 @@
 .symbolList {
   display: flex;
   flex-wrap: nowrap;
-  gap: var(--space-sm);
+  gap: calc(var(--space-sm) + var(--space-xs)); /* 標籤之間 12px */
   overflow-x: auto;
   scrollbar-width: none;
   margin-left: calc(var(--space-lg) * -1);

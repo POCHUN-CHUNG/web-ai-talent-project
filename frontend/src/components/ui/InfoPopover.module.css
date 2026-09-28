@@ -9,7 +9,8 @@
   --popover-ring: color-mix(in srgb, var(--color-on-background) 12%, transparent); /* 外圍細邊：疊在白色卡片上也分得出邊界 */
   position: fixed;
   z-index: 70; /* 蓋在頂端列（50）與彈出視窗層（60）之上 */
-  width: min(280px, calc(100vw - 32px));
+  width: fit-content; /* 尺寸隨內容調整，短說明不會被撐成固定寬度、留下不對稱的左右留白 */
+  max-width: min(280px, calc(100vw - 32px));
   padding: 12px 16px;
   background: var(--popover-fill);
   backdrop-filter: blur(24px) saturate(180%);

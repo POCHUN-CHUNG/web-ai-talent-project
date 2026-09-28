@@ -1,3 +1,6 @@
+/* 【風險分析頁樣式】分析前的確認頁：標題列（右側「開始分析」）→ 提示框 → 投資組合 → 分析期間 → 風險屬性。
+   版面寬度、上方留白與其他分頁一致（頂端 Tab 列高度：桌機 88px、手機 72px）。 */
+
 .page {
   width: 100%;
   max-width: 1080px;
@@ -11,7 +14,17 @@
 @media (max-width: 734px) {
   .page {
     padding: 96px var(--space-md) 0;
+    gap: var(--space-md);
   }
+}
+
+/* ── 標題列：左標題、右主要按鈕，手機也維持同一列 ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
 .title {
@@ -19,71 +32,286 @@
   font-family: var(--font-family);
   font-size: var(--text-headline-lg-size);
   font-weight: var(--text-headline-lg-weight);
+  letter-spacing: 0; /* 中文標題不用負字距 */
   color: var(--color-on-background);
 }
 
-.placeholder {
+.header > button {
+  flex: none;
+}
+
+.noticeGap {
+  margin-top: calc(-1 * var(--space-md));
+}
+
+/* 沒有任何可分析的組合：虛線空狀態 */
+.empty {
   padding: 2rem;
   text-align: center;
   border: 1px dashed var(--color-outline);
   border-radius: var(--radius-card);
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--color-on-surface-variant);
 }
 
-/* 投資組合下拉選單：與輸入框同一套膠囊外觀（1px outline 邊、30px 圓角） */
-.picker {
+/* ── 區塊卡片：與組合詳情頁的區塊卡同樣 24px 內距。
+   min-height: 0 讓卡片在 grid／flex 容器裡可以被壓縮，內部若有 overflow:auto 的區塊
+  （例如投資組合卡的持股清單）才能正確依可用空間捲動，而不是把卡片本身撐高 ── */
+.section.section {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+}
+
+/* 標題列：標題＋說明圖示（titleGroup）靠左，動態結果（如分析期間的日期區間）靠右；空間不夠時換行。
+   min-height 固定為說明圖示按鈕的高度（40px），讓沒有說明圖示的標題（如投資組合）也對齊到同樣的高度，
+   標題文字與下方第一列內容才會跟其他卡片切齊（見 DESIGN.md〈Section header alignment〉） */
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 12px;
+  row-gap: var(--space-xs);
+  min-height: 40px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm); /* 標題與說明圖示的間距，全站一致（見 PortfolioDetail 的 .titleWithNote） */
+}
+
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-headline-sm-size);
+  font-weight: 700;
+  line-height: var(--text-headline-sm-line-height);
+  color: var(--color-on-surface);
+}
+
+/* 目前試算出的絕對區間（分析期間標題列右側），前面接時間圖示 */
+.rangeText {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-on-surface-variant);
+  font-size: var(--text-label-md-size);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── 第二列：投資組合（左）與分析期間＋報酬比較基準（右，兩張卡疊起來）並排；
+   右欄內容較多，寬度加大；兩欄預設 stretch，讓投資組合卡的高度自動比照右欄兩張卡的總高度；手機收成單欄 ── */
+.row2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: var(--space-lg);
+}
+
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+@media (max-width: 734px) {
+  /* 手機：區塊與卡片之間一律 16px（DESIGN.md Spacing：桌機 24px、手機 16px） */
+  .row2 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+  }
+
+  .rightCol {
+    gap: var(--space-md);
+  }
+}
+
+/* 所選組合的持股：標籤依內容自然定寬，不拉伸背景；哪個標籤放哪一列由 JS 的 packRows 演算法決定
+   （見 RiskAnalysis.tsx 的 HoldingsList），盡量填滿每列寬度，不是原始市值順序自然換行。
+   flex: 1 1 auto ＋ min-height: 0 讓這個區塊只用掉卡片被 grid 撐開後剩下的高度（不會把卡片撐得
+   比右側兩張卡的總高度還高），超出的部分改成內部捲動，而不是繼續往下長。
+   height: 0 讓清單本身「不參與」撐高卡片：卡片（grid 的一欄）的高度只由右側兩張卡決定，清單再用 flex-grow
+   吃下剩餘的高度；列距（row-gap）由 JS 依這個高度算，讓 4 列剛好填滿（見 RiskAnalysis.tsx 的 HoldingsList）。
+   與上方選單的距離比卡片內的一般間距大一級（lg 24px），手機（單欄）時改回依內容定高、最多 4 列（max-height 由 JS 設定）。 */
+.holdings {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  height: 0;
+  min-height: 0;
+  margin-top: calc(var(--space-lg) - var(--space-md)); /* 卡片 gap 16px ＋ 8px ＝ 與選單相距 24px */
+  overflow-y: auto;
+}
+
+@media (max-width: 734px) {
+  .holdings {
+    height: auto;
+  }
+}
+
+/* 隱藏的量測副本：疊在容器左上角、visibility:hidden（仍會排版、量得出寬度，但不佔視覺空間、滑鼠點不到） */
+.holdingsMeasure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.holdingsRow {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+/* 樣式比照投資組合頁的股票標籤（DESIGN.md「Meta pill」），只有代號用 <b> 加粗、顏色較淡 */
+.holding {
+  display: inline-flex;
+  flex: none; /* 依內容定寬，不拉伸 */
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-xs) var(--space-md); /* 左右內距一致 */
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container-high);
+  font-size: var(--text-label-md-size);
+  line-height: 1.35;
+  color: var(--color-on-surface);
+}
+
+.holding > b {
+  flex: none;
+  font-weight: 700;
+  color: var(--color-on-surface-variant);
+}
+
+.holdingName {
+  /* 保留 ellipsis 作為極窄螢幕的保險；一般情況下標籤依內容定寬不會觸發 */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 「開始分析」：桌機放在標題列右側；手機改放在報酬基準下方、撐滿寬度。
+   選擇器重複兩次提高權重，確保蓋過按鈕元件本身的 display 設定 */
+.startMobile.startMobile {
+  display: none;
+}
+
+@media (max-width: 734px) {
+  .startDesktop.startDesktop {
+    display: none;
+  }
+
+  .startMobile.startMobile {
+    display: flex;
+  }
+}
+
+/* ── 分析期間：滑桿；目前值改成浮動標籤，跟著圓鈕移動 ── */
+.sliderWrap {
+  position: relative;
+  padding-top: 32px; /* 給上方浮動標籤留位置 */
+}
+
+/* 浮動在圓鈕正上方、隨拖曳移動的目前值標籤；left（置中點的 px 座標）由 JS 依滑桿比例算好，
+   並依標籤自己的寬度夾在 [半個標籤寬, 容器寬－半個標籤寬] 之間，讓標籤最多貼齊左右邊界、不會超出卡片 */
+.floatingBadge {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  font-size: var(--text-label-md-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 標籤結尾的全形「）」：字形本身右半邊是空白，會讓右側留白看起來比左側寬，往回收半個字寬讓左右視覺一致 */
+.closingBracket {
+  margin-right: -0.64em; /* 依實測：收掉後右側墨跡到框邊與左側同為約 10px */
+}
+
+/* 尚未選組合／查詢中的提示文字 */
+.helperText {
+  margin: 0;
+  font-size: var(--text-body-md-size);
+  color: var(--color-on-surface-variant);
+}
+
+/* ── 卡片內的狀態說明框（資料不足／無法分析）：*-container 底、on-*-container 文字、巢狀卡圓角，
+   不是玻璃（避免玻璃疊玻璃），圖示用該狀態的本色 ── */
+/* 訊息框：圖示與整段文字垂直置中（與頁面標題下方的提示框相同），文字多行時圖示仍在正中間 */
+.statusPanel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) 20px;
+  border-radius: var(--radius-nested);
+  font-size: var(--text-body-md-size);
+  line-height: 1.6;
+}
+
+.statusPanel > :global(.material-symbols-rounded) {
+  flex: none;
+}
+
+.statusPanel > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.statusPanel p {
+  margin: 0;
+  text-align: justify;
+}
+
+.errorPanel {
+  background-color: var(--color-error-container);
+  color: var(--color-on-error-container);
+}
+
+.errorPanel > :global(.material-symbols-rounded) {
+  color: var(--color-error);
+}
+
+/* ── 風險屬性：三個欄位，桌機三欄、手機一欄 ── */
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-lg) var(--space-gutter);
+}
+
+@media (max-width: 734px) {
+  .fieldGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+  }
+}
+
+.field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 360px;
+  min-width: 0;
 }
 
-.pickerLabel {
-  font-size: var(--text-label-md-size);
-  font-weight: var(--text-label-lg-weight);
-  color: var(--color-on-surface-variant);
-}
-
-.selectWrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.select {
-  width: 100%;
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 12px 48px 12px var(--space-lg);
-  border: 1px solid var(--color-outline);
-  border-radius: var(--radius-input);
-  background-color: color-mix(in srgb, var(--color-surface) var(--glass-opacity), transparent);
-  font-family: var(--font-family);
-  font-size: var(--text-input-text-size);
+/* 風險屬性的問卷題目文字：比照原本欄位小標題的字級（label-lg、主要文字色，不用粗體） */
+.questionText {
+  font-size: var(--text-label-lg-size);
+  font-weight: 400;
   color: var(--color-on-surface);
-  cursor: pointer;
 }
 
-.select:focus-visible {
-  outline: none;
-  border-color: var(--color-focus-ring);
-  box-shadow: inset 0 0 0 1px var(--color-focus-ring);
-}
-
-.select:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
-}
-
-.selectIcon {
-  position: absolute;
-  right: var(--space-md);
-  pointer-events: none;
-  color: var(--color-on-surface-variant);
-}
-
-.error {
-  font-size: var(--text-body-sm-size);
-  color: var(--color-error);
-}

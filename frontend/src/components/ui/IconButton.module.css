@@ -24,3 +24,9 @@
 .iconButton:active {
   transform: scale(0.95);
 }
+
+/* 輸入框內的小尺寸（如密碼顯示切換）：按鈕 32×32px，放在 48px 高的輸入框內，上下各留 8px，滑過的底色不會碰到外框 */
+.compact {
+  width: 32px;
+  height: 32px;
+}

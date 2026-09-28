@@ -417,16 +417,17 @@ const RANGES = [
 ] as const;
 const TREND_MARGIN = { top: 12, right: 12, bottom: 32, left: 64 }; // 兩張走勢圖同一組邊距，時間軸與十字線才會上下對齊
 const TICK_STEPS = [1, 3, 12, 24, 60]; // 月刻度的間隔（月）：每月、每季、每年、每 2 年、每 5 年，挑第一個放得下的
+const WEEK_DAYS = 7; // 一個月以內的區間，時間軸刻度的間隔（天）
 const PILL_H = 20; // 十字線座標標籤的高度（px）
 const DATE_PILL_W = 84; // 十字線日期標籤的寬度（px，放得下 YYYY-MM-DD）
 
 type TrendKind = "value" | "pnl";
 type TrendRow = { date: string; x: Date; value: number; cost: number; pnl: number; ret: number | null };
-type TrendHover = { i: number; kind: TrendKind; y: number } | null; // i=滑到第幾天、kind=游標所在的圖、y=游標在該圖繪圖區內的高度（px）
-type TrendScales = { x: (d: Date) => number; y: (v: number) => number; yInv: (px: number) => number; w: number; h: number };
+type TrendHover = { i: number; kind: TrendKind } | null; // i=滑到第幾天、kind=游標所在的圖
+type TrendScales = { x: (d: Date) => number; y: (v: number) => number; w: number; h: number };
 
 // 【時間軸刻度】
-// 1. 一個月以內：平均挑 5 個交易日（M/D）。
+// 1. 一個月以內：從區間第一天起每 7 天一個刻度（M/D），間隔固定為一星期。
 // 2. 超過一個月：標在月份的 1 號，間隔依序試「每月 → 每季（1、4、7、10 月）→ 每年 → 每 2 年 → 每 5 年」，
 //    挑第一個刻度數不超過 maxTicks 的（例如 3、6 個月每月一個、1 年每季一個、全部視長度為每季或每年）。
 // 參數：rows=區間內的每日資料、maxTicks=最多幾個刻度（依圖表寬度）
@@ -434,8 +435,9 @@ function trendTicks(rows: TrendRow[], maxTicks: number): { ticks: Date[]; step: 
   const first = rows[0].x;
   const last = rows[rows.length - 1].x;
   if ((last.getTime() - first.getTime()) / DAY_MS <= 31) {
-    const n = Math.min(5, rows.length);
-    return { ticks: Array.from({ length: n }, (_, k) => rows[Math.round((k * (rows.length - 1)) / Math.max(1, n - 1))].x), step: 0 };
+    const ticks: Date[] = [];
+    for (let d = first; d <= last; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + WEEK_DAYS)) ticks.push(d);
+    return { ticks, step: 0 };
   }
   for (const step of TICK_STEPS) {
     const ticks: Date[] = [];
@@ -468,8 +470,7 @@ function useMaxTicks(): number {
 }
 
 // 【歷史走勢】最上方是撐滿寬度的區間切換（1 個月～全部），同時控制兩張圖：市值變化（市值＋累計投入成本）與損益變化（賺紅賠綠）。
-// 滑鼠移到圖上（手機為點按或按住拖曳）會出現像看盤軟體的十字線：垂直線對準最近的交易日、兩張圖同步；水平線跟著游標高度，
-// 左側與下方標出游標位置的金額與日期；每張圖標題旁顯示區間日期，最右側的讀數顯示該日數值（沒有滑過時顯示區間最後一天）。
+// 滑鼠移到圖上（手機為點按或按住拖曳）會出現垂直指示線：對準最近的交易日、兩張圖同步，下方標出日期（不畫水平線）；每張圖標題旁顯示區間日期，最右側的讀數顯示該日數值（沒有滑過時顯示區間最後一天）。
 // 效能：圖表本身只在資料或區間改變時才重畫；十字線畫在上方另一層、每個畫面更新一次，滑動時不會重算整張圖。
 // 參數：points=每日走勢點（由舊到新，至少 2 點）
 export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
@@ -508,6 +509,8 @@ export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
   const shown = rows[hover?.i ?? rows.length - 1]; // 讀數顯示的那一天
   const first = rows[0];
   const last = rows[rows.length - 1];
+  // 右上角讀數往內縮到與繪圖區右緣切齊（繪圖區右側留有邊距，讀數若貼齊外框會比圖表多出去一截）
+  const readoutAlign = { marginRight: TREND_MARGIN.right };
   // 標題右側的區間日期（兩張圖相同）
   const period = <span className={styles.trendPeriod}><Icon name="schedule" size={16} />{first.date} ~ {last.date}</span>;
 
@@ -520,7 +523,7 @@ export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
       <figure className={styles.figure}>
         <figcaption className={styles.trendCaption}>
           <span className={styles.trendTitle}>市值變化{period}</span>
-          <span className={styles.readout}>
+          <span className={styles.readout} style={readoutAlign}>
             <span className={styles.readItem}><i className={styles.keyLine} style={{ background: t.line }} />市值<b>{money(String(shown.value))}</b>元</span>
             <span className={styles.readItem}><i className={styles.keyDash} style={{ borderColor: t.cost }} />累計投入成本<b>{money(String(shown.cost))}</b>元</span>
           </span>
@@ -533,7 +536,7 @@ export function HistoryTrend({ points }: { points: HistoryPoint[] }) {
       <figure className={styles.figure}>
         <figcaption className={styles.trendCaption}>
           <span className={styles.trendTitle}>損益變化{period}</span>
-          <span className={styles.readout}>
+          <span className={styles.readout} style={readoutAlign}>
             <span className={styles.readItem} style={{ color: toneOf(shown.pnl, t) }}>
               損益<b>{signedMoney(String(shown.pnl))}</b>元
               {shown.ret != null && <span className={styles.readPct}>（ <b>{pct(shown.ret, true).replace("%", "")}</b> % ）</span>}
@@ -655,10 +658,21 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
       isInteractive={false}
       enableGridX={false}
       enableGridY={false}
-      axisLeft={{ tickValues: yTicks, format: (v) => compactMoney(Number(v)) }}
+      axisLeft={null}
       axisBottom={{ tickValues: axis.ticks, format: axis.format }}
       theme={t.theme}
       layers={["axes",
+        // 1-1. 縱軸刻度文字：靠左對齊圖表框最左緣（與上方標題的左側切齊），而不是貼著繪圖區右對齊
+        ({ yScale }) => (
+          <g key="yTicks">
+            {yTicks.map((v) => (
+              <text key={v} x={-TREND_MARGIN.left} y={(yScale as (n: number) => number)(v)} textAnchor="start" dominantBaseline="central"
+                fill={t.theme.text.fill} fontSize={t.theme.text.fontSize} fontFamily={t.theme.text.fontFamily}>
+                {compactMoney(v)}
+              </text>
+            ))}
+          </g>
+        ),
         // 2. 上下限線（淡色）與 0 基準線（中性灰，比上下限明顯）
         ({ yScale, innerWidth, innerHeight }) => {
           const zero = (yScale as (v: number) => number)(0);
@@ -702,8 +716,7 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
         },
         // 4. 回報座標換算給十字線層使用（不畫任何東西）
         ({ xScale, yScale, innerWidth, innerHeight }) => {
-          const ys = yScale as unknown as ((v: number) => number) & { invert: (px: number) => number };
-          scales.current = { x: xScale as (d: Date) => number, y: ys, yInv: (px) => ys.invert(px), w: innerWidth, h: innerHeight };
+          scales.current = { x: xScale as (d: Date) => number, y: yScale as (v: number) => number, w: innerWidth, h: innerHeight };
           return null;
         }]}
     />
@@ -712,19 +725,19 @@ const TrendBase = memo(function TrendBase({ kind, rows, axis, scales }: {
 
 // 【十字線層】疊在圖表上方的透明 SVG：
 // 1. 感應區：依游標水平位置找最近的交易日（二分搜尋），每個畫面（requestAnimationFrame）最多更新一次，滑動才順；離開時清除。
-// 2. 畫實線的垂直線（兩張圖同步）＋該日的點；游標所在的圖另畫實線的水平線，左側標出游標高度的金額、下方標出日期。
+// 2. 畫實線的垂直線（兩張圖同步）＋該日的點（損益為 0 時用中性色）；游標所在的圖在下方標出日期（不畫水平線）。
 // 參數：kind、rows 同上；hover／setHover=共用十字線狀態；scales=底層圖表回報的座標換算
 function TrendCross({ kind, rows, hover, setHover, scales }: {
   kind: TrendKind; rows: TrendRow[]; hover: TrendHover; setHover: (h: TrendHover) => void; scales: React.MutableRefObject<TrendScales | null>;
 }) {
   const t = useChartTokens();
   const frame = useRef(0); // 等待中的畫面更新編號
-  const latest = useRef<{ px: number; py: number } | null>(null); // 最新的游標位置（繪圖區座標）
+  const latest = useRef<{ px: number } | null>(null); // 最新的游標水平位置（繪圖區座標）
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
   const track = (e: React.PointerEvent<SVGRectElement>) => {
     const box = e.currentTarget.getBoundingClientRect(); // 感應區＝整個圖表框，扣掉邊距換成繪圖區座標
-    latest.current = { px: e.clientX - box.left - TREND_MARGIN.left, py: e.clientY - box.top - TREND_MARGIN.top };
+    latest.current = { px: e.clientX - box.left - TREND_MARGIN.left };
     if (frame.current) return; // 這個畫面已排好更新，只記下最新位置
     frame.current = requestAnimationFrame(() => {
       frame.current = 0;
@@ -735,7 +748,7 @@ function TrendCross({ kind, rows, hover, setHover, scales }: {
       let b = rows.length - 1;
       while (b - a > 1) { const m = (a + b) >> 1; if (s.x(rows[m].x) < pos.px) a = m; else b = m; }
       const i = Math.abs(s.x(rows[a].x) - pos.px) <= Math.abs(s.x(rows[b].x) - pos.px) ? a : b;
-      setHover({ i, kind, y: pos.py });
+      setHover({ i, kind });
     });
   };
   const leave = () => {
@@ -752,27 +765,18 @@ function TrendCross({ kind, rows, hover, setHover, scales }: {
     const r = rows[hover.i];
     const x = s.x(r.x);
     const own = hover.kind === kind;
-    const y = Math.min(Math.max(hover.y, 0), s.h);
     const dx = Math.min(Math.max(x - DATE_PILL_W / 2, -TREND_MARGIN.left + 4), s.w - DATE_PILL_W);
-    const yw = TREND_MARGIN.left - 8;
     const dots = kind === "value"
       ? [{ v: r.value, c: t.line }, { v: r.cost, c: t.cost }]
-      : [{ v: r.pnl, c: r.pnl >= 0 ? t.up : t.down }];
+      : [{ v: r.pnl, c: toneOf(r.pnl, t) ?? t.cost }];
     cross = (
       <g pointerEvents="none">
         <line x1={x} x2={x} y1={0} y2={s.h} stroke={t.ink} strokeOpacity={0.5} strokeWidth={1} />
-        {own && <line x1={0} x2={s.w} y1={y} y2={y} stroke={t.ink} strokeOpacity={0.5} strokeWidth={1} />}
         {dots.map((d, k) => <circle key={k} cx={x} cy={s.y(d.v)} r={4.5} fill={t.surface} stroke={d.c} strokeWidth={2} />)}
-        {own && (
-          <g transform={`translate(${-TREND_MARGIN.left + 4},${y - PILL_H / 2})`}>
-            <rect width={yw} height={PILL_H} rx={PILL_H / 2} fill={t.ink} />
-            <text x={yw / 2} y={PILL_H / 2} textAnchor="middle" dominantBaseline="central" fill={t.surface} fontSize={11} fontFamily={font}>{compactMoney(s.yInv(y))}</text>
-          </g>
-        )}
         {own && (
           <g transform={`translate(${dx},${s.h + 6})`}>
             <rect width={DATE_PILL_W} height={PILL_H} rx={PILL_H / 2} fill={t.ink} />
-            <text x={DATE_PILL_W / 2} y={PILL_H / 2} textAnchor="middle" dominantBaseline="central" fill={t.surface} fontSize={11} fontFamily={font}>{r.date}</text>
+            <text x={DATE_PILL_W / 2} y={PILL_H / 2} textAnchor="middle" dominantBaseline="central" fill={t.surface} fontSize={t.theme.text.fontSize} fontFamily={font}>{r.date}</text>
           </g>
         )}
       </g>

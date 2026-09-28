@@ -98,10 +98,13 @@ def change_password(
     # 1. 舊密碼錯誤則拒絕
     if not verify_password(body.old_password, user.password):
         raise HTTPException(status_code=400, detail="舊密碼錯誤")
-    # 2. 新密碼加密後存入，並記錄更新時間
+    # 2. 新密碼與舊密碼相同則拒絕（前端也會先擋，這裡是保險）
+    if body.new_password == body.old_password:
+        raise HTTPException(status_code=400, detail="新密碼不可與舊密碼相同")
+    # 3. 新密碼加密後存入，並記錄更新時間
     user.password = hash_password(body.new_password)
     user.password_updated = datetime.now(timezone.utc)
     db.commit()
-    # 3. 使所有舊登入失效，並讓目前裝置維持登入
+    # 4. 使所有舊登入失效，並讓目前裝置維持登入
     destroy_all_sessions(user.id)
     create_session(response, user.id)

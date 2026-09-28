@@ -82,9 +82,12 @@
   --shadow-level-4: 0px 16px 30px -4px rgba(15, 23, 42, 0.16);
   --shadow-level-5: 0px 24px 48px -6px rgba(15, 23, 42, 0.2);
 
-  /* ── 玻璃卡效果 ── */
-  --glass-opacity: 0.8; /* 提高不透明度讓卡片邊界更清楚，避免疊在暈染背景上時太淡 */
-  --glass-blur: 16px; /* 所有頁面都疊在同一套斜角暈染上，統一用較強的模糊維持卡片文字可讀性 */
+  /* ── 玻璃卡效果（DESIGN.md「Glass surface」：75% 不透明度、24px 模糊、150% 飽和度） ──
+     注意：--glass-opacity 給 color-mix() 用，必須是百分比（75%），不能寫成小數（0.75）——
+     小數對 color-mix() 是不合法的語法，瀏覽器會整條 background-color 判定失敗，卡片會變成完全透明，
+     只剩 backdrop-filter 的模糊還看得出玻璃感，卡片本身完全沒有白色底。 */
+  --glass-opacity: 75%;
+  --glass-blur: 24px;
   --glass-edge-opacity: 10%; /* 玻璃卡的 1px 描邊透明度 */
 
   /* ── 液態玻璃（參考 iOS 27 Tab Bar）：白色半透明細邊，加上左上較亮、右下較淡的內側反光與一圈柔和內光，
@@ -290,6 +293,17 @@
   --space-3xl: 64px;
   --space-gutter: 24px;
   --space-margin: 32px;
+
+  /* ── 固定導覽區佔用的高度（需與 TopBar／TabsLayout 實際尺寸一致） ── */
+  --layout-topbar-height: 88px; /* 頂端列高度 */
+  --layout-tabbar-reserve: 0px; /* 畫面下方被分頁列佔用的高度（桌機沒有下方分頁列） */
+}
+
+@media (max-width: 734px) {
+  :root {
+    --layout-topbar-height: 72px; /* 手機頂端列高度 */
+    --layout-tabbar-reserve: 96px; /* 手機下方懸浮分頁列＋外距，與 TabsLayout 的 padding-bottom 一致 */
+  }
 }
 
 /* 手機板：所有字級皆縮小 2px */

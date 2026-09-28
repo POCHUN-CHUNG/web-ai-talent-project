@@ -38,7 +38,8 @@
 | 022  | 2026-09-25 | `7487fff` | n8n 失敗訊息顯示卡在哪一步      | [022-7487fff-n8n-failure-message.md](022-7487fff-n8n-failure-message.md)       |
 | 023  | 2026-09-25 | `cba5875` | 風險屬性解析改用 OpenAI、問卷改版 | [023-cba5875-openai-profile-and-questionnaire.md](023-cba5875-openai-profile-and-questionnaire.md) |
 | 024  | 2026-09-27 | `286cd0f` | 投資組合明細頁改版與全站 UI 規範 | [024-286cd0f-portfolio-detail-redesign.md](024-286cd0f-portfolio-detail-redesign.md) |
-| 025  | 2026-09-27 | `e0fc067` | 風險指標計算的參考程式 | [025-e0fc067-risk-metric-reference-scripts.md](025-e0fc067-risk-metric-reference-scripts.md) |
+| 025  | 2026-09-27 | `e0fc067` | 投資組合風險指標計算的參考程式 | [025-e0fc067-risk-metric-reference-scripts.md](025-e0fc067-risk-metric-reference-scripts.md) |
+| 026  | 2026-09-27 | `e55c209` | 風險分析後端與規格書 v1.10.0 | [026-e55c209-risk-analysis-backend.md](026-e55c209-risk-analysis-backend.md) |
 
 ## 維護規則
 

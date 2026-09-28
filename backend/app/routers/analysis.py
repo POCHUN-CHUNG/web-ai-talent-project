@@ -4,11 +4,17 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import User
 from app.security import current_user
-from app.services.analysis import analysis_options, get_owned_analysis, history, run_analysis, serialize
+from app.services.analysis import analysis_options, get_owned_analysis, history, profile_choices, run_analysis, serialize
 from app.services.portfolio_data import get_owned_portfolio
 
 # 【風險分析 API】分析前的選項、執行分析、查詢單次結果與歷史清單；全部需登入，且只能操作自己的組合與分析
 router = APIRouter(tags=["風險分析"])
+
+
+@router.get("/risk-profiles/latest/analysis-inputs", summary="取得風險分析可調整的 Q7／Q8／Q13 預設值與選項，不需指定投資組合（需登入）")
+def get_profile_choices(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    # 【風險屬性可調整欄位】只依賴使用者的最新風險屬性，選投資組合前就能顯示。參數：user=目前登入者
+    return profile_choices(db, user)
 
 
 @router.get("/portfolios/{portfolio_id}/analysis/options", summary="取得分析前確認彈窗的預設值與可選範圍（需登入）")

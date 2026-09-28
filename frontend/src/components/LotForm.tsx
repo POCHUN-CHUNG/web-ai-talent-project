@@ -21,7 +21,7 @@ const QTY_RE = /\D/g; // 數量只允許整數（非數字的字元輸入時直�
 // 1. 標的：輸入代號或名稱即搜尋，結果清單直接接在輸入框下方；查無結果時清單只顯示一列不可選的「查無資料」。
 //    右側收合鈕或點選其他地方都只會收起清單、保留已輸入的文字（再點輸入框會重新展開）；清空輸入框也會收起清單。
 //    修改模式時標的固定不可更換（以與「持有成本」相同的唯讀欄位樣式顯示；代號不能改，買錯請刪除後重建）。
-// 2. 日期（選好標的後自動帶入距今最近的資料日期）、數量（大於 0 的整數，純文字輸入，不用上下調整鈕）。
+// 2. 日期（選好標的後自動帶入距今最近的資料日期；用 Enter 選好標的時，游標會移到日期並直接打開月曆）、數量（大於 0 的整數，純文字輸入，不用上下調整鈕）。
 // 3. 每股價格（系統依買進日帶入的調整後收盤價）與持有成本（價格 × 數量）以唯讀欄位即時顯示。
 // 按鈕永遠可以按（DESIGN.md）：送出時才檢查，有問題就在按鈕上方顯示紅色錯誤提示。
 // 參數：portfolioId=組合編號、editing=要修改的那筆紀錄（新增時省略）、onDone=新增／修改成功後執行、onCancel=按「取消」關閉視窗
@@ -44,6 +44,7 @@ export default function LotForm({ portfolioId, editing, onDone, onCancel }: {
   const quoteSeq = useRef(0); // 收盤價查詢序號（在條件改變時作廢舊請求）
   const seq = useRef(0); // 搜尋請求序號：只採用最新一次的結果，避免舊回應覆蓋新結果
   const comboRef = useRef<HTMLDivElement>(null);
+  const [dateOpenRequest, setDateOpenRequest] = useState(0); // 要求日期選擇器「聚焦並打開月曆」的次數（每加 1 要求一次）
 
   // 【搜尋股票】輸入文字後去抖 300ms 再查詢，最多 20 筆；清空輸入框就關閉清單；查無結果時在清單中顯示「查無資料」
   useEffect(() => {
@@ -86,14 +87,14 @@ export default function LotForm({ portfolioId, editing, onDone, onCancel }: {
       .catch((e) => { if (mine === quoteSeq.current) setQuote({ state: "error", msg: e instanceof ApiError ? e.message : "查詢收盤價失敗" }); });
   }, [selected, date]);
 
-  // 【選定股票】收起清單、清除錯誤。參數：o=選到的股票、focusQty=是否接著把游標移到「數量」（鍵盤選取時用）
-  function choose(o: Stock, focusQty = false) {
+  // 【選定股票】收起清單、清除錯誤。參數：o=選到的股票、openDate=是否接著把游標移到「日期」並打開月曆（鍵盤選取時用）
+  function choose(o: Stock, openDate = false) {
     setSelected(o);
     setOptions([]);
     setOpen(false);
     setActive(-1);
     setError("");
-    if (focusQty) window.setTimeout(() => document.getElementById("lotQty")?.focus());
+    if (openDate) setDateOpenRequest((n) => n + 1);
   }
 
   // 【明確的那一檔】只有一筆結果，或輸入的代號與某筆完全相同時，回傳該筆；否則回傳 null。參數：list=搜尋結果、q=輸入文字
@@ -211,11 +212,11 @@ export default function LotForm({ portfolioId, editing, onDone, onCancel }: {
               )}
               {/* 右側：已選股票（新增時）為清除鈕；輸入中為收合／展開鈕；空白時為搜尋圖示 */}
               {selected && !isEdit ? (
-                <IconButton icon="close" label="重新選擇股票" onClick={() => { setSelected(null); setQuery(""); setDate(""); }} />
+                <IconButton compact icon="close" label="重新選擇股票" onClick={() => { setSelected(null); setQuery(""); setDate(""); }} />
               ) : !selected && query.trim() && searched === query.trim() ? (
-                <IconButton icon={open ? "expand_less" : "expand_more"} label={open ? "收合清單" : "展開清單"} onClick={() => setOpen((v) => !v)} />
+                <IconButton compact icon={open ? "expand_less" : "expand_more"} label={open ? "收合清單" : "展開清單"} onClick={() => setOpen((v) => !v)} />
               ) : !selected ? (
-                <span className={styles.comboIcon}><Icon name="search" size={22} /></span>
+                <span className={styles.comboIcon}><Icon name="search" size={20} /></span>
               ) : null}
             </div>
             {open && (
@@ -246,7 +247,7 @@ export default function LotForm({ portfolioId, editing, onDone, onCancel }: {
       <div className={styles.row}>
         <div className={styles.field}>
           <span className={styles.label}>日期</span>
-          <TradeDatePicker symbol={selected?.symbol ?? ""} value={date} onChange={(v) => { setDate(v); setError(""); }} disabled={busy} ariaLabel="買進日期" autoSelectLatest />
+          <TradeDatePicker symbol={selected?.symbol ?? ""} value={date} onChange={(v) => { setDate(v); setError(""); }} disabled={busy} ariaLabel="買進日期" autoSelectLatest requestOpen={dateOpenRequest} />
         </div>
         <Input id="lotQty" label="數量" type="text" inputMode="numeric" value={qty} placeholder="請輸入股數" disabled={busy}
           onChange={(e) => { setQty(e.target.value.replace(QTY_RE, "")); setError(""); }} />

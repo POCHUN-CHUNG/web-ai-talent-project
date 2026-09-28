@@ -8,6 +8,7 @@ import RiskProfileGateModal from "../components/RiskProfileGateModal";
 import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
 import Notice from "../components/ui/Notice";
+import PageSpinner from "../components/ui/PageSpinner";
 import styles from "./RiskProfile.module.css";
 
 // AI 解析的一段：key=段落代號、body=內文
@@ -127,6 +128,9 @@ export default function RiskProfile() {
         {profile && !missing && (
           <Notice className={styles.noticeGap}>投資風險屬性評估結果有效期限通常為 1 年。若您的投資目標、財務狀況或家庭支出有重大變更，應主動重新評估。</Notice>
         )}
+
+        {/* 資料載入中（還不是 AI 分析中）：畫面中間的轉圈圈（DESIGN.md〈Page loading〉） */}
+        {!analyzing && <PageSpinner />}
 
         {analyzing && (
           <>

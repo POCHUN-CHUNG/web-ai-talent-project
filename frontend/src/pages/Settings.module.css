@@ -21,10 +21,15 @@
   .pageWrap {
     padding: 96px var(--space-md) 0;
   }
+
+  /* 手機：區塊與卡片之間一律 16px（DESIGN.md Spacing：桌機 24px、手機 16px） */
+  .page {
+    gap: var(--space-md);
+  }
 }
 
 .heading {
-  margin: 0 0 var(--space-xs);
+  margin: 0; /* 與第一張卡片之間只用頁面本身的間距（桌機 24px、手機 16px） */
   text-align: center;
   font-family: var(--font-family);
   font-size: var(--text-form-heading-size);

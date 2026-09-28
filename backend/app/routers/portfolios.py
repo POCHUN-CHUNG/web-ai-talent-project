@@ -20,6 +20,7 @@ from app.services.portfolio_data import (
     load_history_quotes,
     load_market,
     load_previous_prices,
+    load_price_ranges,
     load_quotes_updated,
     load_stock_meta,
     lock_user,
@@ -30,6 +31,7 @@ from app.services.portfolio_data import (
     require_stock,
     today_taipei,
 )
+from app.services.stock_info import BENCHMARK_ROW
 
 # 【投資組合與買進紀錄 API】組合的新增、查詢、改名、刪除，以及買進紀錄的新增、修改、刪除；全部需登入，且只能操作自己的資料
 router = APIRouter(prefix="/portfolios", tags=["投資組合"])
@@ -133,6 +135,32 @@ def get_portfolio_history(portfolio_id: int, user: User = Depends(current_user),
     p = get_owned_portfolio(db, user, portfolio_id)
     lots = db.scalars(select(HoldingLot).where(HoldingLot.portfolio_id == p.id)).all()
     return {"points": build_history(lots, load_history_quotes(db, lots)), "priceDisclaimer": PRICE_DISCLAIMER}
+
+
+@router.get("/{portfolio_id}/price-coverage", summary="取得投資組合各持股與大盤指數的價格資料起訖日，供分析前確認期間是否足夠（需登入）")
+def get_price_coverage(portfolio_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    # 【價格資料期間】風險分析頁用：回傳每檔持股與大盤指數在資料庫中最早、最新的收盤價日期，以及今日（台北）。
+    # 前端據此換算「選 N 年時實際能分析到哪一天」，資料不足時提示是哪幾檔造成的。沒有任何資料的代號日期為 null。
+    # 參數：portfolio_id=組合編號、user=目前登入者
+    # 1. 取組合內的代號（依代號排序）與名稱
+    p = get_owned_portfolio(db, user, portfolio_id)
+    lots = db.scalars(select(HoldingLot).where(HoldingLot.portfolio_id == p.id)).all()
+    symbols = sorted({x.symbol for x in lots})
+    names, _ = load_market(db, lots)
+    # 2. 一次查出持股與大盤指數的資料起訖日
+    bench = BENCHMARK_ROW["symbol"]
+    ranges = load_price_ranges(db, {*symbols, bench})
+
+    def item(sym: str, name: str) -> dict:
+        # 【單一代號的期間】參數：sym=代號、name=名稱
+        first, last = ranges.get(sym, (None, None))
+        return {"symbol": sym, "name": name, "firstDate": first and first.isoformat(), "lastDate": last and last.isoformat()}
+
+    return {
+        "today": today_taipei().isoformat(),
+        "benchmark": item(bench, BENCHMARK_ROW["name"]),
+        "symbols": [item(s, names.get(s, s)) for s in symbols],
+    }
 
 
 @router.patch("/{portfolio_id}", summary="修改投資組合名稱（需登入）")

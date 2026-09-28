@@ -8,6 +8,7 @@ import Card from "../components/ui/Card";
 import Chip from "../components/ui/Chip";
 import Icon from "../components/ui/Icon";
 import Input from "../components/ui/Input";
+import PageSpinner from "../components/ui/PageSpinner";
 import styles from "./Questionnaire.module.css";
 
 // 題目與選項（後端 GET /questionnaire 提供）
@@ -169,7 +170,17 @@ export default function Questionnaire() {
     if (first) scrollToQuestion(first.id);
   }
 
-  if (checking) return null; // 確認冷卻中，先不顯示問卷
+  // 載入中（確認冷卻中、題目還沒回來）：只顯示頁面標題與畫面中間的轉圈圈（DESIGN.md〈Page loading〉）
+  if (checking || (questions.length === 0 && !loadError)) {
+    return (
+      <main className={styles.page}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>風險屬性評估問卷</h1>
+        </header>
+        <PageSpinner />
+      </main>
+    );
+  }
 
   return (
     <main className={styles.page}>

@@ -20,3 +20,23 @@ export function enterToNextField(e: KeyboardEvent<HTMLFormElement>) {
     fields[i + 1].focus();
   }
 }
+
+// 【全部填好就 Enter 送出】掛在 <form onKeyDown> 上（登入、註冊）：在任一輸入框按 Enter 時，
+// 若表單內每個輸入框都已有值，不管目前在第幾格都直接送出；還有空格時，照 enterToNextField 移到下一格。
+// 輸入法選字中不處理。參數：e=表單的鍵盤事件
+export function enterSubmitWhenFilled(e: KeyboardEvent<HTMLFormElement>) {
+  // 1. 只處理 Enter，且不在輸入法選字中
+  if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+  if (!(e.target instanceof HTMLInputElement)) return;
+  // 2. 表單內所有可輸入的文字類欄位都有值：直接送出（等同按下送出按鈕，會經過表單自己的檢查）
+  const fields = Array.from(e.currentTarget.querySelectorAll<HTMLInputElement>("input")).filter(
+    (el) => !el.disabled && el.type !== "hidden" && el.type !== "checkbox" && el.type !== "radio",
+  );
+  if (fields.length > 0 && fields.every((el) => el.value !== "")) {
+    e.preventDefault();
+    e.currentTarget.requestSubmit();
+    return;
+  }
+  // 3. 還有空格：移到下一格
+  enterToNextField(e);
+}

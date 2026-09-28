@@ -23,4 +23,5 @@ frontend/dist/
 # python
 backend/__pycache__/
 backend/**/__pycache__/
+**/__pycache__/
 backend/.venv/

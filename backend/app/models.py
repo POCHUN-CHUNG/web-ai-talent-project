@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, SmallInteger, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -157,7 +157,7 @@ class AnalysisResult(Base):
     portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"))  # 分析的投資組合（刪組合時一併清除）
     # 預設值來源的風險屬性（快照必須能追溯，故不允許刪除仍被引用的風險屬性）
     risk_profile_id: Mapped[int] = mapped_column(ForeignKey("risk_profiles.id", ondelete="RESTRICT"))
-    requested_years: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)  # 使用者選的年數；空值代表採可分析的最大期間
+    requested_years: Mapped[Decimal | None] = mapped_column(Numeric(7, 4), nullable=True)  # 使用者選的年數（1 個月為單位，換算成年會有小數）；空值代表採可分析的最大期間
     max_years: Mapped[Decimal] = mapped_column(Numeric(5, 2))  # 當時可分析的最長年數
     start_date: Mapped[date] = mapped_column(Date)  # 分析期間起日
     end_date: Mapped[date] = mapped_column(Date)  # 分析期間迄日
@@ -178,7 +178,10 @@ class AnalysisResult(Base):
     data_quality: Mapped[dict] = mapped_column(JSONB)  # 資料品質提醒
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)  # 建立時間（UTC）
     __table_args__ = (
-        CheckConstraint("requested_years IS NULL OR requested_years >= 2", name="ck_ar_requested_years"),
+        CheckConstraint(
+            "requested_years IS NULL OR (requested_years >= 2 AND ABS(requested_years * 12 - ROUND(requested_years * 12)) < 0.01)",
+            name="ck_ar_requested_years",
+        ),  # 1 個月為單位（年數換算成月數需接近整數，容許四捨五入誤差），D-129
         CheckConstraint("rate_option IN ('zero','bank_average')", name="ck_ar_rate_option"),
         CheckConstraint("trading_days > 0", name="ck_ar_trading_days"),
         CheckConstraint("end_date >= start_date", name="ck_analysis_period"),

@@ -1,0 +1,57 @@
+/* 【頁面載入中】固定在可視區域：上緣扣掉頂端列，下緣扣掉手機的下方分頁列，轉圈圈在這個區域內上下左右置中；
+   不擋滑鼠（pointer-events: none），也不影響頁面本身的排版 */
+.area {
+  position: fixed;
+  top: var(--layout-topbar-height);
+  bottom: var(--layout-tabbar-reserve);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* 與風險屬性頁「分析中」的轉圈圈同一種樣式：主色線條、長度伸縮的旋轉 */
+.spinner {
+  width: 56px;
+  height: 56px;
+  animation: spin 2s linear infinite;
+}
+
+.head {
+  stroke: var(--color-primary);
+  stroke-dasharray: 1, 150;
+  stroke-dashoffset: 0;
+  animation: dash 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1, 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -124;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 4s;
+  }
+  .head {
+    animation-duration: 3s;
+  }
+}

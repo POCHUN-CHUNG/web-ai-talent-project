@@ -1,0 +1,71 @@
+/* 【滑桿】DESIGN.md Slider：軌道 8px 高、圓角 15px（未選取為中性灰 surface-container-high，已選取為 primary）。
+   圓鈕是橢圓形（寬 34px、高 20px，rounded.full），不透明主色（藍），沒有拖曳時的放大效果，維持穩定不跳動。
+   整個控制項高 24px，軌道與圓鈕垂直置中；已選取的長度由元件算好放在 --slider-fill。 */
+.slider {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider:focus-visible {
+  outline: none; /* 焦點框改畫在圓鈕上 */
+}
+
+/* Chrome／Safari／Edge */
+.slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: var(--radius-slider);
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--slider-fill),
+    var(--color-surface-container-high) var(--slider-fill)
+  );
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 34px;
+  height: 20px;
+  margin-top: -6px; /* (8px 軌道 − 20px 圓鈕) ÷ 2，讓圓鈕置中在軌道上 */
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-level-1);
+}
+
+.slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* Firefox */
+.slider::-moz-range-track {
+  height: 8px;
+  border-radius: var(--radius-slider);
+  background-color: var(--color-surface-container-high);
+}
+
+.slider::-moz-range-progress {
+  height: 8px;
+  border-radius: var(--radius-slider);
+  background-color: var(--color-primary);
+}
+
+.slider::-moz-range-thumb {
+  width: 34px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-level-1);
+}
+
+.slider:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}

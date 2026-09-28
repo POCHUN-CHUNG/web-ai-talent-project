@@ -189,7 +189,7 @@ n8n 的格式定義於 `services/n8n_result.py`，符合 `CLAUDE.md` §8：只�
 
 **代號白名單**：後端抓取時以 `^([1-9]\d{3}|00\d{2,3}[A-Za-z]?)$` 過濾，只留四位數普通股與 `00` 開頭的 ETF（含 `00981A` 這類帶字尾者）。後端寫入時以同一規則過濾，或代號等於 `MARKET_BENCHMARK_SYMBOL`，兩者皆不符即拒絕。
 
-**`IR0001` 亦寫入本表**（`name` = `加權報酬指數`、`market` = `指數`、`industry` = `大盤`）。因此 `daily_quotes.symbol` 與 `holding_lots.symbol` 都能建立外鍵，代號體系完全統一。
+**`IR0001` 亦寫入本表**（`name` = `加權股價報酬指數`（D-131 由「加權報酬指數」更名）、`market` = `指數`、`industry` = `大盤`）。因此 `daily_quotes.symbol` 與 `holding_lots.symbol` 都能建立外鍵，代號體系完全統一。
 但 `holding_lots.symbol` 另加 `CHECK`：不得為 `market = '指數'` 的代號——使用者不能把指數當持股輸入。此約束以應用層驗證實作（PostgreSQL 的 CHECK 無法跨表查詢）。
 
 **與 yfinance 的代號轉換由後端抓取服務負責**：`market` 為「上市」時對應 `{symbol}.TW`，「上櫃」時對應 `{symbol}.TWO`。**資料庫內一律只存純代號**。

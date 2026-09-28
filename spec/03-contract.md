@@ -158,7 +158,7 @@ type AnalysisResult = {
   portfolioId: number;
   riskProfileId: number;          // 預設值來源的風險屬性快照
   period: {
-    requestedYears: number | null; // null = 採可分析的最大期間（預設）；否則為 2 ～ ⌊maxYears⌋ 的整數
+    requestedYears: number | null; // null = 採可分析的最大期間（預設）；否則為 2 年 ～ ⌊maxYears×12⌋ 個月換算成年，換算後須為整數月（D-129）
     maxYears: number;             // 共同交易日可涵蓋的最長年數，小數 2 位
     startDate: string;
     endDate: string;
@@ -441,7 +441,7 @@ CREATE TABLE analysis_results (
     user_id           BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     portfolio_id      BIGINT        NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
     risk_profile_id   BIGINT        NOT NULL REFERENCES risk_profiles(id) ON DELETE RESTRICT,
-    requested_years   SMALLINT      CHECK (requested_years IS NULL OR requested_years >= 2),
+    requested_years   NUMERIC(7,4)  CHECK (requested_years IS NULL OR (requested_years >= 2 AND ABS(requested_years * 12 - ROUND(requested_years * 12)) < 0.01)),  -- 1 個月為單位（D-129）
     max_years         NUMERIC(5,2)  NOT NULL,
     start_date        DATE          NOT NULL,
     end_date          DATE          NOT NULL,
@@ -554,6 +554,8 @@ CREATE INDEX idx_reports_analysis ON analysis_reports (analysis_result_id, creat
 | `POST` | `/auth/change-password` | `{oldPassword, newPassword}` | `204` + 新 Set-Cookie | 400 `INVALID_INPUT`、401 |
 
 `GET /auth/me` 新增 `hasRiskProfile: boolean`，供前端執行 Gating（FR-06），避免多打一支 API。
+
+`POST /auth/change-password` 的 400 包含兩種情況：舊密碼錯誤（「舊密碼錯誤」），以及舊密碼正確但新密碼與舊密碼相同（「新密碼不可與舊密碼相同」，D-132）；兩者密碼都不會被更動。前端在送出前也會先擋下新舊密碼相同的情況。
 
 ### 問卷
 
@@ -694,7 +696,23 @@ Response 200:
 }
 ```
 
-`marketValue` 為當日 Σ(已買進股數 × 當日還原收盤價)，某檔當日無報價時沿用其最近一次收盤價；`costAmount` 為當日（含）以前全部買進紀錄的累計投入成本。買進日期之後才計入該筆。`annualizedReturn` 為當日年化報酬率（算法同 `totals`，成本加權持有天數未滿 30 日為 `null`）。明細的 `totals.latestDayPnl`／`latestDayPnlPercent` 亦會回傳。區間（1 個月／3 個月／1 年等）由前端自行截取，不帶參數。
+`marketValue` 為當日 Σ(已買進股數 × 當日還原收盤價)，某檔當日無報價時沿用其最近一次收盤價；`costAmount` 為當日（含）以前全部買進紀錄的累計投入成本。買進日期之後才計入該筆。`annualizedReturn` 為當日年化報酬率（算法同 `totals`，成本加權持有天數未滿 30 日為 `null`）。明細的 `totals.latestDayPnl`／`latestDayPnlPercent` 亦會回傳。`latestDayPnl` 是「這個組合」在最新價格日的損益，不是股票本身的漲跌：Σ(最新價格日之前就已持有的股數 × (最新價 − 前一日收盤價))，最新價格日當天才買進的股數當天損益一律為 0；`latestDayPnlPercent` = `latestDayPnl` ÷ 前一日已持有部分的市值，前一日完全沒有持股時兩者皆為 0（D-133）。前端「每日損益」迷你趨勢圖依同一規則，第一筆買進當天為 0，因此累積 2 個交易日即可畫出。區間（1 個月／3 個月／1 年等）由前端自行截取，不帶參數。
+
+```
+GET /portfolios/{id}/price-coverage
+Auth: Cookie
+
+Response 200:
+{
+  "today": "2026-09-27",                  // 台北時區的今日
+  "benchmark": { "symbol": "IR0001", "name": "加權股價報酬指數", "firstDate": "2003-01-02", "lastDate": "2026-09-24" },
+  "symbols": [                             // 組合內每個代號一筆，依代號排序；空組合為 []
+    { "symbol": "6965", "name": "中傑-KY", "firstDate": "2025-03-07", "lastDate": "2026-09-24" }, ...
+  ]
+}
+```
+
+給風險分析頁在送出分析前試算期間是否足夠：`firstDate`／`lastDate` 為該代號在 `daily_quotes` 中最早與最新的交易日，完全沒有資料時兩者皆為 `null`。前端以 §4.1.0 步驟 2 的規則換算「選 N 年時的共同期間」與造成限縮的代號；實際分析仍以 `POST /portfolios/{id}/analysis` 的回應為準。非本人組合回 404。
 
 ```
 POST /portfolios/{id}/holding-lots
@@ -757,7 +775,8 @@ Response 200:
     "minYears": 2,
     "startDate": "2019-04-12",              // 最大期間的起訖
     "endDate": "2026-09-25",
-    "limitedBySymbols": ["6669"]
+    "limitedBySymbols": ["6669"],
+    "dates": ["2019-04-12", "2019-04-15", "...", "2026-09-25"]  // 全部共同交易日（由舊到新），供前端把滑桿選的年數換算成實際有資料的起始日（往回推算出的日期不是交易日時，取範圍內最接近、仍在範圍內的交易日）
   },
   "rateOptions": [
     { "key": "zero", "label": "0%", "rate": 0, "asOf": null },
@@ -774,8 +793,26 @@ Response 200:
 Errors:
 | 409 | PROFILE_REQUIRED        | 尚未填問卷 |
 | 422 | INVALID_INPUT           | 組合內沒有任何買進紀錄 |
-| 422 | INSUFFICIENT_PRICE_DATA | 有持股完全沒有價格，或最大期間不足 2 年；detail 另帶 "symbols"，每項為 {"symbol","name","years"}，供前端提醒使用者是哪幾檔（D-126） |
+| 422 | INSUFFICIENT_PRICE_DATA | 最大期間不足 2 年（持股完全沒有價格時視為 0 年，一併列入，D-134）；detail 另帶 "symbols"，每項為 {"symbol","name","years"}，供前端提醒使用者是哪幾檔（D-126） |
 | 422 | BENCHMARK_UNAVAILABLE   | IR0001 沒有資料 |
+```
+
+```
+GET /risk-profiles/latest/analysis-inputs
+Auth: Cookie
+
+風險分析頁「風險屬性」區塊的預設值與選項，只依賴使用者的最新風險屬性，不需要指定投資組合（因此選組合前就能顯示，
+不必等 GET /portfolios/{id}/analysis/options 那組期間、利率相關欄位）。內容與上方 profileInputs 欄位同格式：
+
+Response 200:
+{
+  "investmentHorizon": { "value": "5 - 9 年", "choices": ["未滿 1 年", "..."] },
+  "withdrawalNeed":    { "value": "偏低，不太需要動用", "choices": ["..."] },
+  "lossTolerance":     { "value": "20 - 29 %", "choices": ["..."] }
+}
+
+Errors:
+| 409 | PROFILE_REQUIRED | 尚未填問卷 |
 ```
 
 ```
@@ -784,7 +821,7 @@ Auth: Cookie
 
 Request（全部欄位皆可省略，省略即採預設）:
 {
-  "lookbackYears": null,                    // null 或整數 2 ～ ⌊maxYears⌋
+  "lookbackYears": null,                    // null 或換算成月數為整數的年數，2 年 ～ ⌊maxYears×12⌋ 個月（D-129）
   "rateOption": "zero",                     // "zero" | "bank_average"
   "profileInputs": {                        // 可只帶部分鍵；值必須是選項原文
     "investmentHorizon": "5 - 9 年",
@@ -799,7 +836,7 @@ Errors:
 | 400 | INVALID_INPUT                | 未知的鍵、lookbackYears 超出範圍、選項原文不符 |
 | 409 | PROFILE_REQUIRED             | 尚未填問卷 |
 | 422 | INVALID_INPUT                | 組合內沒有任何買進紀錄 |
-| 422 | INSUFFICIENT_PRICE_DATA      | 有持股完全沒有價格，或共同期間不足 2 年（detail 另帶 "symbols"，同上） |
+| 422 | INSUFFICIENT_PRICE_DATA      | 共同期間不足 2 年（持股完全沒有價格時視為 0 年，一併列入；detail 另帶 "symbols"，同上） |
 | 422 | BENCHMARK_UNAVAILABLE        | IR0001 沒有資料 |
 | 422 | RISK_FREE_RATE_UNAVAILABLE   | 選 bank_average 但 bank_rates 為空 |
 ```
@@ -1026,7 +1063,7 @@ healthcheck:
 | 來源 | 證交所 ISIN 分類表，四組（上市普通股含 KY、上櫃普通股、上市 ETF、上櫃 ETF） |
 | 實作 | `services/stock_info.py`；代號欄一律當**文字**讀取（避免 `0050` 掉開頭的 0） |
 | 過濾 | 代號白名單 `^([1-9]\d{3}\|00\d{2,3}[A-Za-z]?)$`；市場別只接受「上市」「上櫃」，否則整批視為異常 |
-| 補值 | ETF 無產業別者補 `ETF`；附加 `IR0001`（`加權報酬指數`／`指數`／`大盤`） |
+| 補值 | ETF 無產業別者補 `ETF`；附加 `IR0001`（`加權股價報酬指數`／`指數`／`大盤`，D-131） |
 | 寫入 | 以 `symbol` 覆寫，同一次提交；**只新增與覆寫，不刪除** |
 
 ### 台股日報價與市場基準
