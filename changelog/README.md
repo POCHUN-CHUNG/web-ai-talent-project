@@ -45,6 +45,7 @@
 | 029  | 2026-09-28 | `b43a690` | 風險分析報告 Prompt 與後端 | [029-b43a690-risk-analysis-report-backend.md](029-b43a690-risk-analysis-report-backend.md) |
 | 030  | 2026-09-28 | `a69db8b` | 風險分析報告頁與歷史紀錄頁前端 | [030-a69db8b-risk-analysis-report-ui.md](030-a69db8b-risk-analysis-report-ui.md) |
 | 031  | 2026-09-28 | `eacc3ed` | 匯出 n8n 工作流程 | [031-eacc3ed-export-n8n-workflows.md](031-eacc3ed-export-n8n-workflows.md) |
+| 032  | 2026-09-29 | `8a11ebd` | 補上版本說明、歷史分析卡片風險特徵樣式調整 | [032-8a11ebd-changelog-and-history-card-features.md](032-8a11ebd-changelog-and-history-card-features.md) |
 
 ## 維護規則
 
