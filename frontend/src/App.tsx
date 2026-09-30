@@ -25,7 +25,7 @@ export default function App() {
     <AuthProvider>
       {/* 自訂捲軸疊在所有頁面之上，跟路由無關，掛在最外層一次就好 */}
       <ScrollbarOverlay />
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           {/* 2. 公開頁面：登入、註冊（同一元件，以 mode 區分） */}
           <Route path="/login" element={<Login key="login" mode="login" />} />
