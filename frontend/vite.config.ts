@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 // 【前端開發伺服器設定】
 export default defineConfig({
   plugins: [react()], // 啟用 React 支援
+  base: process.env.VITE_BASE_PATH ?? "/", // 正式環境部署在子路徑（如 /ai-talent-project/）時由建置指令帶入
   server: {
     host: "0.0.0.0", // 允許從容器外部連線
     port: 5173, // 服務埠號
