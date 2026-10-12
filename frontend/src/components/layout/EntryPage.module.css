@@ -1,8 +1,10 @@
 .wrap {
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh; /* 手機瀏覽器網址列會伸縮，改用動態高度避免多餘捲動 */
   display: flex;
   flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px); /* 網頁延伸到螢幕最底（viewport-fit=cover）：版權宣告停在網址列／底部橫條上方 */
   /* 背景暈染改在 body 上（global.css），所有頁面共用同一套，這裡不設最大寬度，蓋滿整個視窗 */
 }
 

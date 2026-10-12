@@ -2,7 +2,22 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover：iPhone Chrome 在工具列收起時，網頁才能延伸到螢幕最底，底部分頁列才會往下貼近畫面底部、
+         不會在下方留一段空白（實測少了它，Chrome 下方就會留白）。
+         iPhone Safari 實測不受這個設定影響：它底部網址列後方的顏色，是由「貼齊最底、全寬、不透明」的固定元件讓 Safari 自己取色
+         （見 TabsLayout.module.css 的 .bottomBar）。頂端列與內容另外加上狀態列高度的留白，避免延伸到狀態列後方時被蓋住 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>
+      (function () {
+        var ua = navigator.userAgent;
+        // 標記「iPhone／iPad 的 Safari」：Chrome（CriOS）、Firefox（FxiOS）、Edge（EdgiOS）雖然也用 WebKit，但不算；
+        // Safari 專屬的版面微調（例如底部霧面）用 html.is-ios-safari 套用，不影響其他瀏覽器
+        var isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        if (isIOS && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) {
+          document.documentElement.classList.add("is-ios-safari");
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>診股整股</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -22,6 +22,11 @@ body {
    原生捲軸的捲動功能還在（滾輪、鍵盤、觸控都正常），只是不繪製出來而已。 */
 html {
   scrollbar-width: none;
+  /* 禁止整頁左右捲動（台達電等網站也這樣做）：頁面只要有任何元素超出畫面寬度，
+     iPad Safari 就會自動把整頁縮小或允許左右平移，這時固定在畫面上的頂端列會跟著內容一起移動、看起來像被捲走。
+     只加在 html（不加在 body），整頁仍由瀏覽器視窗捲動，上下捲動與既有的捲動功能都不受影響；
+     需要左右捲動的表格本身有自己的捲動區，不受影響 */
+  overflow-x: hidden;
 }
 
 ::-webkit-scrollbar {
@@ -30,6 +35,7 @@ html {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh; /* 手機瀏覽器網址列會伸縮，100vh 比實際可視高度高，會造成多餘捲動；支援時改用動態高度 */
   font-family: var(--font-family);
   font-size: var(--text-body-md-size);
   line-height: var(--text-body-md-line-height);

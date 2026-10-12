@@ -238,7 +238,9 @@ export function ShareDonut({ title, positions, keyOf }: { title: string; positio
             theme={t.theme}
             layers={["arcs", ({ centerX, centerY }) => (
               <g key="center" transform={`translate(${centerX},${centerY})`}>
-                <text textAnchor="middle" dominantBaseline="central">
+                {/* 不用 dominantBaseline="central"：iPad／iPhone 的瀏覽器（WebKit）對混用不同字級的文字算法不同，會讓文字偏上；
+                    改成用數字（最大字級）的字高手動往下移半個字高，數字的垂直中心正好落在圓心 */}
+                <text textAnchor="middle" dy={`${t.centerNum * fit * 0.36}px`}>
                   <tspan className={styles.centerUnit} style={{ fontSize: t.centerText * fit }}>共</tspan>
                   <tspan className={styles.centerValue} dx={gap * fit} style={{ fontSize: t.centerNum * fit }}>{count}</tspan>
                   <tspan className={styles.centerUnit} dx={gap * fit} style={{ fontSize: t.centerText * fit }}>檔</tspan>

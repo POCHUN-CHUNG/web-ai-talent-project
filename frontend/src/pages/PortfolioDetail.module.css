@@ -307,7 +307,8 @@
   gap: var(--space-gutter);
 }
 
-@media (max-width: 900px) {
+/* 手機（≤734px）才改單欄；平板與桌機都是 2×2（平板直放時卡片較窄，卡片內改上圖下清單，見 PortfolioCharts） */
+@media (max-width: 734px) {
   .allocGrid {
     grid-template-columns: 1fr;
   }
@@ -405,24 +406,16 @@
 
 /* 新增持股成功後捲到這張卡：預留頂端列的高度，卡片標題不會被蓋住 */
 .anchor {
-  scroll-margin-top: 104px;
+  scroll-margin-top: calc(104px + env(safe-area-inset-top, 0px)); /* 含狀態列高度（沒有時為 0） */
 }
 
 /* 表格往左右各外推 16px（＝第一欄的左內距）：第一欄文字與卡片標題「庫存明細」切齊，
-   列的灰底則多出 16px 包住文字；右側展開箭頭的圖示也與「新增持股」按鈕右緣切齊 */
+   列的灰底多出 16px 包住文字；所有尺寸（手機、平板、桌機）一致，捲動區左右都距卡片邊緣約 4px，
+   灰底與展開的買進明細都留在卡片圓角內，不會跑到卡片邊緣之外 */
 .tableScroll {
   overflow-x: auto;
-  margin: 0 calc(-1 * var(--space-lg));
-  padding: 0 calc(var(--space-lg) - var(--space-md));
-}
-
-/* 手機：表格可左右捲動，外推到卡片邊緣時列的灰底與展開的買進明細會跑進卡片圓角外；
-   改成只外推 16px（捲動區距卡片邊緣 8px），灰底與明細面板都留在卡片內 */
-@media (max-width: 734px) {
-  .tableScroll {
-    margin: 0 calc(-1 * var(--space-md));
-    padding: 0;
-  }
+  margin: 0 calc(-1 * var(--space-md));
+  padding: 0;
 }
 
 .table,

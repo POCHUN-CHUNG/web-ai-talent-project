@@ -205,6 +205,7 @@ docker compose down -v
 - `REDIS_PASSWORD` / `REDIS_PORT`
 - `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` / `N8N_PORT` / `N8N_API_KEY`（n8n 呼叫後端專用 API 的金鑰，見下方〈n8n 呼叫後端 API 的金鑰〉）
 - `FRONTEND_PORT` / `BACKEND_PORT`
+- `PUBLIC_HOST`（瀏覽器開啟網站所用的主機名稱，預設 `localhost`；要用手機等其他裝置連線時改成這台電腦的區網 IP，並放行 Windows 防火牆的前端、後端連接埠）
 - `OPENAI_API_KEY`（OpenAI 金鑰，用於產生風險屬性解析與風險分析報告；留空時後端照常啟動，解析與報告會標為產生失敗）與 `OPENAI_MODEL` / `OPENAI_REASONING_EFFORT` / `OPENAI_MAX_OUTPUT_TOKENS` / `OPENAI_TIMEOUT_SECONDS` / `OPENAI_MAX_ATTEMPTS`（模型與呼叫參數，皆有預設值，說明見 `.env.example`）
 
 正式分享或部署前，請務必修改 `.env` 中的預設密碼。

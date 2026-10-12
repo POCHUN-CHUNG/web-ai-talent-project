@@ -295,14 +295,21 @@
   --space-margin: 32px;
 
   /* ── 固定導覽區佔用的高度（需與 TopBar／TabsLayout 實際尺寸一致） ── */
-  --layout-topbar-height: 88px; /* 頂端列高度 */
+  --layout-topbar-height: calc(88px + env(safe-area-inset-top, 0px)); /* 頂端列高度（含狀態列高度，沒有狀態列時為 0） */
   --layout-tabbar-reserve: 0px; /* 畫面下方被分頁列佔用的高度（桌機沒有下方分頁列） */
 }
 
 @media (max-width: 734px) {
   :root {
-    --layout-topbar-height: 72px; /* 手機頂端列高度 */
-    --layout-tabbar-reserve: 73px; /* 手機下方懸浮分頁列＋外距，與 TabsLayout 的 padding-bottom 一致 */
+    --layout-topbar-height: calc(72px + env(safe-area-inset-top, 0px)); /* 手機頂端列高度（含狀態列高度） */
+  }
+}
+
+/* 底部懸浮分頁列只在手機與「平板直式」出現，這兩個值也只在這時生效（平板橫式、桌機維持 0px） */
+@media (max-width: 734px), (min-width: 735px) and (max-width: 1068px) and (orientation: portrait) {
+  :root {
+    --layout-tabbar-gap: max(8px, calc(env(safe-area-inset-bottom, 0px) - 16px)); /* 分頁列距畫面最底的距離：至少 8px；有 iPhone 底部橫條時，讓分頁列往下靠進橫條區，只留 16px 以內的空隙 */
+    --layout-tabbar-reserve: calc(65px + var(--layout-tabbar-gap)); /* 懸浮分頁列（65px）＋它距畫面最底的距離，與 TabsLayout 的 padding-bottom 一致 */
   }
 }
 
@@ -322,6 +329,6 @@
     --text-brand-title-size: 34px;
     --text-brand-subtitle-size: 15px;
     --text-form-heading-size: 20px;
-    --text-input-text-size: 14px;
+    --text-input-text-size: 16px; /* 手機輸入框維持 16px：iOS Safari 對小於 16px 的輸入框，點擊時會自動放大整個頁面 */
   }
 }

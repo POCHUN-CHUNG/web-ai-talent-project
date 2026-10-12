@@ -34,6 +34,12 @@
   );
   pointer-events: none;
   z-index: 0;
+  /* 讓模糊層獨立成一個繪圖圖層：iPad／iPhone 的瀏覽器（WebKit）捲動時，固定元件裡的模糊層（backdrop-filter）
+     有時會被暫時畫不出來，整條頂端列看起來像跟著內容捲走、稍微反向捲動才又出現；獨立圖層可避免這個問題。
+     只加在模糊層本身，不加在 .bar／.inner（加了會讓裡面固定在畫面底部的分頁列改以頂端列為定位基準） */
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .inner {
@@ -45,12 +51,48 @@
   /* 不設最大寬度：logo 貼齊視窗左緣、圖示貼齊視窗右緣，只用左右留白控制間距 */
   width: 100%;
   padding: var(--space-lg) var(--space-margin);
+  /* 網頁延伸到狀態列後方時（例如加到主畫面當 App 使用），上方多留「狀態列高度」，
+     logo 與圖示才不會跑到時間、電量下面；一般瀏覽器分頁中這個值是 0，版面不變 */
+  padding-top: calc(var(--space-lg) + env(safe-area-inset-top, 0px));
 }
 
 /* 手機：留白再縮小 */
 @media (max-width: 734px) {
   .inner {
-    padding: var(--space-md) var(--space-md);
+    padding: calc(var(--space-md) + env(safe-area-inset-top, 0px)) var(--space-md) var(--space-md);
+  }
+
+  /* 手機的霧面：模糊加強並加上很淡的底色（仍保有透明感），底下捲過的圖與文字只剩模糊色塊；
+     下緣照桌機一樣柔和淡出（不畫底線）。底色畫在頂端列本身，模糊層只負責模糊 */
+  .bar {
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-background) 22%, transparent) 0%,
+      color-mix(in srgb, var(--color-background) 22%, transparent) calc(100% - 28px),
+      transparent 100%
+    );
+  }
+
+  .barBackground {
+    top: -80px;
+    height: calc(100% + 80px + 24px);
+    background-color: transparent;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    mask-image: linear-gradient(
+      to bottom,
+      black 0%,
+      black calc(100% - 28px),
+      rgba(0, 0, 0, 0.5) calc(100% - 14px),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      black 0%,
+      black calc(100% - 28px),
+      rgba(0, 0, 0, 0.5) calc(100% - 14px),
+      transparent 100%
+    );
   }
 }
 
@@ -188,7 +230,8 @@
   height: 40px;
 }
 
-@media (max-width: 734px) {
+/* 底部懸浮分頁列：手機，以及「平板直式」（735–1068px 且直放）都使用；平板橫式與桌機維持頂端置中的分頁列 */
+@media (max-width: 734px), (min-width: 735px) and (max-width: 1068px) and (orientation: portrait) {
   .brandText {
     display: none;
   }
@@ -196,9 +239,9 @@
   .tabsWrap {
     position: fixed;
     top: auto;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-sm)); /* 與畫面左、右、下邊緣各留 8px */
-    left: var(--space-sm);
-    right: var(--space-sm);
+    bottom: var(--layout-tabbar-gap); /* 盡量貼近畫面最底（見 tokens.css） */
+    left: var(--space-md); /* 左、右與頁面內容（卡片）同寬：留 16px */
+    right: var(--space-md);
     width: auto;
     transform: none;
     border-radius: var(--radius-full);
@@ -228,6 +271,14 @@
 
   .tabIcon {
     font-size: 24px !important; /* 蓋過 Icon 元件寫在 style 的 28px，導覽列整體矮一點 */
+  }
+}
+
+/* 平板直式：頁面左右邊距是 32px，底部分頁列也左右各留 32px，才與內容同寬 */
+@media (min-width: 735px) and (max-width: 1068px) and (orientation: portrait) {
+  .tabsWrap {
+    left: var(--space-margin);
+    right: var(--space-margin);
   }
 }
 

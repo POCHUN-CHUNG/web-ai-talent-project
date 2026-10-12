@@ -11,7 +11,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_BASE_URL=http://localhost:${BACKEND_PORT}
+      - VITE_API_BASE_URL=http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT}
     networks:
       - ai_talent_net
 
@@ -26,7 +26,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - FRONTEND_ORIGIN=http://localhost:${FRONTEND_PORT}
+      - FRONTEND_ORIGIN=http://${PUBLIC_HOST:-localhost}:${FRONTEND_PORT}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - N8N_API_KEY=${N8N_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}

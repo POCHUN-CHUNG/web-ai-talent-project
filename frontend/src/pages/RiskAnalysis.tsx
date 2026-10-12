@@ -361,7 +361,7 @@ export default function RiskAnalysis() {
                 <ChoiceField
                   id="withdrawalNeed"
                   label="一年內提款可能性"
-                  hint="未來 1 年內，提領這筆資金的機率"
+                  hint="1 年內提領這筆資金的機率"
                   choice={choices.withdrawal_need}
                   value={profileInputs.withdrawal_need}
                   onChange={(v) => setProfileInputs({ ...profileInputs, withdrawal_need: v })}
