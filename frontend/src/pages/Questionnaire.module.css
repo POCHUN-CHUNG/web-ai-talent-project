@@ -93,7 +93,7 @@
   flex-direction: column;
   gap: var(--space-md);
   /* 自動捲動到這題時，題目頂端停在頂端 Tab 列正下方（與頁面標題的起始高度相同），不被 Tab 列蓋住 */
-  scroll-margin-top: 112px;
+  scroll-margin-top: calc(112px + env(safe-area-inset-top, 0px)); /* 含狀態列高度（沒有時為 0） */
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   
   /* 與投資組合融區塊一樣的白色背景 (translucent glass) */
@@ -104,7 +104,7 @@
 
 @media (max-width: 734px) {
   .question {
-    scroll-margin-top: 96px;
+    scroll-margin-top: calc(96px + env(safe-area-inset-top, 0px));
   }
 }
 

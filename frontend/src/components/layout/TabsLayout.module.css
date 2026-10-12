@@ -12,6 +12,9 @@
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
+  /* 網頁延伸到狀態列後方時（例如加到主畫面當 App 使用），頂端列多了狀態列的高度，內容也一起往下移同樣距離；
+     一般瀏覽器分頁中這個值是 0，版面不變 */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* 手機，以及「平板直式」（735–1068px 且直放）：使用底部懸浮分頁列 */
@@ -42,10 +45,9 @@
     z-index: 40; /* 低於頂端列／分頁列（z-index 50），讓分頁列浮在霧面上方 */
   }
 
-  /* 僅限 iPhone／iPad 的 Safari（比照 momo 等電商網頁的做法）：
-     Safari 會把「貼齊畫面最底、全寬、不透明」的固定元件顏色，延伸到自己的底部網址列後方，
-     所以這裡改成：1. ::after＝貼齊最底、全寬、實色的細條（高度＝分頁列下緣到畫面最底）；
-     2. ::before＝細條正上方 16px 的漸層，由透明漸變成同一個實色，讓分頁列兩側的內容柔和淡出。
+  /* 僅限 iPhone／iPad 的 Safari：分頁列下緣以下全部不透明（手機版另見檔案最後，改成整條底色列）：
+     1. ::after＝從分頁列下緣到畫面最底的全寬實色底；
+     2. ::before＝分頁列下緣上方 16px 的漸層，由透明漸變成同一個實色，讓分頁列兩側的內容柔和淡出。
      分頁列本身與兩側的內容維持透明、看得到；Chrome 等其他瀏覽器維持上面的霧面 */
   :global(html.is-ios-safari) .wrap::after {
     bottom: 0;
@@ -67,5 +69,33 @@
     background-image: linear-gradient(to bottom, transparent, var(--color-background));
     pointer-events: none;
     z-index: 40;
+  }
+}
+
+/* 手機版 Safari 專用的底部底色列，其他情況不顯示 */
+.bottomBar {
+  display: none;
+}
+
+/* 手機（≤734px）的 Safari：比照 momo 的手機版。
+   Safari 不讓網頁畫到底部網址列後方，但會把「貼齊畫面最底、全寬、不透明」的固定元件顏色，
+   自己延伸到網址列後方（momo 的底部導覽列：真正的元素、全寬、不透明、高 51px、貼齊最底）。
+   1. .bottomBar＝分頁列下緣到畫面最底的全寬、不透明底色列；
+      用真正的元素且可接收點擊（偽元素、pointer-events: none 會被 Safari 略過，不會取它的顏色）；
+   2. 分頁列下緣上方 16px 漸層淡出（::before），讓分頁列兩側捲過的內容柔和消失；原本的細條（::after）不再需要。 */
+@media (max-width: 734px) {
+  :global(html.is-ios-safari) .bottomBar {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--layout-tabbar-gap); /* 只佔分頁列下緣到畫面最底：分頁列本身與兩側維持透明、看得到內容（實測只留 1px 時 Safari 不會延伸顏色） */
+    background-color: var(--color-background);
+    z-index: 40; /* 低於分頁列（z-index 50） */
+  }
+
+  :global(html.is-ios-safari) .wrap::after {
+    display: none;
   }
 }

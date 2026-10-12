@@ -14,6 +14,9 @@ export default function TabsLayout() {
         <Outlet />
       </div>
       <Footer />
+      {/* 手機版 Safari 專用的底部底色列（其他情況 CSS 會隱藏）：必須是真正的元素、可接收點擊，
+          Safari 才會把它的顏色延伸到底部網址列後方（偽元素或不接收點擊的元素會被 Safari 略過） */}
+      <div className={styles.bottomBar} aria-hidden="true" />
     </div>
   );
 }

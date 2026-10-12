@@ -2,12 +2,11 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <!-- 不使用 viewport-fit=cover：加了之後，iPad 的固定頂端列會被瀏覽器自己的工具列蓋住（頁面延伸到工具列後方），
-         看起來像是頂端列跟著內容捲走。台達電、momo 等網站也都沒有使用 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- 瀏覽器狀態列／網址列的底色（momo 也是這樣做：theme-color 設成頂端列的顏色），
-         與 tokens.css 的 --color-background 相同，手機頂端不再是一條純白 -->
-    <meta name="theme-color" content="#ebebeb" />
+    <!-- viewport-fit=cover：iPhone Chrome 在工具列收起時，網頁才能延伸到螢幕最底，底部分頁列才會往下貼近畫面底部、
+         不會在下方留一段空白（實測少了它，Chrome 下方就會留白）。
+         iPhone Safari 實測不受這個設定影響：它底部網址列後方的顏色，是由「貼齊最底、全寬、不透明」的固定元件讓 Safari 自己取色
+         （見 TabsLayout.module.css 的 .bottomBar）。頂端列與內容另外加上狀態列高度的留白，避免延伸到狀態列後方時被蓋住 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <script>
       (function () {
         var ua = navigator.userAgent;

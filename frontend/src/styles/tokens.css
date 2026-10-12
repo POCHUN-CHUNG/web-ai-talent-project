@@ -295,13 +295,13 @@
   --space-margin: 32px;
 
   /* ── 固定導覽區佔用的高度（需與 TopBar／TabsLayout 實際尺寸一致） ── */
-  --layout-topbar-height: 88px; /* 頂端列高度 */
+  --layout-topbar-height: calc(88px + env(safe-area-inset-top, 0px)); /* 頂端列高度（含狀態列高度，沒有狀態列時為 0） */
   --layout-tabbar-reserve: 0px; /* 畫面下方被分頁列佔用的高度（桌機沒有下方分頁列） */
 }
 
 @media (max-width: 734px) {
   :root {
-    --layout-topbar-height: 72px; /* 手機頂端列高度 */
+    --layout-topbar-height: calc(72px + env(safe-area-inset-top, 0px)); /* 手機頂端列高度（含狀態列高度） */
   }
 }
 

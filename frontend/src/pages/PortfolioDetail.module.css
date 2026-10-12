@@ -406,7 +406,7 @@
 
 /* 新增持股成功後捲到這張卡：預留頂端列的高度，卡片標題不會被蓋住 */
 .anchor {
-  scroll-margin-top: 104px;
+  scroll-margin-top: calc(104px + env(safe-area-inset-top, 0px)); /* 含狀態列高度（沒有時為 0） */
 }
 
 /* 表格往左右各外推 16px（＝第一欄的左內距）：第一欄文字與卡片標題「庫存明細」切齊，

@@ -51,25 +51,23 @@
   /* 不設最大寬度：logo 貼齊視窗左緣、圖示貼齊視窗右緣，只用左右留白控制間距 */
   width: 100%;
   padding: var(--space-lg) var(--space-margin);
+  /* 網頁延伸到狀態列後方時（例如加到主畫面當 App 使用），上方多留「狀態列高度」，
+     logo 與圖示才不會跑到時間、電量下面；一般瀏覽器分頁中這個值是 0，版面不變 */
+  padding-top: calc(var(--space-lg) + env(safe-area-inset-top, 0px));
 }
 
 /* 手機：留白再縮小 */
 @media (max-width: 734px) {
   .inner {
-    padding: var(--space-md) var(--space-md);
+    padding: calc(var(--space-md) + env(safe-area-inset-top, 0px)) var(--space-md) var(--space-md);
   }
 
   /* 手機的霧面：模糊加強並加上很淡的底色（仍保有透明感），底下捲過的圖與文字只剩模糊色塊；
-     下緣照桌機一樣柔和淡出（不畫底線）；往上多延伸 80px，連瀏覽器狀態列上方也一併蓋住 */
-  /* 底色畫在頂端列本身（比照 momo：頂端列貼齊最上緣、全寬、有底色）：iPhone Safari 會取「畫面最上緣的固定元件」
-     最上緣的顏色，當成瀏覽器狀態列（時間、電量那一條）的底色，頂端列沒有底色時狀態列就是純白。
-     最上緣 8px 用不透明的背景色（給 Safari 取色），之後轉成與模糊層相同的淡色，下緣漸層淡出（沒有底線） */
+     下緣照桌機一樣柔和淡出（不畫底線）。底色畫在頂端列本身，模糊層只負責模糊 */
   .bar {
     background-image: linear-gradient(
       to bottom,
-      var(--color-background) 0%,
-      var(--color-background) 8px,
-      color-mix(in srgb, var(--color-background) 22%, transparent) 40px,
+      color-mix(in srgb, var(--color-background) 22%, transparent) 0%,
       color-mix(in srgb, var(--color-background) 22%, transparent) calc(100% - 28px),
       transparent 100%
     );
