@@ -2,7 +2,23 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
+    <!-- 不使用 viewport-fit=cover：加了之後，iPad 的固定頂端列會被瀏覽器自己的工具列蓋住（頁面延伸到工具列後方），
+         看起來像是頂端列跟著內容捲走。台達電、momo 等網站也都沒有使用 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 瀏覽器狀態列／網址列的底色（momo 也是這樣做：theme-color 設成頂端列的顏色），
+         與 tokens.css 的 --color-background 相同，手機頂端不再是一條純白 -->
+    <meta name="theme-color" content="#ebebeb" />
+    <script>
+      (function () {
+        var ua = navigator.userAgent;
+        // 標記「iPhone／iPad 的 Safari」：Chrome（CriOS）、Firefox（FxiOS）、Edge（EdgiOS）雖然也用 WebKit，但不算；
+        // Safari 專屬的版面微調（例如底部霧面）用 html.is-ios-safari 套用，不影響其他瀏覽器
+        var isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        if (isIOS && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) {
+          document.documentElement.classList.add("is-ios-safari");
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>診股整股</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -3,7 +3,7 @@
   width: 100%;
   max-width: 760px;
   margin: 0 auto;
-  padding: 112px var(--space-margin) var(--space-2xl);
+  padding: 112px var(--space-margin) 0; /* 底部不另留白，與其他頁面一致（與版權聲明的間距由版權聲明自己的內距決定） */
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
@@ -12,7 +12,7 @@
 @media (max-width: 734px) {
   /* 手機：區塊與卡片之間一律 16px（DESIGN.md Spacing：桌機 24px、手機 16px） */
   .page {
-    padding: 96px var(--space-md) var(--space-xl);
+    padding: 96px var(--space-md) 0;
     gap: var(--space-md);
   }
 }
@@ -129,6 +129,7 @@
   float: left;
   width: 100%;
   padding: 0;
+  margin-bottom: var(--space-md); /* fieldset 不會把 gap 算在題目標題與選項之間（手機、平板、桌機皆然），明確補上 16px 距離 */
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
@@ -164,7 +165,9 @@
   line-height: var(--text-headline-sm-line-height);
   letter-spacing: 0;
   color: var(--color-on-surface);
-  padding-top: 2px;
+  /* 題目編號圓圈高 32px：用上方留白讓「第一行」標題的垂直中心對齊圓圈中心，
+     題目多行時後面幾行自然往下排，編號仍跟第一行對齊 */
+  padding-top: calc((32px - var(--text-headline-sm-size) * var(--text-headline-sm-line-height)) / 2);
 }
 
 .hint {

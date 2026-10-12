@@ -140,7 +140,8 @@
   color: var(--color-on-surface);
 }
 
-@media (max-width: 480px) {
+/* 卡片較窄時（手機，以及平板直放 735–900px 的 2×2 配置圖）：環形圖置中、清單排在下方 */
+@media (max-width: 480px), (min-width: 735px) and (max-width: 900px) {
   .donutWrap {
     grid-template-columns: 1fr;
   }
@@ -446,13 +447,13 @@
 }
 
 /* 手機：上圖下清單，卡片高度隨清單項目數自動調整，清單最多顯示 5 列、超過才捲動 */
-@media (max-width: 480px) {
+@media (max-width: 480px), (min-width: 735px) and (max-width: 900px) {
   .treeWrap {
     flex: none;
     height: auto;
     min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: 220px auto auto;
+    grid-template-rows: 220px var(--heat-legend-h) auto;
   }
   .fill .tree {
     grid-row: 1;
@@ -466,6 +467,24 @@
     max-height: calc(5 * var(--legend-row) + 4 * 2px); /* 剛好 5 列 */
     align-self: start;
   }
+  /* 產業別沒有漸層說明：格線仍與個股別相同（方塊圖、說明列、清單），
+     方塊圖往下延伸佔滿「方塊圖＋說明列」兩列，下緣貼齊個股別漸層說明的下緣，清單文字的起始位置也相同 */
+  .treeWrapNoScale {
+    grid-template-rows: 220px var(--heat-legend-h) auto;
+    row-gap: var(--space-sm);
+  }
+  .treeWrapNoScale .tree {
+    grid-row: 1 / 3;
+  }
+}
+
+/* 漸層說明列的固定高度（一行小字的行高）：個股別的說明與產業別的空白列共用，兩邊才一樣高 */
+.treeWrap {
+  --heat-legend-h: calc(var(--text-body-sm-size) * 1.6);
+}
+
+.heatLegend {
+  height: var(--heat-legend-h);
 }
 
 .legendCount {
