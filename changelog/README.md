@@ -51,6 +51,7 @@
 | 035  | 2026-09-30 | `0651402` | 瀏覽器分頁加上 logo 與標題「診股整股」 | [035-0651402-favicon-and-title.md](035-0651402-favicon-and-title.md) |
 | 036  | 2026-09-30 | `16af841` | 前端路由加上子路徑前綴 | [036-16af841-router-basename.md](036-16af841-router-basename.md) |
 | 037  | 2026-09-30 | `c674356` | 正式環境 nginx 加上單頁應用的網址回退 | [037-c674356-nginx-spa-fallback.md](037-c674356-nginx-spa-fallback.md) |
+| 038  | 2026-10-13 | `bec2ecd` | 手機與平板 RWD 版面調整 | [038-bec2ecd-mobile-tablet-rwd.md](038-bec2ecd-mobile-tablet-rwd.md) |
 
 ## 維護規則
 
