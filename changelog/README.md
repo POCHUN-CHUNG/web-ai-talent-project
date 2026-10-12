@@ -47,6 +47,10 @@
 | 031  | 2026-09-28 | `eacc3ed` | 匯出 n8n 工作流程 | [031-eacc3ed-export-n8n-workflows.md](031-eacc3ed-export-n8n-workflows.md) |
 | 032  | 2026-09-29 | `8a11ebd` | 補上版本說明、歷史分析卡片風險特徵樣式調整 | [032-8a11ebd-changelog-and-history-card-features.md](032-8a11ebd-changelog-and-history-card-features.md) |
 | 033  | 2026-09-30 | `07d05cb` | 報告 Prompt 1.3.1：「風報比」改回「性價比」並補說明 | [033-07d05cb-cost-performance-wording.md](033-07d05cb-cost-performance-wording.md) |
+| 034  | 2026-09-30 | `f81832c` | 前端支援子路徑部署、新增正式環境 Dockerfile | [034-f81832c-subpath-deploy.md](034-f81832c-subpath-deploy.md) |
+| 035  | 2026-09-30 | `0651402` | 瀏覽器分頁加上 logo 與標題「診股整股」 | [035-0651402-favicon-and-title.md](035-0651402-favicon-and-title.md) |
+| 036  | 2026-09-30 | `16af841` | 前端路由加上子路徑前綴 | [036-16af841-router-basename.md](036-16af841-router-basename.md) |
+| 037  | 2026-09-30 | `c674356` | 正式環境 nginx 加上單頁應用的網址回退 | [037-c674356-nginx-spa-fallback.md](037-c674356-nginx-spa-fallback.md) |
 
 ## 維護規則
 
